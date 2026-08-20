@@ -12,12 +12,14 @@ Telegram в формате естественного диалога, AI изв�
 ```
 app/
   bot/        # Telegram-бот (aiogram) — диалог, подтверждение/правки
-  api/        # FastAPI — просмотр профиля и истории команды
-  services/   # ScreeningAgent (вызов Claude) + CRUD профиля
+  api/        # FastAPI — публичный API + Admin API (/admin/...) + раздача dashboard
+  services/   # ScreeningAgent (вызов Claude) + CRUD профиля + admin_service
   db/         # SQLAlchemy модели и сессия
   schemas/    # Pydantic-схемы профиля + JSON-схема tool-use для Claude
-  core/       # конфиг (переменные окружения)
+  core/       # конфиг + auth (JWT, bcrypt)
+admin_frontend/ # Admin Dashboard — SPA на чистом JS + Tailwind (без сборки)
 migrations/   # Alembic
+scripts/      # create_admin.py — завести логин админа/менеджера
 tests/        # pytest (sqlite in-memory, без внешних сервисов)
 ```
 
@@ -58,6 +60,50 @@ tests/        # pytest (sqlite in-memory, без внешних сервисов
 
    - `GET /users/{telegram_id}/profile` — структурированный профиль
    - `GET /users/{telegram_id}/messages` — исходный диалог скрининга
+
+## CRM 1.0
+
+Полноценная CRM для команды ICAN — единая карточка клиента, роли
+ADMIN / MANAGER / CAREER_CONSULTANT, воронка NEW → SCREENING →
+WAITING_CONSULTANT → CAREER_CONSULTATION → READY_FOR_MATCHING → IN_WORK /
+PAUSED / CLOSED. Доступна на `/dashboard` того же FastAPI-сервиса (единый
+деплой, без CORS).
+
+1. Завести логины:
+
+   ```bash
+   python -m scripts.create_admin admin@example.com "a-strong-password" admin
+   python -m scripts.create_admin manager@example.com "a-strong-password" manager
+   python -m scripts.create_admin consultant@example.com "a-strong-password" career_consultant
+   ```
+
+2. Открыть `http://localhost:8000/dashboard/` и войти.
+
+**Telegram-бот — один из каналов входа клієнта в CRM.** Когда пользователь
+подтверждает профіль у боті, `app/services/crm/bridge.py` автоматично
+створює/оновлює пов'язану картку `Client` і одразу переводить її на етап
+`WAITING_CONSULTANT` — бот уже виконав «первинний скринінг», менеджеру не
+треба робити це повторно. Дзвінки по телефону — інший канал: менеджер сам
+створює клієнта і скринить його вручну.
+
+**API** — під `/crm/*` (див. `app/api/crm.py`): клієнти зі списком/пошуком/
+фільтрами/пагінацією, повторювані блоки (досвід/навички/мови), кар'єрна
+консультація, дзвінки (поки що ручне логування — Phonet ще не підключено),
+файли (CV/сертифікати — локальне сховище `app/services/crm/storage.py`,
+легко замінити на S3/R2), задачі (Next Actions), timeline/аудит, керування
+персоналом. RBAC перевіряється на бекенді: `CAREER_CONSULTANT` фізично не
+може отримати чужого клієнта навіть напряму через API.
+
+Старий простий `/admin/*` API (перегляд сирих даних бота) лишився робочим
+і покритий тестами, але фронтенд тепер веде саме на CRM.
+
+### Деплой на Railway
+
+1. Запушить репозиторий на GitHub, создать проект на [railway.app](https://railway.app), подключить репозиторий.
+2. Railway сам определит Python-проект по `requirements.txt` и запустит команду из `Procfile` (миграции + `uvicorn`).
+3. В Variables прописать: `DATABASE_URL`, `JWT_SECRET` (и `ANTHROPIC_API_KEY`/`TELEGRAM_BOT_TOKEN`, если этот же сервис используется и для бота).
+4. После первого деплоя выполнить `python -m scripts.create_admin ...` через Railway Shell (или локально, указав продовый `DATABASE_URL`), чтобы завести логин.
+5. Dashboard будет доступен по `https://<project>.up.railway.app/dashboard/`.
 
 ## Тесты
 

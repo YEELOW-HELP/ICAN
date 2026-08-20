@@ -165,7 +165,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
 
         try:
             async with session_factory() as session:
-                user = await profile_service.get_or_create_user(session, message.from_user.id)
+                user = await profile_service.get_or_create_user(session, message.from_user.id, message.from_user.username)
                 display_text, ready = await _run_screening_turn(session, agent, user, cv_text)
         except Exception:
             logger.exception("CV screening turn failed for telegram_id=%s", message.from_user.id)
@@ -181,7 +181,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     async def on_start(message: Message, state: FSMContext) -> None:
         await state.clear()
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, message.from_user.id)
+            user = await profile_service.get_or_create_user(session, message.from_user.id, message.from_user.username)
             if user.screening_state == ScreeningState.CONFIRMED:
                 profile = await profile_service.get_profile(session, user)
                 card = render_profile_card(profile, title="З поверненням!")
@@ -223,7 +223,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     async def on_method_chat(callback: CallbackQuery, state: FSMContext) -> None:
         await state.clear()
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, callback.from_user.id)
+            user = await profile_service.get_or_create_user(session, callback.from_user.id, callback.from_user.username)
             await profile_service.set_state(session, user, ScreeningState.IN_PROGRESS)
         await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer(GREETING)
@@ -344,7 +344,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     @router_.callback_query(F.data == "profile_confirm")
     async def on_confirm(callback: CallbackQuery) -> None:
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, callback.from_user.id)
+            user = await profile_service.get_or_create_user(session, callback.from_user.id, callback.from_user.username)
             await profile_service.confirm_profile(session, user)
         await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer("Дякую! Профіль збережено. \U0001f389")
@@ -354,7 +354,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     async def on_edit(callback: CallbackQuery, state: FSMContext) -> None:
         await state.clear()
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, callback.from_user.id)
+            user = await profile_service.get_or_create_user(session, callback.from_user.id, callback.from_user.username)
             await profile_service.set_state(session, user, ScreeningState.IN_PROGRESS)
         await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer("Добре, напишіть що саме виправити.")
@@ -365,7 +365,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     @router_.callback_query(F.data == "returning:profile")
     async def on_returning_profile(callback: CallbackQuery) -> None:
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, callback.from_user.id)
+            user = await profile_service.get_or_create_user(session, callback.from_user.id, callback.from_user.username)
             profile = await profile_service.get_profile(session, user)
         await callback.message.answer(render_profile_card(profile))
         await callback.answer()
@@ -374,7 +374,7 @@ def register_handlers(router_: Router, session_factory, agent: ScreeningAgent) -
     async def on_returning_edit(callback: CallbackQuery, state: FSMContext) -> None:
         await state.clear()
         async with session_factory() as session:
-            user = await profile_service.get_or_create_user(session, callback.from_user.id)
+            user = await profile_service.get_or_create_user(session, callback.from_user.id, callback.from_user.username)
             await profile_service.set_state(session, user, ScreeningState.IN_PROGRESS)
         await callback.message.answer("Розкажи, що змінилося — оновлю профіль.")
         await callback.answer()

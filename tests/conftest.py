@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db.base import Base
 from app.db import models  # noqa: F401
+from app.db import models_crm  # noqa: F401
 
 
 @pytest_asyncio.fixture

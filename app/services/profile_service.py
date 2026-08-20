@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,13 +9,21 @@ from app.db.models import Message, MessageRole, Profile, ScreeningState, User
 from app.schemas.profile import ProfileDraft
 
 
-async def get_or_create_user(session: AsyncSession, telegram_id: int) -> User:
+async def get_or_create_user(
+    session: AsyncSession, telegram_id: int, telegram_username: str | None = None
+) -> User:
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if user is not None:
+        if telegram_username and user.telegram_username != telegram_username:
+            user.telegram_username = telegram_username
+            await session.commit()
+            await session.refresh(user)
         return user
 
-    user = User(telegram_id=telegram_id, screening_state=ScreeningState.NOT_STARTED)
+    user = User(
+        telegram_id=telegram_id, telegram_username=telegram_username, screening_state=ScreeningState.NOT_STARTED
+    )
     session.add(user)
     await session.flush()
     profile = Profile(user_id=user.id)
@@ -37,6 +47,8 @@ async def get_messages(session: AsyncSession, user: User) -> list[Message]:
 
 async def record_message(session: AsyncSession, user: User, role: MessageRole, content: str) -> None:
     session.add(Message(user_id=user.id, role=role, content=content))
+    if role == MessageRole.USER:
+        user.last_active_at = datetime.now(timezone.utc)
     await session.commit()
 
 
@@ -55,6 +67,11 @@ async def confirm_profile(session: AsyncSession, user: User) -> Profile:
     user.screening_state = ScreeningState.CONFIRMED
     await session.commit()
     await session.refresh(profile)
+
+    from app.services.crm.bridge import sync_from_bot_confirmation
+
+    await sync_from_bot_confirmation(session, user, profile)
+
     return profile
 
 

@@ -22,5 +22,14 @@ class Settings(BaseSettings):
     # call per message.
     debounce_seconds: float = 1.5
 
+    # Admin dashboard auth
+    jwt_secret: str = ""
+    jwt_expire_minutes: int = 60 * 12
+
+    # CRM client files — local disk by default (see app/services/crm/storage.py
+    # for why, and its known limitation on ephemeral hosting filesystems).
+    file_storage_dir: str = "./data/client_files"
+    max_upload_size_mb: int = 15
+
 
 settings = Settings()

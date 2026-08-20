@@ -1,13 +1,24 @@
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.admin import router as admin_router
+from app.api.crm import router as crm_router
 from app.db.models import User
 from app.db.session import get_session
 from app.schemas.profile import ProfileOut
 from app.services import profile_service
 
 app = FastAPI(title="ICAN Screening MVP")
+app.include_router(admin_router)
+app.include_router(crm_router)
+
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "admin_frontend"
+if _FRONTEND_DIR.is_dir():
+    app.mount("/dashboard", StaticFiles(directory=_FRONTEND_DIR, html=True), name="dashboard")
 
 
 @app.get("/health")

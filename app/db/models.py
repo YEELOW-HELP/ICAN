@@ -12,6 +12,7 @@ from app.db.base import Base
 class ScreeningState(str, enum.Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
+    PAUSED = "paused"
     AWAITING_CONFIRMATION = "awaiting_confirmation"
     CONFIRMED = "confirmed"
 
@@ -21,14 +22,25 @@ class MessageRole(str, enum.Enum):
     ASSISTANT = "assistant"
 
 
+class AdminRole(str, enum.Enum):
+    ADMIN = "admin"
+    MANAGER = "manager"
+    CAREER_CONSULTANT = "career_consultant"
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
+    telegram_username: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(64))
+    email: Mapped[str | None] = mapped_column(String(255))
     screening_state: Mapped[ScreeningState] = mapped_column(
         Enum(ScreeningState, native_enum=False), default=ScreeningState.NOT_STARTED
     )
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -86,3 +98,30 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="messages")
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    full_name: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[AdminRole] = mapped_column(Enum(AdminRole, native_enum=False))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProfileEditLog(Base):
+    """Audit trail for manual profile edits made from the admin dashboard —
+    keeps the previous value instead of silently overwriting it (ТЗ п.6.3, п.15)."""
+
+    __tablename__ = "profile_edit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    field_name: Mapped[str] = mapped_column(String(64))
+    old_value: Mapped[str | None] = mapped_column(Text)
+    new_value: Mapped[str | None] = mapped_column(Text)
+    edited_by: Mapped[str] = mapped_column(String(255))
+    edited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

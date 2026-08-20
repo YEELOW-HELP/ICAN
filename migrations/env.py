@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.core.config import settings
 from app.db.base import Base
 from app.db import models  # noqa: F401  (registers models on Base.metadata)
+from app.db import models_crm  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -34,10 +35,13 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    # asyncpg-only: Neon's pooled endpoint runs PgBouncer in transaction mode,
+    # which is incompatible with asyncpg's server-side prepared statement cache.
+    connect_args = {"statement_cache_size": 0} if "asyncpg" in settings.database_url else {}
     connectable = create_async_engine(
         settings.database_url,
         poolclass=pool.NullPool,
-        connect_args={"statement_cache_size": 0},
+        connect_args=connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
