@@ -12,5 +12,15 @@ class Settings(BaseSettings):
     api_port: int = 8000
     log_level: str = "INFO"
 
+    # Guardrails against runaway Claude API spend if the agent never reaches
+    # ready_for_confirmation (e.g. a confused loop of clarifying questions).
+    max_screening_turns: int = 20
+    history_window: int = 20
+
+    # Rapid-fire messages (e.g. a candidate splitting one answer across two
+    # Telegram messages) are batched into a single API call instead of one
+    # call per message.
+    debounce_seconds: float = 1.5
+
 
 settings = Settings()

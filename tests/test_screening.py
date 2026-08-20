@@ -2,12 +2,20 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from app.schemas.profile import ProfileDraft
-from app.services.screening import ScreeningAgent
+from app.services.screening import FALLBACK_REPLY, ScreeningAgent
 
 
-def _fake_client(tool_input: dict):
+def _fake_client(tool_input: dict, stop_reason: str = "tool_use"):
     block = SimpleNamespace(type="tool_use", input=tool_input)
-    response = SimpleNamespace(content=[block])
+    response = SimpleNamespace(content=[block], stop_reason=stop_reason)
+    client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=response)))
+    return client
+
+
+def _fake_client_no_tool_use():
+    """Simulates a response truncated (e.g. by max_tokens) before any tool_use
+    block was emitted at all — a more extreme case of the same failure mode."""
+    response = SimpleNamespace(content=[], stop_reason="max_tokens")
     client = SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=response)))
     return client
 
@@ -61,3 +69,27 @@ async def test_process_message_reports_ready_for_confirmation():
     result = await agent.process_message(history=[], current_profile=ProfileDraft(), user_message="все вірно")
 
     assert result.ready_for_confirmation is True
+
+
+async def test_process_message_falls_back_when_reply_to_user_is_missing():
+    # Claude's tool `required` list is a strong hint, not a guarantee — this
+    # reproduces a real failure seen in production where the model omitted
+    # reply_to_user, which used to crash the whole turn with a KeyError.
+    client = _fake_client({"profile": {"city": "Харків"}, "ready_for_confirmation": False})
+    agent = ScreeningAgent(client=client)
+
+    result = await agent.process_message(history=[], current_profile=ProfileDraft(), user_message="Харків")
+
+    assert result.reply_to_user == FALLBACK_REPLY
+    assert result.profile.city == "Харків"  # extraction still applied even though reply text was missing
+
+
+async def test_process_message_falls_back_when_no_tool_use_block_present():
+    client = _fake_client_no_tool_use()
+    agent = ScreeningAgent(client=client)
+
+    result = await agent.process_message(history=[], current_profile=ProfileDraft(name="Олена"), user_message="...")
+
+    assert result.reply_to_user == FALLBACK_REPLY
+    assert result.ready_for_confirmation is False
+    assert result.profile.name == "Олена"  # nothing lost from the existing profile
