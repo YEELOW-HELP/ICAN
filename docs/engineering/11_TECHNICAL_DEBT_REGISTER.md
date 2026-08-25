@@ -96,15 +96,36 @@ instruction — **no schema or code change follows from this document.**
 
 ### 4. Unresolved Telegram button-cascade bug (production)
 
+This item covers three distinct things that must not be conflated: a
+confirmed open defect, a separately confirmed architecture weakness, and a
+planned mitigation whose effect on the defect is not yet proven.
+
+**4a. Confirmed problem.** The button-cascade bug exists in production and
+its root cause is unresolved.
+
 - **Category:** Production Defect
 - **Severity:** High
 - **Probability:** Certain — already occurred in production, reproducibly, for at least two accounts, including one with zero prior history (which disproved the original "stale update backlog" theory).
 - **Blast radius:** Wide — affects the entire onboarding/anketa flow for any live Telegram user.
-- **Current evidence:** live-testing screenshots (pre-Sprint-0) showing cascading bot messages with missing inline keyboards after `/start`. `bot.delete_webhook(drop_pending_updates=True)` (`app/bot/main.py`) was added as a fix attempt but the identical failure reproduced afterward for a brand-new account. Root cause was never confirmed.
-- **Recommended mitigation:** do not attempt a point-fix. The Migration Map (Part C, #5) already identifies the architectural fix — replacing aiogram's in-memory `MemoryStorage` FSM with the target `InterviewSession`/`Answer` DB-backed state machine. Treat this bug as a driving requirement for that migration's priority, not a separate patch. See also Item 15 (related, distinct finding).
-- **When must be resolved:** before Telegram bot traffic resumes in production.
+- **Current evidence:** live-testing screenshots (pre-Sprint-0) showing cascading bot messages with missing inline keyboards after `/start`. `bot.delete_webhook(drop_pending_updates=True)` (`app/bot/main.py`) was added as a fix attempt but the identical failure reproduced afterward for a brand-new account. Root cause was never confirmed — it remains genuinely unknown, not "known but unfixed."
+- **Recommended mitigation:** reproduce and diagnose independently — add structured logging/diagnostics around FSM transitions and Telegram update handling, then reproduce under controlled conditions before assuming any cause. Do not treat Item 15 below as this bug's explanation; they are tracked separately for exactly this reason.
+- **When must be resolved:** before Telegram bot traffic resumes in production — as an open defect requiring reproduction and diagnostics, not assumed-fixed by any architecture change.
 - **Blocks R0/R1:** Does not block R0/R1 engineering (bot traffic is currently paused); blocks re-enabling live Telegram traffic.
 - **Owner role:** Backend / Tech Lead.
+
+**4b. Separate confirmed architecture weakness.** See Item 15 — in-memory
+FSM does not survive process restarts and is unsuitable for the target
+production architecture. This is confirmed and independent of 4a's root
+cause.
+
+**4c. Planned mitigation (effect on 4a unproven).** The target
+`InterviewSession`/`Answer` DB-backed state machine (Migration Map, Part B)
+should replace the in-memory FSM for durability and observability, and may
+eliminate one class of state-related failures. It must **not** be presented
+as a proven fix for the button-cascade bug (4a) until the bug has been
+reproduced, diagnosed, and verified against the new implementation. Treat
+the migration as justified on its own architectural merits (4b), not as a
+confirmed cure for 4a.
 
 ---
 

@@ -263,7 +263,7 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 Grouped by bounded context (`01_SYSTEM_ARCHITECTURE.md` §3). None of these exist in ICAN 1.1 today — this is genuinely new territory, not a migration:
 
 - **Identity/Tenancy:** `TENANT`, `MEMBERSHIP`, `CONSENT` — no multi-tenancy and **no consent tracking at all** today, worth flagging given this handles real candidates' personal data.
-- **Discovery:** `INTERVIEW_SESSION`, `ANSWER` — no DB-backed session state machine exists; today's state is an in-memory aiogram FSM plus `User.screening_state`. This is architecturally the fix for the still-unresolved production button-cascade bug noted in the Part 1 risk list.
+- **Discovery:** `INTERVIEW_SESSION`, `ANSWER` — no DB-backed session state machine exists; today's state is an in-memory aiogram FSM plus `User.screening_state`. The in-memory FSM is a confirmed architecture weakness (doesn't survive process restarts) independent of, and not yet proven to explain, the still-unresolved production button-cascade bug noted in the Part 1 risk list — see `11_TECHNICAL_DEBT_REGISTER.md` Item 4 for why those two are tracked separately.
 - **Potential/Evidence:** `EVIDENCE`, `PROFILE_CLAIM`, `GOAL`, `CONSTRAINT` (as a first-class row, distinct from `ClientProfile`'s JSON blob), `EXPERIENCE` (as a first-class row), `SKILL`, `USER_SKILL`.
 - **Career Intelligence:** `CAREER`, `CAREER_SKILL`, `CAREER_EDGE`, `MARKET_SIGNAL` — no career knowledge graph exists.
 - **Decision:** `SCENARIO`, `SCENARIO_SCORE`, `DIRECTION_DECISION` — no scenario/recommendation engine exists.
@@ -283,7 +283,7 @@ Ranked by combined blast radius × how undefined the target still is:
 2. **`Client` split into `USER` + `CLIENT_RELATIONSHIP` (#6).** Highest application-code blast radius (every CRM endpoint, RBAC scoping, the bot→CRM bridge, 40+ tests). Contains one genuinely unresolved product gap (`manager_id` has no home in the target model) that blocks a clean migration regardless of engineering effort.
 3. **`Profile`/`ClientProfile` → `PotentialProfile`/`ProfileClaim`/`Evidence` (#2, #7).** Blocked on a Methodology taxonomy that doesn't exist yet; lossy by nature for free-text fields; risk of misrepresenting unverified legacy data as evidence-graded if rushed.
 4. **`ClientSkill` → `SKILL`/`USER_SKILL` (#9).** Requires building or buying a skill taxonomy plus fuzzy-matching free-text skill names — a standalone data project, not a migration script.
-5. **In-memory FSM → `InterviewSession`/`Answer`.** Architecturally necessary (it's the actual fix for the known, unresolved production button-cascade bug), but means rewriting the bot's entire state-handling logic, not adding a table alongside the existing one.
+5. **In-memory FSM → `InterviewSession`/`Answer`.** Architecturally necessary on its own merits (the current FSM doesn't survive process restarts), and may eliminate one class of state-related failures — but this must not be presented as a proven fix for the known, unresolved production button-cascade bug until that bug is reproduced, diagnosed, and verified against the new implementation (see `11_TECHNICAL_DEBT_REGISTER.md` Item 4). Either way it means rewriting the bot's entire state-handling logic, not adding a table alongside the existing one.
 
 ---
 
