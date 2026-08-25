@@ -20,6 +20,13 @@
 - `DELETE /v1/me`
 - `GET /v1/me/export`
 
+Each `/v1/auth/{provider}` endpoint creates or matches an `AUTH_IDENTITY`
+row (`docs/architecture/02_ERD.md`) and resolves it to a canonical `USER` —
+a Telegram id (or any other provider id) authenticates a channel, it never
+*is* the user. `POST /v1/me/consents` writes a `CONSENT` row per the
+hardened Consent architecture (versioned, purpose-specific, traceable to
+`granted_by_user_id`, withdrawable).
+
 ### Discovery
 - `POST /v1/assessments`
 - `GET /v1/assessments/{id}`
@@ -47,6 +54,12 @@
 - `POST /v1/me/roadmaps/{id}/replan`
 - `PATCH /v1/me/tasks/{task_id}`
 - `POST /v1/me/tasks/{task_id}/evidence`
+
+`{task_id}` here refers to `ROADMAP_TASK` (`docs/architecture/02_ERD.md`) —
+a candidate-facing roadmap execution step. It is unrelated to the CRM's own
+internal `Task` (staff operational reminders); the URL segment name is kept
+as `tasks` for a clean public API, the entity behind it is not ambiguous in
+the ERD.
 
 ### Opportunities
 - `GET /v1/me/opportunities`
