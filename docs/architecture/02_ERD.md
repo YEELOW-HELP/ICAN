@@ -33,6 +33,7 @@ erDiagram
   CAREER ||--o{ MARKET_SIGNAL : has
 
   USER ||--o{ SCENARIO : receives
+  POTENTIAL_PROFILE ||--o{ SCENARIO : generates
   CAREER ||--o{ SCENARIO : anchors
   SCENARIO ||--o{ SCENARIO_SCORE : scored_by
   USER ||--o{ DIRECTION_DECISION : makes
@@ -107,6 +108,7 @@ erDiagram
     uuid id PK
     uuid user_id FK
     uuid granted_by_user_id FK
+    string grantor_role
     string purpose
     string policy_version
     string source
@@ -234,6 +236,8 @@ erDiagram
     uuid id PK
     uuid user_id FK
     uuid career_id FK
+    uuid profile_id FK
+    string trace_id
     string scenario_type
     float fit_score
     float confidence
@@ -354,6 +358,7 @@ Guide OS later), so forcing one relationship line would misrepresent it.
 ```
 AI_TRACE {
   uuid id PK
+  string trace_id
   string task
   string provider
   string model
@@ -366,6 +371,7 @@ AI_TRACE {
   string error_type
   datetime created_at
 }
+UNIQUE(trace_id)
 ```
 
 ## Entity notes (Founder Architecture Review additions)
@@ -379,12 +385,16 @@ AI_TRACE {
 - **`CONSENT`** (hardened) — `granted_by_user_id` normally equals `user_id`
   (self-consent) but may differ, which is what lets a guardian grant consent
   on behalf of a minor `user_id` without redesigning `USER` itself.
-  `policy_version` makes consent versioned; `purpose` makes it
-  purpose-specific; `source` (e.g. `telegram_bot` / `web` / `admin_import`)
-  plus `granted_by_user_id` make it traceable; `withdrawn_at` (nullable)
-  makes it withdrawable. Every grant/withdrawal is additionally expected to
-  produce an `AUDIT_LOG` row for auditability. No country-specific legal
-  rules are encoded here — that is explicitly out of scope for this review.
+  `grantor_role` records the *capacity* consent was granted in — `SELF`,
+  `GUARDIAN`, `AUTHORIZED_REPRESENTATIVE` (extensible) — a neutral field,
+  not a legal determination; it says what the app was told, not what any
+  jurisdiction requires. `policy_version` makes consent versioned; `purpose`
+  makes it purpose-specific; `source` (e.g. `telegram_bot` / `web` /
+  `admin_import`) plus `granted_by_user_id`/`grantor_role` make it
+  traceable; `withdrawn_at` (nullable) makes it withdrawable. Every
+  grant/withdrawal is additionally expected to produce an `AUDIT_LOG` row
+  for auditability. No country-specific legal rules are encoded here —
+  that is explicitly out of scope for this review.
 - **`TAXONOMY` / `TAXONOMY_VERSION` / `TAXONOMY_TERM`** — one `TAXONOMY` row
   per category (potential dimensions, strengths/talents, interests, values,
   motivations, traits, work preferences, constraints, skills, career
@@ -421,14 +431,38 @@ AI_TRACE {
   events; `before_snapshot`/`after_snapshot` are nullable, populated where
   a before/after diff is meaningful. Rows are append-only: a correction is
   a new row, never an edit to an existing one.
-- **`AI_TRACE`** — `id` doubles as the `trace_id` already emitted today by
-  `app/ai_gateway.py`'s structured logs (task, provider, model,
-  prompt_version, latency, tokens, estimated cost, stop_reason/status —
-  see Sprint 0 Part 4). `estimated_cost_usd` and `error_type` are nullable.
-  **This document defines the target shape only — `AI_TRACE` is not
-  persisted in production yet.** `app/ai_gateway.py` continues
-  structured-logging this data until a persistence decision and migration
-  are made.
+- **`AI_TRACE`** — `id` is the database primary key; `trace_id` (`UNIQUE`)
+  is the separate *runtime* identifier already emitted today by
+  `app/ai_gateway.py`'s structured logs (`str(uuid.uuid4())` per call, see
+  Sprint 0 Part 4). The two are related but not the same concept: `id`
+  identifies the row once persisted, `trace_id` identifies the call itself
+  and is what other artifacts reference (e.g. `SCENARIO.trace_id`, below) —
+  a generated artifact should never need to know whether `AI_TRACE` has
+  been persisted yet to record which call produced it. `estimated_cost_usd`
+  and `error_type` are nullable. **This document defines the target shape
+  only — `AI_TRACE` is not persisted in production yet.** `app/ai_gateway.py`
+  continues structured-logging this data until a persistence decision and
+  migration are made.
+- **Generated-artifact reproducibility (`SCENARIO` → `DIRECTION_DECISION` →
+  `ROADMAP`)** — `PROFILE_CLAIM.taxonomy_version_id` alone isn't enough for
+  artifacts further downstream, since a `SCENARIO` can depend on multiple
+  claims grounded in multiple taxonomy categories/versions at once. Rather
+  than stack a `taxonomy_version_id` on every generated artifact,
+  `SCENARIO.profile_id` (FK → `POTENTIAL_PROFILE.id`) records the exact
+  profile *row* — and therefore version — a scenario was generated from;
+  every claim and taxonomy version behind it is then reachable by walking
+  `POTENTIAL_PROFILE` → `PROFILE_CLAIM` (`profile_id`) →
+  `PROFILE_CLAIM.taxonomy_version_id` / `EVIDENCE` (`grounded_by`), instead
+  of duplicating that chain onto `SCENARIO` itself. `SCENARIO.trace_id`
+  (references `AI_TRACE.trace_id`, not persisted as a DB-level FK since
+  `AI_TRACE` itself isn't persisted yet) records which model/prompt call
+  produced it, per database rule #7. `DIRECTION_DECISION.scenario_id` and
+  `ROADMAP.direction_decision_id` already existed and already chain
+  backward through `SCENARIO` to the same profile/claim/taxonomy/trace
+  history — no new field was needed on either of them for this. Together
+  this is enough to reconstruct, for any published recommendation: which
+  profile version, which claims/evidence, which taxonomy versions, and
+  which model/prompt produced it — without a separate provenance subsystem.
 
 ## Database rules
 
@@ -438,6 +472,6 @@ AI_TRACE {
 4. Money is stored in minor units + currency.
 5. Timestamps are UTC; user timezone is presentation metadata.
 6. Foreign keys and tenant ownership are enforced server-side.
-7. AI trace/model/prompt versions are stored against generated artifacts (`AI_TRACE`, `PROFILE_CLAIM.taxonomy_version_id`).
+7. AI trace/model/prompt versions are stored against generated artifacts — via a direct `trace_id` reference (e.g. `SCENARIO.trace_id` → `AI_TRACE.trace_id`) and via the input-state chain (`PROFILE_CLAIM.taxonomy_version_id`, `SCENARIO.profile_id`), not by duplicating taxonomy/model fields onto every downstream artifact.
 8. `AUDIT_LOG` rows are append-only; corrections are new rows, never edits to an existing one.
 9. `CONSTRAINT.is_hard = true` rows are enforced server-side wherever scenarios/recommendations are generated — never delegated to an LLM's discretion.

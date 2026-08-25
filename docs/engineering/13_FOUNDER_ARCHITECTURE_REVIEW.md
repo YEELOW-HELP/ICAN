@@ -5,6 +5,13 @@ migration is included in this change. Nothing described here has been
 implemented — this hardens the *target* architecture ahead of Issue #1,
 it does not build it.
 
+> **Follow-up fix included in this version:** three small corrections made
+> before opening a PR — `AI_TRACE.id` and `.trace_id` split into separate
+> concepts (Decision 10); `SCENARIO.profile_id`/`.trace_id` added for
+> generated-artifact reproducibility instead of stacking
+> `taxonomy_version_id` onto every downstream artifact (Decision 3b, new);
+> `CONSENT.grantor_role` added (Decision 2). Marked inline below.
+
 ## Purpose
 
 Sprint 0 (Issue #12) produced a regression baseline, a migration map, a
@@ -76,6 +83,7 @@ CONSENT {
   uuid id PK
   uuid user_id FK
   uuid granted_by_user_id FK   -- usually = user_id; may differ (guardian)
+  string grantor_role          -- SELF | GUARDIAN | AUTHORIZED_REPRESENTATIVE
   string purpose
   string policy_version
   string source
@@ -87,10 +95,13 @@ CONSENT {
 `granted_by_user_id` is the specific mechanism that makes minor/guardian
 consent possible later *without redesigning `USER`* — a guardian's
 `user_id` grants on behalf of the minor's `user_id`, no schema change
-needed when that becomes real. Every grant/withdrawal is additionally
-expected to produce an `AUDIT_LOG` row. No legal advice or
-country-specific rules are encoded — explicitly out of scope, per
-instruction.
+needed when that becomes real. `grantor_role` (added as a follow-up fix)
+records the neutral *capacity* consent was granted in — `SELF`,
+`GUARDIAN`, `AUTHORIZED_REPRESENTATIVE`, extensible — separately from
+*who* granted it (`granted_by_user_id`); it states what the app was told,
+not a legal determination. Every grant/withdrawal is additionally expected
+to produce an `AUDIT_LOG` row. No legal advice or country-specific rules
+are encoded — explicitly out of scope, per instruction.
 
 **Relates to:** debt register Item 13 ("no consent/privacy tracking
 exists") — the *architecture* gap this decision could have left open is
@@ -122,6 +133,49 @@ concrete schema instead of just a stated direction. **Files:** `02_ERD.md`,
 `01_SYSTEM_ARCHITECTURE.md` (new Taxonomy bounded context),
 `10_CURRENT_TO_TARGET_MIGRATION_MAP.md` (#2, #7, #9, Part C #3),
 `11_TECHNICAL_DEBT_REGISTER.md` (Item 11).
+
+### 3b. Generated-artifact reproducibility (follow-up fix)
+
+`PROFILE_CLAIM.taxonomy_version_id` (Decision 3) covers one claim's
+traceability, but `SCENARIO`/`DIRECTION_DECISION`/`ROADMAP` are further
+downstream artifacts that can each depend on *multiple* claims grounded in
+multiple taxonomy categories/versions at once — stacking a
+`taxonomy_version_id` on every one of them would be wrong (which version,
+of which of several taxonomies, would it even mean on a `SCENARIO`?) and
+was explicitly rejected in favor of a provenance *link to the versioned
+input state* instead:
+
+```
+SCENARIO {
+  uuid id PK
+  uuid user_id FK
+  uuid career_id FK
+  uuid profile_id FK   -- new: FK -> POTENTIAL_PROFILE.id, the exact profile version generated from
+  string trace_id      -- new: which AI_TRACE.trace_id produced this scenario
+  string scenario_type
+  float fit_score
+  float confidence
+}
+```
+
+`SCENARIO.profile_id` records the exact `POTENTIAL_PROFILE` row (and
+therefore version) a scenario came from; every `PROFILE_CLAIM` and
+`TAXONOMY_VERSION` behind it is then reachable by walking
+`POTENTIAL_PROFILE` → `PROFILE_CLAIM` → `PROFILE_CLAIM.taxonomy_version_id`
+/ `EVIDENCE`, rather than duplicating that chain onto `SCENARIO` itself.
+`SCENARIO.trace_id` records which model/prompt call produced it (database
+rule #7). `DIRECTION_DECISION.scenario_id` and
+`ROADMAP.direction_decision_id` **already existed** and already chain
+backward through `SCENARIO` to the same history — no new field was needed
+on either of them. Together this makes it possible to reconstruct, for any
+published recommendation: which profile version, which claims/evidence,
+which taxonomy versions, and which model/prompt produced it — without a
+separate provenance subsystem.
+
+**Resolves:** a gap in Decision 3's original scope (`PROFILE_CLAIM`-only
+traceability didn't extend downstream). Not a new debt register item — it
+tightens Item 11's resolution. **Files:** `02_ERD.md` (`SCENARIO`,
+relationship line, database rule #7, entity notes).
 
 ### 4. Client Assignment
 
@@ -267,7 +321,8 @@ same gap, and Part D contradiction #1 in the Migration Map (was: "`AuditLog`
 
 ```
 AI_TRACE {
-  uuid id PK    -- doubles as the trace_id app/ai_gateway.py already emits
+  uuid id PK          -- database primary key
+  string trace_id     -- UNIQUE; the runtime id app/ai_gateway.py already emits (str(uuid.uuid4()) per call)
   string task
   string provider
   string model
@@ -281,6 +336,12 @@ AI_TRACE {
   datetime created_at
 }
 ```
+
+`id` and `trace_id` are deliberately separate concepts (follow-up fix):
+`id` identifies the row once persisted; `trace_id` identifies the call
+itself and is what other artifacts reference (e.g. `SCENARIO.trace_id`,
+Decision 3b) — a generated artifact should never need `AI_TRACE` to be
+persisted yet in order to record which call produced it.
 
 **Not persisted in production yet** — this is a target shape only.
 `app/ai_gateway.py` continues structured-logging until a persistence
@@ -368,3 +429,8 @@ Mykola completing #1 and #2 per the exit report's own recommendation.
 - `docs/engineering/13_FOUNDER_ARCHITECTURE_REVIEW.md` — this document (new).
 
 No file under `app/`, `tests/`, `evals/`, or `migrations/` was touched.
+
+**Follow-up fix commit** (before opening a PR) additionally touched:
+- `docs/architecture/02_ERD.md` — `AI_TRACE.trace_id` split from `id`; `SCENARIO.profile_id`/`.trace_id` added; `CONSENT.grantor_role` added; database rule #7 reworded; entity notes updated.
+- `docs/engineering/13_FOUNDER_ARCHITECTURE_REVIEW.md` — Decisions 2 and 10 updated in place; new Decision 3b added.
+- `docs/engineering/11_TECHNICAL_DEBT_REGISTER.md` — Item 16's `AI_TRACE` description corrected to match the `id`/`trace_id` split.
