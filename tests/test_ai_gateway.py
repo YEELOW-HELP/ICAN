@@ -1,6 +1,9 @@
+import logging
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
+import pytest
 
 from app.ai_gateway import AIGateway
 
@@ -8,6 +11,10 @@ from app.ai_gateway import AIGateway
 def _client(content, stop_reason="tool_use", usage=None):
     response = SimpleNamespace(content=content, stop_reason=stop_reason, usage=usage)
     return SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(return_value=response)))
+
+
+def _failing_client(exc: Exception):
+    return SimpleNamespace(messages=SimpleNamespace(create=AsyncMock(side_effect=exc)))
 
 
 async def test_call_tool_extracts_tool_input_and_trace_metadata():
@@ -111,3 +118,40 @@ async def test_estimated_cost_is_none_for_unpriced_model():
     )
 
     assert result.trace.estimated_cost_usd is None
+
+
+async def test_provider_exception_is_reraised_logged_and_not_retried(caplog):
+    exc = TimeoutError("provider timed out")
+    client = _failing_client(exc)
+    gateway = AIGateway(client=client)
+
+    with caplog.at_level(logging.ERROR, logger="app.ai_gateway"):
+        with pytest.raises(TimeoutError):
+            await gateway.call_tool(
+                task_name="screening_turn",
+                prompt_version="legacy-screening-v1",
+                model="claude-sonnet-5",
+                system="sys",
+                messages=[{"role": "user", "content": "some secret candidate message"}],
+                tools=[],
+                tool_choice={"type": "tool", "name": "update_profile"},
+                max_tokens=100,
+            )
+
+    # no retry: the underlying provider call happened exactly once
+    assert client.messages.create.await_count == 1
+
+    failure_records = [r for r in caplog.records if r.message.startswith("ai_gateway_call_failed")]
+    assert len(failure_records) == 1
+    message = failure_records[0].message
+    assert "task=screening_turn" in message
+    assert "prompt_version=legacy-screening-v1" in message
+    assert "provider=anthropic" in message
+    assert "model=claude-sonnet-5" in message
+    assert "exception_type=TimeoutError" in message
+    assert "retry_count=0" in message
+    assert "trace_id=" in message
+    assert "latency_ms=" in message
+
+    # never log prompt/message content, tool payloads, or secrets
+    assert "some secret candidate message" not in message

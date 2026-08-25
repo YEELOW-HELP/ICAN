@@ -93,14 +93,33 @@ class AIGateway:
         trace_id = str(uuid.uuid4())
         started = time.monotonic()
 
-        response = await self._client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            tools=tools,
-            tool_choice=tool_choice,
-            messages=messages,
-        )
+        try:
+            response = await self._client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                tools=tools,
+                tool_choice=tool_choice,
+                messages=messages,
+            )
+        except Exception as exc:
+            # No retry/fallback here by design (see docs/engineering/11 —
+            # that's a separate, deliberate decision) — this only makes sure
+            # a failed call is observable at all before the exception
+            # propagates. Never log prompt/message/tool content or secrets,
+            # only call metadata.
+            latency_ms = (time.monotonic() - started) * 1000
+            logger.error(
+                "ai_gateway_call_failed task=%s prompt_version=%s provider=anthropic model=%s "
+                "trace_id=%s latency_ms=%.1f exception_type=%s retry_count=0",
+                task_name,
+                prompt_version,
+                model,
+                trace_id,
+                latency_ms,
+                type(exc).__name__,
+            )
+            raise
 
         latency_ms = (time.monotonic() - started) * 1000
         usage = getattr(response, "usage", None)
