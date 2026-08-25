@@ -62,7 +62,7 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 **Decision:** REPLACE (architecturally), not a field rename.
 
 **Required future migration:**
-- Blocked on the Methodology Lead freezing the claim taxonomy (`09_MIGRATION_AND_TEAM_OWNERSHIP.md` assigns this to Sprint 0 but it has not happened yet, as far as this repo shows) — there is no `dimension`/`label` vocabulary to migrate `Profile` fields *into*.
+- Blocked on Taxonomy v1's actual content/schema. The product decision itself is made (taxonomies are versioned, starting at Taxonomy v1 — `11_TECHNICAL_DEBT_REGISTER.md` Decision 2), but v1's `dimension`/`label` vocabulary and its linkage to `PROFILE_CLAIM`/`EVIDENCE` are not yet designed (debt register Item 11) — there is nothing to migrate `Profile` fields *into* yet.
 - Do **not** retroactively fabricate `EVIDENCE` rows with `confidence=1.0` for historical `Profile` data just to make old rows fit the new shape — that would misrepresent unverified legacy facts as evidence-graded ones.
 - Practical bridge: keep `Profile` as the bot's live write target for now; once `InterviewSession`/`ANSWER` exist, *new* conversations can additionally emit `EVIDENCE`/`PROFILE_CLAIM`, without migrating historical `Profile` rows at all.
 - `skills`/`languages` are free-text lists with no canonical ids — resolving them against a `SKILL` taxonomy (see #9) is a separate, nontrivial normalization project, not a migration script.
@@ -71,7 +71,7 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 
 **Data-loss risk:** MEDIUM — free-text fields (e.g. a skills string like "трохи Excel, більше нічого") don't cleanly become a scored claim; recommend a Methodology review pass on a sample before trusting any bulk claim generation.
 
-**Dependencies:** #1 (canonical User), Methodology taxonomy freeze, AI Gateway's Evidence Extractor / Profile Synthesizer (don't exist yet).
+**Dependencies:** #1 (canonical User), Taxonomy v1 design (direction decided, content/schema still open — debt register Item 11), AI Gateway's Evidence Extractor / Profile Synthesizer (don't exist yet).
 
 ---
 
@@ -134,21 +134,21 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 
 **Current fields/relationships:** identity/contact block, `source_channel`, `telegram_user_id` FK → `users.id`, `manager_id`/`consultant_id` FK → `admin_users.id`, `status` (enum), `priority`, `is_deleted`, timestamps; 1:1 → `ClientProfile`, 1:N → `WorkExperience`/`ClientSkill`/`ClientLanguage`, 1:1 → `CareerConsultation`.
 
-**Target v3.1 entity:** splits across **two** target entities: identity/contact fields belong on canonical `USER` (a candidate *is* the v3.1 platform user, not a separate shadow record); `status`/`manager_id`/`consultant_id`/`priority` belong on `CLIENT_RELATIONSHIP` (`client_user_id` ↔ `guide_id`, with its own `stage`/`status`) — a user↔guide *relationship* is explicitly its own row in the target model, which today's single mutable `consultant_id` FK cannot represent (e.g. no history of past consultants).
+**Target v3.1 entity:** splits across **three** places: identity/contact fields belong on canonical `USER` (a candidate *is* the v3.1 platform user, not a separate shadow record); `status`/`consultant_id`/`priority` belong on `CLIENT_RELATIONSHIP` (`client_user_id` ↔ `guide_id`, with its own `stage`/`status`) — a user↔guide *relationship* is explicitly its own row in the target model, which today's single mutable `consultant_id` FK cannot represent (e.g. no history of past consultants); `manager_id` belongs on neither — per Decision 1 (`11_TECHNICAL_DEBT_REGISTER.md`), Manager and Guide are separate concepts, and operational ownership/coordination (manager, coordinator, ...) will live on a future `CLIENT_ASSIGNMENT`-style model, not on `CLIENT_RELATIONSHIP`.
 
 **Decision:** REPLACE (split), the **highest-risk single migration in this document** — see Part C, #2.
 
 **Required future migration:**
 - Merge `Client` contact/identity fields into canonical `USER`, deduplicating against the bot-side `User`/`AuthIdentity` migration (#1) — a `Client` linked via `telegram_user_id` and its corresponding bot `User` are the same human and must resolve to exactly one canonical `USER`.
-- Move `status`/`manager_id`/`consultant_id`/`priority` into a new `CLIENT_RELATIONSHIP` row.
-- `ClientStatus`'s 7 stages need an explicit mapping onto `CLIENT_RELATIONSHIP.stage` — not yet defined by Product/Methodology.
-- **Open gap, no target equivalent:** `manager_id` (an ADMIN/MANAGER, not a Guide) has nowhere to go in `CLIENT_RELATIONSHIP`, which only models client↔guide. Today a `Client` can carry both a manager *and* a consultant simultaneously (`assign-manager` vs `assign-consultant` endpoints, both actively used) — this needs an explicit product decision before it can migrate.
+- Move `status`/`consultant_id`/`priority` into a new `CLIENT_RELATIONSHIP` row.
+- `ClientStatus`'s 7 stages need an explicit mapping onto `CLIENT_RELATIONSHIP.stage` — not yet defined.
+- Move `manager_id` into a future `CLIENT_ASSIGNMENT`-style model (Decision 1) once that schema is designed — see debt register Item 12. Until then, `manager_id`'s current semantics are preserved unchanged; this is no longer an open product question, only open implementation/specification work.
 
-**Compatibility risks:** HIGH — every CRM endpoint, RBAC scoping, the bot→CRM bridge, and 40+ existing tests assume `Client` is one row with one `consultant_id`.
+**Compatibility risks:** HIGH — every CRM endpoint, RBAC scoping, the bot→CRM bridge, and 40+ existing tests assume `Client` is one row with one `consultant_id` (and, separately, one `manager_id`).
 
-**Data-loss risk:** MEDIUM — no field is deleted, but "one client, one consultant at a time" would need to become historical (multiple `CLIENT_RELATIONSHIP` rows over time); backfilling "current" vs "historical" from today's single mutable FK needs a product decision, not a script.
+**Data-loss risk:** MEDIUM — no field is deleted, but "one client, one consultant at a time" would need to become historical (multiple `CLIENT_RELATIONSHIP` rows over time); backfilling "current" vs "historical" from today's single mutable FK needs deliberate design, not a script.
 
-**Dependencies:** #1 (canonical User), #4 (`GUIDE_PROFILE`), Product decision on `manager_id`, `ClientStatus`→`stage` taxonomy.
+**Dependencies:** #1 (canonical User), #4 (`GUIDE_PROFILE`), the `CLIENT_ASSIGNMENT` schema (Decision 1 made, design still open — debt register Item 12), `ClientStatus`→`stage` taxonomy.
 
 ---
 
@@ -160,13 +160,13 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 
 **Decision:** ADAPT — this is the richest, most human-verified structured data in the whole system and should not be discarded or silently replaced; needs a deliberate field-by-field decomposition once `GOAL`/`CONSTRAINT`/`EXPERIENCE` are actually specified.
 
-**Required future migration:** same blocking dependency as `Profile` (#2) — Methodology taxonomy — plus `GOAL`/`CONSTRAINT`/`EXPERIENCE` need field-level design (currently just bounded-context names).
+**Required future migration:** same blocking dependency as `Profile` (#2) — Taxonomy v1's content/schema (direction decided per Decision 2, content still open) — plus `GOAL`/`CONSTRAINT`/`EXPERIENCE` need field-level design (currently just bounded-context names).
 
 **Compatibility risks:** `critical_constraint` (a hard-block flag consultants set) is exactly the kind of thing `01_SYSTEM_ARCHITECTURE.md` §8 means by "hard constraints cannot be overridden by an LLM" — this safety property must be preserved with equivalent semantics wherever `CONSTRAINT` ends up modeled, not silently dropped.
 
 **Data-loss risk:** LOW if migrated deliberately; HIGH if deprioritized while consultants keep entering data here and a parallel v3.1 flow is built without a sync path — that creates two divergent sources of truth.
 
-**Dependencies:** `GOAL`/`CONSTRAINT`/`EXPERIENCE` need to be added to the ERD; Methodology taxonomy.
+**Dependencies:** `GOAL`/`CONSTRAINT`/`EXPERIENCE` need to be added to the ERD; Taxonomy v1 content/schema.
 
 ---
 
@@ -174,9 +174,9 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 
 **Current purpose:** repeatable per-client blocks — jobs held, skills, languages.
 
-**Target v3.1 entity:** `WorkExperience` → `EXPERIENCE`. `ClientSkill` → `USER_SKILL` (joins to a first-class `SKILL` taxonomy — doesn't exist; today `skill_name` is a free string with no canonical id). `ClientLanguage` → **no ERD entity at all** — languages are not mentioned anywhere in `02_ERD.md`.
+**Target v3.1 entity:** `WorkExperience` → `EXPERIENCE`. `ClientSkill` → `USER_SKILL` (joins to a first-class `SKILL` taxonomy — Skills is one of the Taxonomy v1 categories per Decision 2, but its content/schema doesn't exist yet; today `skill_name` is a free string with no canonical id). `ClientLanguage` → **no ERD entity at all** — languages are not mentioned anywhere in `02_ERD.md`.
 
-**Decision:** `WorkExperience` — ADAPT (clean, low-risk, the row shape is already close to a generic experience record). `ClientSkill` — ADAPT, blocked on building/buying a `SKILL` taxonomy and a name-matching pass (real standalone work). `ClientLanguage` — REUSE as-is; there's nothing to migrate to yet.
+**Decision:** `WorkExperience` — ADAPT (clean, low-risk, the row shape is already close to a generic experience record). `ClientSkill` — ADAPT, blocked on designing the Skills portion of Taxonomy v1 and a name-matching pass (real standalone work). `ClientLanguage` — REUSE as-is; there's nothing to migrate to yet.
 
 **Required future migration:** skill-name canonicalization is the concrete blocking task for `ClientSkill` — nontrivial matching/normalization work, not a migration script.
 
@@ -184,7 +184,7 @@ Nothing here is scheduled — sequencing and "future migration" notes describe
 
 **Data-loss risk:** low across all three if nothing is deleted prematurely.
 
-**Dependencies:** `SKILL` taxonomy (new); ERD needs a language entity defined.
+**Dependencies:** Taxonomy v1's Skills content/schema (direction decided, content open); ERD needs a language entity defined.
 
 ---
 
@@ -280,9 +280,9 @@ Grouped by bounded context (`01_SYSTEM_ARCHITECTURE.md` §3). None of these exis
 Ranked by combined blast radius × how undefined the target still is:
 
 1. **User/AuthIdentity canonicalization (#1).** Touches every foreign key in the system. `AuthIdentity`'s actual shape isn't defined in `02_ERD.md` — has to be inferred from a prose instruction in `09_MIGRATION_AND_TEAM_OWNERSHIP.md`. Must land before almost anything else on this list.
-2. **`Client` split into `USER` + `CLIENT_RELATIONSHIP` (#6).** Highest application-code blast radius (every CRM endpoint, RBAC scoping, the bot→CRM bridge, 40+ tests). Contains one genuinely unresolved product gap (`manager_id` has no home in the target model) that blocks a clean migration regardless of engineering effort.
-3. **`Profile`/`ClientProfile` → `PotentialProfile`/`ProfileClaim`/`Evidence` (#2, #7).** Blocked on a Methodology taxonomy that doesn't exist yet; lossy by nature for free-text fields; risk of misrepresenting unverified legacy data as evidence-graded if rushed.
-4. **`ClientSkill` → `SKILL`/`USER_SKILL` (#9).** Requires building or buying a skill taxonomy plus fuzzy-matching free-text skill names — a standalone data project, not a migration script.
+2. **`Client` split into `USER` + `CLIENT_RELATIONSHIP` (#6).** Highest application-code blast radius (every CRM endpoint, RBAC scoping, the bot→CRM bridge, 40+ tests). `manager_id`'s destination was an open product gap when this was first written; Decision 1 has since resolved the *direction* (a future `CLIENT_ASSIGNMENT`-style model, not `CLIENT_RELATIONSHIP`) — but that model's schema is still undesigned (debt register Item 12), which still blocks a clean migration today.
+3. **`Profile`/`ClientProfile` → `PotentialProfile`/`ProfileClaim`/`Evidence` (#2, #7).** Blocked on Taxonomy v1's actual content/schema — Decision 2 resolved *whether* taxonomies get frozen (they don't; they're versioned, starting at v1), but v1 itself isn't designed yet; lossy by nature for free-text fields; risk of misrepresenting unverified legacy data as evidence-graded if rushed.
+4. **`ClientSkill` → `SKILL`/`USER_SKILL` (#9).** Requires designing the Skills portion of Taxonomy v1 plus fuzzy-matching free-text skill names — a standalone data project, not a migration script.
 5. **In-memory FSM → `InterviewSession`/`Answer`.** Architecturally necessary on its own merits (the current FSM doesn't survive process restarts), and may eliminate one class of state-related failures — but this must not be presented as a proven fix for the known, unresolved production button-cascade bug until that bug is reproduced, diagnosed, and verified against the new implementation (see `11_TECHNICAL_DEBT_REGISTER.md` Item 4). Either way it means rewriting the bot's entire state-handling logic, not adding a table alongside the existing one.
 
 ---
@@ -291,7 +291,7 @@ Ranked by combined blast radius × how undefined the target still is:
 
 1. `01_SYSTEM_ARCHITECTURE.md` §3 names `AuditLog` as a Platform-context entity, but `02_ERD.md` never defines it — meanwhile ICAN 1.1 already has two working tables (`ProfileEditLog`, `TimelineEvent`) implementing exactly this concept, with nothing concrete to map onto.
 2. The ERD has no Document/File entity at all, while ICAN 1.1 already has a fully working `ClientFile` + pluggable storage abstraction covering exactly that.
-3. `CLIENT_RELATIONSHIP` in the ERD only models client↔guide, but the CRM has a working, actively-used `manager_id` role (distinct from `consultant_id`, its own RBAC and assignment endpoint) with nowhere to go in the target model.
+3. `CLIENT_RELATIONSHIP` in the ERD only models client↔guide, but the CRM has a working, actively-used `manager_id` role (distinct from `consultant_id`, its own RBAC and assignment endpoint) that the ERD doesn't account for. Decision 1 resolves this in direction — a future `CLIENT_ASSIGNMENT`-style model, not `CLIENT_RELATIONSHIP` — but neither the ERD nor a concrete schema reflects that yet.
 4. Target `TASK` (roadmap execution step, candidate-facing) and current `Task` (CRM staff reminder, internal) share a name but are unrelated concepts — a naming collision, not overlap; a blind field-mapping between them would corrupt data.
 5. `02_ERD.md`'s database rule #2 ("every changing recommendation object has a version or immutable history record") is already at odds with the *current* `Profile`/`ClientProfile` tables, which are mutated in place with no history — not a contradiction inside the target doc, but worth the team noticing that Part 1 just froze this exact behavior as the regression baseline (correctly, per "evolution not rewrite" — just flagging it so nobody assumes the baseline already satisfies this rule).
 6. No language taxonomy entity exists anywhere in `02_ERD.md` (skills get `SKILL`/`USER_SKILL`; languages don't appear at all), even though ICAN 1.1 already tracks language + proficiency + work-eligibility as first-class repeatable data (`ClientLanguage`).
@@ -302,8 +302,8 @@ Ranked by combined blast radius × how undefined the target still is:
 ## Migration strategy summary
 
 - **Evolution, not rewrite** (per `09_MIGRATION_AND_TEAM_OWNERSHIP.md`): every migration above is additive/adapter-based. Nothing gets deleted until the new flow is verified and reads have switched over.
-- **Sequencing is dependency-constrained, not arbitrary:** canonical User/AuthIdentity (#1) has to land first since nearly everything else FKs to a user. Consent/InterviewSession comes next (also fixes the known FSM bug). AI Gateway wrapping (Part 4 of this sprint) doesn't require schema changes and can happen in parallel. Evidence/ProfileClaim is blocked on the Methodology taxonomy freeze. Career/Scenario/Roadmap is greenfield (no legacy data to migrate, but also no urgency ahead of R0/R1 per the release plan). Guide OS evolution of the CRM is blocked on the `Client` split decision and the `manager_id` gap. Billing/Referral is correctly out of scope until R2.
-- **Two upstream decisions block real progress and are not engineering tasks:**
-  1. Methodology Lead's claim taxonomy freeze — assigned in Sprint 0 by `09_MIGRATION_AND_TEAM_OWNERSHIP.md`, not yet done as far as this repo shows. Blocks #2, #7, and indirectly #9.
-  2. Product decision on where `manager_id` (and Client↔Manager assignment generally) fits in the target relationship model — blocks #6 cleanly resolving.
-- This document does not resolve either of those; they're surfaced for the Tech Lead / Founder / Methodology Lead, per the role ownership matrix already defined in `09_MIGRATION_AND_TEAM_OWNERSHIP.md`.
+- **Sequencing is dependency-constrained, not arbitrary:** canonical User/AuthIdentity (#1) has to land first since nearly everything else FKs to a user. Consent/InterviewSession comes next (also addresses the in-memory-FSM weakness — see debt register Item 15; not a proven fix for the still-unresolved cascade bug itself, Item 4). AI Gateway wrapping (Part 4 of this sprint) doesn't require schema changes and can happen in parallel. Evidence/ProfileClaim is blocked on Taxonomy v1's content/schema. Career/Scenario/Roadmap is greenfield (no legacy data to migrate, but also no urgency ahead of R0/R1 per the release plan). Guide OS evolution of the CRM (specifically the `manager_id` portion of the `Client` split) is blocked on the `CLIENT_ASSIGNMENT` schema. Billing/Referral is correctly out of scope until R2.
+- **Two Founder/Product decisions were open when this document was first written and have since been accepted** (recorded in `11_TECHNICAL_DEBT_REGISTER.md`) — they are no longer unresolved product questions, but the specification/implementation work each unblocked is still open, not an engineering task this document does itself:
+  1. **Decision 2 — taxonomies are versioned, starting at Taxonomy v1**, with historical traceability to the version that produced any given result. Resolves the *direction* for #2, #7, and indirectly #9; what's still open is designing Taxonomy v1's actual dimensions/content and its linkage to `PROFILE_CLAIM`/`EVIDENCE` (debt register Item 11).
+  2. **Decision 1 — Manager and Guide are separate concepts.** `CLIENT_RELATIONSHIP` stays client↔guide only; operational ownership/coordination becomes a future `CLIENT_ASSIGNMENT`-style model, with current `manager_id` semantics preserved until it's designed and safely migrated. Resolves the *direction* for #6's open gap; what's still open is that model's actual schema (debt register Item 12).
+- This document does not design either schema; that work is tracked in `11_TECHNICAL_DEBT_REGISTER.md` Items 11 and 12, owned per the role ownership matrix already defined in `09_MIGRATION_AND_TEAM_OWNERSHIP.md`.

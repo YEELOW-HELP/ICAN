@@ -44,9 +44,14 @@ Explicitly out of scope by instruction, not oversights:
   +5 Part 4 (gateway), +1 Part 4 follow-up, +34 Part 5 (golden dataset
   schema validation)).
 - CI (`.github/workflows/ci.yml`, runs `pytest -q` on every push/PR):
-  **all 7 recorded runs on `sprint-0-migration-baseline` have completed
-  successfully**, including the HEAD commit at the time of writing
-  (`501b293`) — confirmed via the GitHub Actions API, not just local runs.
+  **all 8 recorded runs on `sprint-0-migration-baseline` have completed
+  successfully**, including the Part 6 commit `a42667e`
+  (full SHA `a42667ec8ec32874bb395066c931bd3a69046c2d`, run completed
+  2026-08-25T18:03:22Z, conclusion `success`) — confirmed via the GitHub
+  Actions API, not just local runs. This final documentation-cleanup
+  commit (the one containing this sentence) is pushed after this check was
+  made, so its own CI result is not yet known at time of writing; what is
+  confirmed for it is the local `pytest -q` run below.
 - No test anywhere in the suite makes a real network call to Anthropic or
   Telegram (`pytest-socket`, loopback-only, enforced since Part 1).
 
