@@ -35,6 +35,13 @@ Every model call goes through one gateway with:
 
 No business service calls an LLM provider directly.
 
+The per-call fields above are the target shape of `AI_TRACE`
+(`docs/architecture/02_ERD.md`) — its future persistent representation. As
+of Sprint 0 Part 4, `app/ai_gateway.py` already emits this data as
+structured logs on every call, success and failure, for the one AI task
+that exists today (`legacy-screening-v1`); it is not persisted to a table
+yet, and retry/fallback are not implemented yet.
+
 ## Structured output rule
 
 LLMs return schema-valid JSON first. UI text is rendered from structured objects. Invalid output is retried or rejected; it is never shown directly.
