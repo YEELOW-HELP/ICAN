@@ -33,7 +33,7 @@ Scope:
 - direction decision;
 - 90-day roadmap + tasks;
 - Client 360 for Guide;
-- AI gateway and evals;
+- AI gateway and evals; *(gateway wrapper delivered ahead of schedule in Sprint 0 — `app/ai_gateway.py`, `legacy-screening-v1`, no retries/fallback/schema-validation yet; golden dataset structure exists with 10/20 example cases and no runner — see `docs/engineering/12_SPRINT_0_EXIT_REPORT.md`)*
 - event analytics.
 
 Exit gate:
