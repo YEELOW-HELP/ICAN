@@ -1,0 +1,40 @@
+{
+  "case_id": "case_001_first_career_basic_facts",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "first_career_18_24",
+  "locale": "uk",
+  "input": {
+    "history": [],
+    "current_profile": {},
+    "user_message": "Привіт! Мене звати Максим, мені 19 років, я з Дніпра. Шукаю роботу продавця-консультанта."
+  },
+  "expected_facts": {
+    "name": "Максим",
+    "city": "Дніпро",
+    "desired_role": "продавець-консультант"
+  },
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "reply_to_user acknowledges the shared facts and asks about one missing important field (e.g. experience, schedule, income) rather than repeating what's already known",
+    "reply_to_user is written in Ukrainian"
+  ],
+  "unacceptable_outputs": [
+    "reply_to_user re-asks for name, city, or desired role since they were already stated",
+    "profile includes any fact not actually present in the message (e.g. an invented age field)",
+    "ready_for_confirmation is true after only one short message with major fields still missing (education, experience, income, work format)"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Baseline sanity case: simple, unambiguous single-message extraction with no constraints or contradictions involved. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

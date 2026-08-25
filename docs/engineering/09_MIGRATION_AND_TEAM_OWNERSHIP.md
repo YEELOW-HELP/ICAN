@@ -97,6 +97,17 @@ Owner: Frontend + Backend
 - define critical E2E scenarios;
 - verify current screening and CRM as baseline.
 
+### Sprint 0 status at exit (see `docs/engineering/12_SPRINT_0_EXIT_REPORT.md` for full detail)
+
+Actually completed, against the task list above:
+
+- **Tech Lead:** table→ERD mapping done (`10_CURRENT_TO_TARGET_MIGRATION_MAP.md`). PR #11 architecture review, migration-strategy approval, and folder-boundary confirmation are still Mykola's own pending actions, not something this work could complete on his behalf.
+- **Backend:** model/route/service inventory and regression tests done (61→117 tests). Canonical User/Assessment/Evidence Alembic migrations were **not** drafted — deliberately deferred; `AuthIdentity`'s shape is still unspecified (`11_TECHNICAL_DEBT_REGISTER.md` Item 5), and no schema/migration was authorized for Sprint 0.
+- **AI Engineer:** Anthropic call inventory, gateway interface, and `legacy-screening-v1` registration all done (`app/ai_gateway.py`). Ten synthetic example cases exist (`evals/golden/`) — draft, not yet the "first 10 golden test cases" in the sense of real reviewed cases, since no real/consented data was available and none should be used yet (see `11_TECHNICAL_DEBT_REGISTER.md` Item 13, no consent tracking exists).
+- **Frontend:** not touched — out of scope for the engineering-only Sprint 0 work that actually ran; still open.
+- **Methodology:** taxonomy freeze **not** done. Founder/Product instead decided (recorded in `11_TECHNICAL_DEBT_REGISTER.md`) that taxonomies will be versioned starting at v1, with the actual v1 design still to come — a real, tracked blocker for R1, not a completed step.
+- **QA:** E2E baseline done (Part 1); a dedicated migration regression checklist was not produced as a separate artifact — the debt register and migration map serve that purpose today.
+
 ## Sprint 1 — 2 weeks
 
 Target issues: #1, #2, #7 + minimal #9.

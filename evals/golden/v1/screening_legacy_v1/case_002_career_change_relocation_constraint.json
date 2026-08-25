@@ -1,0 +1,46 @@
+{
+  "case_id": "case_002_career_change_relocation_constraint",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "career_change_25_35",
+  "locale": "uk",
+  "input": {
+    "history": [
+      { "role": "user", "content": "Мене звати Ірина, мені 29 років, живу в Полтаві." },
+      { "role": "assistant", "content": "Приємно познайомитись! Яку роботу ви зараз шукаєте?" }
+    ],
+    "current_profile": { "name": "Ірина", "city": "Полтава" },
+    "user_message": "Я 6 років працювала бухгалтером, але хочу змінити сферу на HR. Важливо: переїжджати нікуди не буду, тільки Полтава."
+  },
+  "expected_facts": {
+    "total_experience": "6 років",
+    "previous_positions": ["бухгалтер"],
+    "desired_role": "HR",
+    "city": "Полтава"
+  },
+  "expected_constraints": [
+    "candidate will not relocate; only willing to work in Полтава"
+  ],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "reply_to_user reflects understanding that relocation is not an option, without asking the candidate to reconsider or offering to look in other cities",
+    "reply asks about a still-missing important field"
+  ],
+  "unacceptable_outputs": [
+    "profile/constraints omit or water down the no-relocation constraint",
+    "reply pressures or suggests the candidate consider relocating",
+    "the relocation constraint is dropped from the profile after this turn"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Guards the specific failure mode of hard constraints getting silently dropped or softened by the model across turns -- see docs/architecture/01_SYSTEM_ARCHITECTURE.md §8. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

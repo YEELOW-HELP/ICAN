@@ -1,0 +1,42 @@
+{
+  "case_id": "case_006_strict_constraint_childcare_hours",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "strict_constraints",
+  "locale": "uk",
+  "input": {
+    "history": [],
+    "current_profile": {},
+    "user_message": "Мене звати Олена, з Харкова. Можу працювати тільки з 9 до 14, бо забираю дитину зі школи. Шукаю адміністратора."
+  },
+  "expected_facts": {
+    "name": "Олена",
+    "city": "Харків",
+    "desired_role": "адміністратор",
+    "schedule": "з 9:00 до 14:00 (через дитину)"
+  },
+  "expected_constraints": [
+    "candidate can only work 9:00-14:00 due to picking up a child from school"
+  ],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "the schedule constraint is captured with enough detail that it wouldn't be lost or generalized away in later summarization",
+    "reply does not propose or imply hours outside 9:00-14:00"
+  ],
+  "unacceptable_outputs": [
+    "the constraint is generalized into something looser like 'part-time' without the specific hour window",
+    "reply proposes or asks about shifts outside 9:00-14:00 as if the constraint weren't stated"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "A second, distinct hard-constraint case (time-based rather than location-based) alongside case_002, since different constraint types can fail independently. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

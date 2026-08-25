@@ -154,10 +154,14 @@ Acceptance:
 - model/prompt/task/latency/tokens/cost/trace logged;
 - schema validation + retry/fallback.
 
+**Status (Sprint 0 exit):** partially satisfied ahead of schedule. `app/ai_gateway.py` is the only call site to the provider (`ScreeningAgent` goes through it), and every call logs task/prompt_version/model/latency/tokens/cost/trace_id, including on provider failure. Not yet done: structured-output schema validation inside the gateway itself, and retry/fallback (explicitly deferred by decision, not an oversight). See `docs/engineering/12_SPRINT_0_EXIT_REPORT.md`.
+
 ### J2 — Golden test set
 Acceptance:
 - at least 20 representative cases before R1 exit;
 - automated checks for hard constraints, fabricated facts and evidence grounding.
+
+**Status (Sprint 0 exit):** structure started, not satisfied yet. `evals/golden/` has a versioned schema and 10 synthetic, unreviewed (`status: draft`) example cases for `screening` only — half the required count, and none of the automated checks exist since no eval runner was built (out of scope for Sprint 0). See `docs/engineering/12_SPRINT_0_EXIT_REPORT.md`.
 
 ## EPIC K — Analytics
 

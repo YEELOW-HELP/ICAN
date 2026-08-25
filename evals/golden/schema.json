@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ican.internal/evals/golden/schema.json",
+  "title": "Golden dataset case",
+  "description": "One golden/regression-eval case for an ICAN AI task (screening today; evidence extraction, profile synthesis, scenario generation, roadmap generation, and opportunity matching once those AI System components exist). See evals/golden/README.md for governance, versioning, and review rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "target",
+    "dataset_version",
+    "segment",
+    "locale",
+    "input",
+    "expected_facts",
+    "expected_constraints",
+    "expected_evidence",
+    "acceptable_outputs",
+    "unacceptable_outputs",
+    "required_claims",
+    "forbidden_claims",
+    "reviewer_notes",
+    "methodology_version",
+    "prompt_version",
+    "provenance",
+    "created_at",
+    "reviewed_by",
+    "status"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Stable, unique id. Never reused, even if a case is retired -- see README 'Reproducibility'."
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "screening",
+        "evidence_extraction",
+        "profile_synthesis",
+        "scenario_generation",
+        "roadmap_generation",
+        "opportunity_matching"
+      ],
+      "description": "Which AI System component (docs/architecture/04_AI_SYSTEM.md) this case evaluates."
+    },
+    "dataset_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$",
+      "description": "Matches the top-level folder this case lives under (evals/golden/v1/...). Bumped per README 'Versioning', never mutated in place."
+    },
+    "segment": {
+      "type": "string",
+      "enum": [
+        "first_career_18_24",
+        "career_change_25_35",
+        "transition_35_50",
+        "low_information_user",
+        "contradictory_answers",
+        "strict_constraints",
+        "language_variant",
+        "other"
+      ],
+      "description": "Mirrors the golden-dataset segments listed in docs/architecture/04_AI_SYSTEM.md's Evaluation System section."
+    },
+    "locale": {
+      "type": "string",
+      "enum": ["uk", "en", "mixed"]
+    },
+    "input": {
+      "type": "object",
+      "description": "Task-specific input. For target=screening this mirrors ScreeningAgent.process_message()'s real parameters exactly: {history, current_profile, user_message} -- so a future eval runner can feed it in unmodified."
+    },
+    "expected_facts": {
+      "type": "object",
+      "description": "Facts the case's input actually states and that a correct extraction MUST produce. Key names should match ProfileDraft fields (app/schemas/profile.py) for target=screening."
+    },
+    "expected_constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Hard constraints present in the input that must never be dropped, softened, or overridden across turns (docs/architecture/01_SYSTEM_ARCHITECTURE.md §8)."
+    },
+    "expected_evidence": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Reserved for evidence-linked targets (evidence_extraction, profile_synthesis and beyond). Legitimately empty for target=screening today, since ICAN 1.1 has no EVIDENCE entity yet -- see technical debt register Item 2/7."
+    },
+    "acceptable_outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Natural-language pass criteria a reviewer (human today, an automated QA Critic grader later) checks the actual output against. Not literal string matches -- AI replies are not deterministic."
+    },
+    "unacceptable_outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Natural-language fail criteria -- things the output must NOT do (invented facts, dropped constraints, forbidden diagnosis/guarantee language, wrong language, etc.)."
+    },
+    "required_claims": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Reserved for PROFILE_CLAIM-based targets once claims exist (blocked on the versioned taxonomy, see Decision 2 / technical debt register Item 11). Legitimately empty for target=screening today."
+    },
+    "forbidden_claims": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "Same reservation as required_claims."
+    },
+    "reviewer_notes": {
+      "type": "string",
+      "description": "Free text: why this case exists, what it's guarding against, anything a future reviewer should know before changing it."
+    },
+    "methodology_version": {
+      "type": "string",
+      "description": "Which taxonomy/methodology version this case's expectations were written against (Decision 2: taxonomies are versioned). Use 'pre-taxonomy-legacy' for cases written before Taxonomy v1 exists, as all v1-dataset screening cases are today."
+    },
+    "prompt_version": {
+      "type": "string",
+      "description": "Must match an AI Gateway prompt_version tag (app/services/screening.py's PROMPT_VERSION for target=screening, currently 'legacy-screening-v1')."
+    },
+    "model_version": {
+      "type": "string",
+      "description": "Optional: pin a specific model if the case is sensitive to model behavior differences. Omit to mean 'whatever prompt_version's registered model currently is'."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["synthetic", "consented-anonymized"],
+          "description": "'synthetic' = invented, no real person behind it. 'consented-anonymized' = derived from a real case with explicit consent and full anonymization -- requires reviewer_notes to document the anonymization method. See README 'Anonymization rules'."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO 8601 date, e.g. 2026-08-25."
+    },
+    "reviewed_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "properties": {
+        "role": {
+          "type": ["string", "null"],
+          "description": "e.g. 'Methodology Lead', 'QA'. Null while status=draft and no review has happened yet."
+        },
+        "name": { "type": ["string", "null"] }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "retired"],
+      "description": "See README 'Review process'. Only 'approved' cases should gate CI once a runner exists."
+    }
+  }
+}
