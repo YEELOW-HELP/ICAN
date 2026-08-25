@@ -3,9 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from anthropic import AsyncAnthropic
-
-from app.core.config import settings
+from app.ai_gateway import AIGateway
 from app.schemas.profile import PROFILE_TOOL_SCHEMA, ProfileDraft
 
 logger = logging.getLogger(__name__)
@@ -17,6 +15,11 @@ logger = logging.getLogger(__name__)
 FALLBACK_REPLY = "Вибачте, не зовсім зрозумів. Можете, будь ласка, уточнити чи повторити?"
 
 SCREENING_MODEL = "claude-sonnet-5"
+
+# Tags every screening call through the AI Gateway so this exact prompt can
+# be compared against future revisions once they exist (Sprint 0 migration
+# plan, docs/engineering/09_MIGRATION_AND_TEAM_OWNERSHIP.md).
+PROMPT_VERSION = "legacy-screening-v1"
 
 SYSTEM_PROMPT = """\
 You are the ICAN screening assistant. You conduct a natural-language interview \
@@ -62,10 +65,14 @@ class ScreeningResult:
 
 class ScreeningAgent:
     """Wraps a single Claude call that both extracts structured facts from the
-    candidate's latest message and decides the next thing to say (ТЗ п.6)."""
+    candidate's latest message and decides the next thing to say (ТЗ п.6).
 
-    def __init__(self, client: AsyncAnthropic | None = None) -> None:
-        self._client = client or AsyncAnthropic(api_key=settings.anthropic_api_key)
+    Holds no provider client itself — all calls go through the AI Gateway
+    (docs/architecture/04_AI_SYSTEM.md's "no business service calls an LLM
+    provider directly" rule)."""
+
+    def __init__(self, gateway: AIGateway | None = None) -> None:
+        self._gateway = gateway or AIGateway()
 
     async def process_message(
         self,
@@ -85,22 +92,24 @@ class ScreeningAgent:
             {"role": "user", "content": user_message},
         ]
 
-        response = await self._client.messages.create(
+        result = await self._gateway.call_tool(
+            task_name="screening_turn",
+            prompt_version=PROMPT_VERSION,
             model=SCREENING_MODEL,
-            max_tokens=4096,
             system=SYSTEM_PROMPT,
             tools=[PROFILE_TOOL_SCHEMA],
             tool_choice={"type": "tool", "name": "update_profile"},
+            max_tokens=4096,
             messages=messages,
         )
 
-        tool_use = next((block for block in response.content if block.type == "tool_use"), None)
-        payload = tool_use.input if tool_use is not None else {}
+        payload = result.tool_input or {}
 
-        if tool_use is None or "reply_to_user" not in payload:
+        if result.tool_input is None or "reply_to_user" not in payload:
             logger.warning(
-                "Claude tool response missing expected fields (stop_reason=%s): %r",
-                response.stop_reason,
+                "Claude tool response missing expected fields (stop_reason=%s, trace_id=%s): %r",
+                result.trace.stop_reason,
+                result.trace.trace_id,
                 payload,
             )
 
