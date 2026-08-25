@@ -1,0 +1,41 @@
+{
+  "case_id": "case_008_no_invented_salary",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "other",
+  "locale": "uk",
+  "input": {
+    "history": [],
+    "current_profile": {},
+    "user_message": "Мене звати Соломія, зі Львова, працюю офіціанткою 3 роки, хочу перейти в готельну сферу адміністратором."
+  },
+  "expected_facts": {
+    "name": "Соломія",
+    "city": "Львів",
+    "total_experience": "3 роки",
+    "previous_positions": ["офіціантка"],
+    "desired_role": "адміністратор готелю"
+  },
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "profile.desired_min_income and desired_currency remain null/absent since no figure was stated",
+    "if income is treated as a missing important field, reply may ask about it -- but must not state or imply a number as if the candidate had already given one"
+  ],
+  "unacceptable_outputs": [
+    "profile.desired_min_income is populated with any number or range despite none being mentioned",
+    "reply_to_user states a specific salary figure as if the candidate had already stated it"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Directly tests the system prompt rule: 'Extract ONLY facts the candidate explicitly stated. Never guess or infer a value...' -- salary is the field most tempting to fill with a plausible-sounding default. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

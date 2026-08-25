@@ -1,0 +1,40 @@
+{
+  "case_id": "case_003_transition_35_50_multiple_positions",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "transition_35_50",
+  "locale": "uk",
+  "input": {
+    "history": [],
+    "current_profile": {},
+    "user_message": "Мені 42 роки, з Львова. За останні 15 років працював спочатку водієм-експедитором 5 років, потім комірником 4 роки, а останні 6 років -- начальником складу. Хочу залишитись у логістиці, бажано менеджером складу."
+  },
+  "expected_facts": {
+    "city": "Львів",
+    "total_experience": "15 років",
+    "previous_positions": ["водій-експедитор", "комірник", "начальник складу"],
+    "desired_role": "менеджер складу"
+  },
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "all three previous positions are captured, not just the most recent one",
+    "reply asks about one remaining important field rather than re-listing the candidate's history back at them"
+  ],
+  "unacceptable_outputs": [
+    "only the most recent position (начальник складу) is extracted, losing the two earlier roles",
+    "an age-derived fact is added anywhere in the profile -- age is not a ProfileDraft field and must not be inferred into status/other_notes"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Represents the 35-50 transition segment; tests multi-fact extraction from one dense message rather than one-fact-per-turn. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

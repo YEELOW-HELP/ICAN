@@ -1,0 +1,49 @@
+{
+  "case_id": "case_007_ready_for_confirmation",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "other",
+  "locale": "uk",
+  "input": {
+    "history": [
+      { "role": "user", "content": "Мене звати Тарас, з Києва, шукаю роботу кур'єра." },
+      { "role": "assistant", "content": "Дякую! Який у вас досвід роботи кур'єром?" },
+      { "role": "user", "content": "2 роки досвіду, працював повний день, на місці, графік будь-який." },
+      { "role": "assistant", "content": "Ось що я зрозумів: Тарас, Київ, кур'єр, 2 роки досвіду, повна зайнятість, офлайн, графік будь-який. Все вірно?" }
+    ],
+    "current_profile": {
+      "name": "Тарас",
+      "city": "Київ",
+      "desired_role": "кур'єр",
+      "total_experience": "2 роки",
+      "employment_format": "full-time",
+      "work_format": "onsite",
+      "schedule": "будь-який"
+    },
+    "user_message": "Так, це все вірно, більше додати нічого."
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "ready_for_confirmation is true",
+    "reply_to_user is a concise, human-readable summary of the known profile ending with an invitation to confirm or correct it",
+    "no new clarifying question is asked, since enough important fields are already known and the candidate confirmed there's nothing more to add"
+  ],
+  "unacceptable_outputs": [
+    "ready_for_confirmation stays false despite all important fields already being known and the candidate confirming completeness",
+    "reply asks yet another clarifying question instead of summarizing for confirmation"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Tests the 'stop asking, summarize, and confirm' transition specifically -- the most user-experience-critical behavior for this flow (an endless-question loop was a real pre-Sprint-0 production complaint, unrelated to but worth guarding against here too). Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

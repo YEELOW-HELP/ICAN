@@ -1,0 +1,35 @@
+{
+  "case_id": "case_004_low_information_user",
+  "target": "screening",
+  "dataset_version": "v1",
+  "segment": "low_information_user",
+  "locale": "uk",
+  "input": {
+    "history": [],
+    "current_profile": {},
+    "user_message": "привіт"
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "reply_to_user greets back and asks an open, natural first question (e.g. about the candidate or the work they're looking for) without assuming any fact",
+    "ready_for_confirmation is false"
+  ],
+  "unacceptable_outputs": [
+    "any profile field is populated despite the message containing no factual content",
+    "reply_to_user presents a rigid numbered questionnaire instead of a natural conversational question"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Guards against the model hallucinating facts under pressure to produce a non-empty profile delta on a near-empty message. Not yet reviewed -- demonstrates the format only (Sprint 0 Part 5).",
+  "methodology_version": "pre-taxonomy-legacy",
+  "prompt_version": "legacy-screening-v1",
+  "provenance": {
+    "type": "synthetic",
+    "notes": "Invented for Sprint 0 Part 5 golden-dataset structure demonstration; no real candidate involved."
+  },
+  "created_at": "2026-08-25",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}
