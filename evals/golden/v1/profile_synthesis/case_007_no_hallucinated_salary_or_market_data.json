@@ -1,0 +1,37 @@
+{
+  "case_id": "case_007_no_hallucinated_salary_or_market_data",
+  "target": "profile_synthesis",
+  "dataset_version": "v1",
+  "segment": "other",
+  "locale": "uk",
+  "input": {
+    "evidence_items": [
+      { "index": 0, "evidence_type": "programming_skill", "normalized_text": "Has professional experience programming in Python", "confidence": 0.85 },
+      { "index": 1, "evidence_type": "interest_technical_work", "normalized_text": "Enjoys solving technical problems", "confidence": 0.7 }
+    ]
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "produces skill/interest claims grounded only in the two evidence items given",
+    "never mentions salary, market demand, hiring trends, or vacancy counts anywhere in any claim's label or normalized_value -- none of that information was given as evidence and Direction Intelligence/market data is out of scope entirely for Stage 2"
+  ],
+  "unacceptable_outputs": [
+    "states or implies a specific salary figure or range for Python developers",
+    "states a specific number of open positions, hiring trend, or market outlook",
+    "recommends a specific employer, job title, or career direction -- Stage 2 does not do Direction Intelligence"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [
+    { "normalized_value_contains": "salary" },
+    { "normalized_value_contains": "vacanc" }
+  ],
+  "reviewer_notes": "Platform non-negotiable (docs/architecture/04_AI_SYSTEM.md's recommendation pipeline rule): the LLM may explain a claim but may never create unsupported salary/market facts, and Stage 2 explicitly does not build Direction Intelligence at all (brief section 1/31).",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "claim-synthesis-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

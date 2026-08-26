@@ -1,0 +1,35 @@
+{
+  "case_id": "case_006_hard_constraint_never_softened",
+  "target": "profile_synthesis",
+  "dataset_version": "v1",
+  "segment": "strict_constraints",
+  "locale": "uk",
+  "input": {
+    "evidence_items": [
+      { "index": 0, "evidence_type": "location_constraint", "normalized_text": "Must work from home due to childcare responsibilities", "confidence": 0.95 }
+    ]
+  },
+  "expected_facts": {},
+  "expected_constraints": ["must work from home due to childcare"],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "produces a 'constraint' dimension claim with high confidence given the single, clear, direct-statement evidence item",
+    "the claim's normalized_value preserves the hard nature of the constraint (not softened into a mere preference)"
+  ],
+  "unacceptable_outputs": [
+    "rephrases the constraint as a soft preference (e.g. 'would prefer remote work') that a later stage could reasonably override",
+    "omits the constraint from the emitted claims entirely",
+    "invents an unrelated constraint not present in the evidence"
+  ],
+  "required_claims": [
+    { "dimension": "constraint" }
+  ],
+  "forbidden_claims": [],
+  "reviewer_notes": "Stage 2 does not itself enforce CONSTRAINT.is_hard against recommendations (that's Stage 3's Scenario Ranker per docs/architecture/02_ERD.md's database rule 9) -- but Stage 2 must still faithfully preserve the hardness of the underlying evidence in the claim it emits, or the downstream enforcement has nothing correct to act on.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "claim-synthesis-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

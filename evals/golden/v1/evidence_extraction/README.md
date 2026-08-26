@@ -1,5 +1,11 @@
-# Reserved
+# Evidence Extraction (`target: "evidence_extraction"`)
 
-No cases yet — the Evidence Extractor (`docs/architecture/04_AI_SYSTEM.md`
-component #2) doesn't exist in ICAN 1.1. Cases here will use
-`target: "evidence_extraction"` per `evals/golden/schema.json` once it does.
+Four cases (Stage 2, Issue #2) covering the Evidence Extractor
+(`docs/architecture/04_AI_SYSTEM.md` component #2 —
+`app/services/profile/evidence_extraction.py`): a straightforward
+coherent signal, a CV-heavy answer (direct facts, not personality
+inference), an open-answer-heavy answer producing multiple distinct
+evidence items, and a sparse/low-information answer that must correctly
+yield zero evidence rather than a fabricated one. See
+`evals/golden/README.md` for governance/review rules — all four are
+`status: draft`, not yet reviewed.

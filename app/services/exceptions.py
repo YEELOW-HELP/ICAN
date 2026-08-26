@@ -62,6 +62,19 @@ class ConsentOwnershipError(DomainError):
     code = "consent_ownership_error"
 
 
+class ProfileGenerationInProgressError(DomainError):
+    """Raised when generate_potential_profile is called for a user who
+    already has a profile-generation attempt in status=GENERATING --
+    prevents two concurrent calls from racing to create uncontrolled
+    duplicate versions (Stage 2 brief §10/§12)."""
+
+    code = "profile_generation_in_progress"
+
+
+class NoCurrentProfileError(DomainError):
+    code = "no_current_profile"
+
+
 class UnfinishedAssessmentExistsError(DomainError):
     """A user may have at most one unfinished (draft/active/paused)
     InterviewSession at a time (Founder decision, Issue #1 readiness

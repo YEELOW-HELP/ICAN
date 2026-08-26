@@ -1,0 +1,38 @@
+{
+  "case_id": "case_005_contradictory_answers_retained_not_averaged",
+  "target": "profile_synthesis",
+  "dataset_version": "v1",
+  "segment": "contradictory_answers",
+  "locale": "uk",
+  "input": {
+    "evidence_items": [
+      { "index": 0, "evidence_type": "prefers_team_work", "normalized_text": "Enjoys working closely with a team", "confidence": 0.85 },
+      { "index": 1, "evidence_type": "prefers_solo_work", "normalized_text": "Prefers working alone without a team", "confidence": 0.8 }
+    ]
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "groups both evidence items under one work_preference claim and marks is_contradictory=true",
+    "the resulting claim's confidence is clearly lower than either individual evidence item's confidence"
+  ],
+  "unacceptable_outputs": [
+    "silently picks one side (team or solo) and drops the other evidence item entirely",
+    "averages the two into a confident, unflagged 'flexible, works well both ways' claim -- this hides a real contradiction instead of surfacing it",
+    "creates two unrelated claims that don't reference each other, losing the fact that they conflict"
+  ],
+  "required_claims": [
+    { "dimension": "work_preference", "status": "contradicted" }
+  ],
+  "forbidden_claims": [
+    { "dimension": "work_preference", "status": "supported" }
+  ],
+  "reviewer_notes": "Directly tests Stage 2 brief section 7: contradictions must never be silently averaged away. The claim_synthesis.compute_claim_confidence deterministic formula halves the weakest evidence confidence and forces status=CONTRADICTED whenever is_contradictory=true.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "claim-synthesis-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

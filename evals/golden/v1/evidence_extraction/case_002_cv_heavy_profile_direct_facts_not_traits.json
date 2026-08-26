@@ -1,0 +1,35 @@
+{
+  "case_id": "case_002_cv_heavy_profile_direct_facts_not_traits",
+  "target": "evidence_extraction",
+  "dataset_version": "v1",
+  "segment": "career_change_25_35",
+  "locale": "uk",
+  "input": {
+    "question_prompt": "cv",
+    "raw_answer_text": "Worked at Siemens as a backend engineer 2011-2015, then moved to a startup as a team lead 2015-2020."
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [
+    { "evidence_type": "worked_as_backend_engineer", "normalized_text": "Worked at Siemens as a backend engineer, 2011-2015" },
+    { "evidence_type": "worked_as_team_lead", "normalized_text": "Worked as a team lead at a startup, 2015-2020" }
+  ],
+  "acceptable_outputs": [
+    "extracts each role/employer/period as its own neutral factual observation",
+    "keeps company names and dates exactly as stated, without embellishment"
+  ],
+  "unacceptable_outputs": [
+    "turns 'team lead' directly into a personality/leadership claim (e.g. 'natural born leader') at the evidence stage -- that inference belongs to claim synthesis, not evidence extraction",
+    "invents a job title, employer, or date range not present in the text",
+    "merges the two distinct roles into one vague observation, losing the employer/date detail"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Tests Stage 2 brief section 15's explicit-fact-vs-inferred-claim distinction: CV facts about employment must land as direct evidence, never pre-baked into a personality conclusion at extraction time.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "evidence-extraction-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

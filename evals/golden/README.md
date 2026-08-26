@@ -1,11 +1,12 @@
 # Golden Dataset
 
-Sprint 0, Part 5 (Issue #12). This is **structure only**: a versioned home
-for future AI regression/evaluation cases, a schema each case must satisfy,
-and ten synthetic example cases demonstrating the format for
-`screening` (`legacy-screening-v1`) — the only AI task ICAN 1.1 actually
-runs today. No eval runner exists yet; see "Future CI use" below for what
-that will look like once built.
+Sprint 0, Part 5 (Issue #12), extended in Stage 2 (Issue #2). Structure
+plus a growing set of synthetic example cases: ten for `screening`
+(`legacy-screening-v1`), four for `evidence_extraction`
+(`evidence-extraction-v1`), and five for `profile_synthesis`
+(`claim-synthesis-v1`) — see each target folder's own README for what its
+cases demonstrate. No eval runner exists yet; see "Future CI use" below
+for what that will look like once built.
 
 ## Purpose
 
@@ -65,12 +66,12 @@ evals/golden/
   README.md              this file
   schema.json             JSON Schema every case must satisfy
   v1/
-    screening_legacy_v1/  10 example cases for target=screening today
-    evidence_extraction/  reserved, empty until that AI System component exists
-    profile_synthesis/    reserved, empty
-    scenario_generation/  reserved, empty
-    roadmap_generation/   reserved, empty
-    opportunity_matching/ reserved, empty
+    screening_legacy_v1/  10 example cases for target=screening
+    evidence_extraction/  4 example cases (Stage 2)
+    profile_synthesis/    5 example cases (Stage 2)
+    scenario_generation/  reserved, empty until that AI System component exists (Stage 3)
+    roadmap_generation/   reserved, empty (Stage 3+)
+    opportunity_matching/ reserved, empty (not in V1)
 ```
 
 One case = one JSON file, validated against `schema.json`. File name should
@@ -174,3 +175,30 @@ structure for:
 All ten: `provenance.type: synthetic`, `dataset_version: v1`,
 `prompt_version: legacy-screening-v1`, `methodology_version:
 pre-taxonomy-legacy`, `status: draft`.
+
+## `evidence_extraction` / `evidence-extraction-v1` case coverage (Stage 2)
+
+| # | case_id | Demonstrates |
+|---|---|---|
+| 1 | `case_001_straightforward_coherent_evidence` | Clean single-signal extraction |
+| 2 | `case_002_cv_heavy_profile_direct_facts_not_traits` | CV facts stay direct evidence, never pre-baked into a trait |
+| 3 | `case_003_open_answer_heavy_multiple_distinct_signals` | One answer -> multiple separable evidence items (brief §17's worked example) |
+| 4 | `case_004_sparse_evidence_low_information_user` | No signal -> zero evidence, never fabricated |
+
+All four: `provenance.type: synthetic`, `dataset_version: v1`,
+`prompt_version: evidence-extraction-v1`, `methodology_version:
+potential_dimensions:v1`, `status: draft`.
+
+## `profile_synthesis` / `claim-synthesis-v1` case coverage (Stage 2)
+
+| # | case_id | Demonstrates |
+|---|---|---|
+| 5 | `case_005_contradictory_answers_retained_not_averaged` | Contradiction flagged, confidence lowered, never silently averaged |
+| 6 | `case_006_hard_constraint_never_softened` | A hard constraint's claim preserves its hardness |
+| 7 | `case_007_no_hallucinated_salary_or_market_data` | No invented salary/market facts anywhere in a claim |
+| 8 | `case_008_no_diagnosis_or_clinical_language` | No clinical/diagnostic labels in claim text |
+| 9 | `case_009_no_unsupported_personality_claim_from_weak_evidence` | A single weak evidence item cannot reach `supported` status |
+
+All five: `provenance.type: synthetic`, `dataset_version: v1`,
+`prompt_version: claim-synthesis-v1`, `methodology_version:
+potential_dimensions:v1`, `status: draft`.
