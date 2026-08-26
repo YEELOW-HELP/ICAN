@@ -31,5 +31,19 @@ class Settings(BaseSettings):
     file_storage_dir: str = "./data/client_files"
     max_upload_size_mb: int = 15
 
+    # Stage 1 (МОЖУ: Мій Напрям V1) -- whole-bot-mode switch. "legacy" keeps
+    # today's ICAN 1.1 Telegram screening exactly as-is (default, so nothing
+    # changes unless explicitly switched); "v1" registers the new Hybrid
+    # assessment handlers instead. Never both at once in one process, to
+    # avoid ambiguous double /start routing (docs/product/15_..._ROADMAP.md
+    # Stage 1: "Introduce the new V1 flow behind a feature flag").
+    bot_flow: str = "legacy"
+    default_locale: str = "uk"
+
+    # Safety valve mirroring legacy max_screening_turns -- caps total
+    # adaptive questions per Stage 1 assessment session even under repeated
+    # contradictions, so the interview can never run forever.
+    max_assessment_questions: int = 20
+
 
 settings = Settings()
