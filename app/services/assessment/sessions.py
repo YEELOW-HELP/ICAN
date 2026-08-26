@@ -348,6 +348,38 @@ async def find_answer_by_idempotency_key(session: AsyncSession, session_id: uuid
     return result.scalar_one_or_none()
 
 
+async def recover_stale_pending_answers(session: AsyncSession, session_id: uuid.UUID) -> int:
+    """Stage 2 hardening (Founder review item 25): a process crash between
+    submit_answer's reservation insert and either its success-update or
+    its failure-cleanup can theoretically leave a permanently pending
+    Answer row (extracted_value IS NULL) if the crash happens in that
+    narrow window. Such a row is never lost data -- the candidate's raw
+    text survives independently in InterviewMessage -- so it is always
+    safe to discard once it is older than
+    settings.pending_answer_stale_after_seconds; a genuine in-flight
+    reservation is never anywhere near that old (see
+    _PENDING_ANSWER_POLL_MAX_ATTEMPTS x _PENDING_ANSWER_POLL_INTERVAL_SECONDS
+    for how briefly a real concurrent submission actually waits).
+
+    Callers (Stage 2's profile generation, in particular) MUST call this
+    before reading a session's Answer rows as evidence -- a stale pending
+    row must never be silently treated as "no answer" forever, nor ever
+    be treated as a real answer. Returns the number of rows removed."""
+    cutoff = datetime.now(timezone.utc).timestamp() - settings.pending_answer_stale_after_seconds
+    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
+    result = await session.execute(
+        select(Answer).where(
+            Answer.session_id == session_id, Answer.extracted_value.is_(None), Answer.created_at < cutoff_dt
+        )
+    )
+    stale = result.scalars().all()
+    for row in stale:
+        await session.delete(row)
+    if stale:
+        await session.commit()
+    return len(stale)
+
+
 async def _latest_answer_for_question(session: AsyncSession, session_id: uuid.UUID, question_id: str) -> Answer | None:
     """Excludes still-pending reservations (extracted_value IS NULL) --
     a concurrent in-flight submission to the same question must not be
