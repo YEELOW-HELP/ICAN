@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Uuid, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -100,5 +100,12 @@ class Consent(Base):
     purpose: Mapped[str] = mapped_column(String(64))  # e.g. "assessment_v1"
     policy_version: Mapped[str] = mapped_column(String(32))
     source: Mapped[str] = mapped_column(String(32))  # e.g. "telegram_bot" | "web" | "admin_import"
-    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Python-side default (microsecond precision) rather than relying only
+    # on server_default=func.now() -- "most recent consent" is decided by
+    # ordering on this column (app/services/consent.py), and Postgres/
+    # SQLite's CURRENT_TIMESTAMP is second-granularity, which is not
+    # precise enough to break ties between two grants in the same second.
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
