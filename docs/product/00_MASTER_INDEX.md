@@ -25,6 +25,23 @@ Build one excellent closed loop first. Do not implement the full vision in paral
 11. `docs/engineering/10_CURRENT_TO_TARGET_MIGRATION_MAP.md` — every current ICAN 1.1 table mapped to its target ERD counterpart.
 12. `docs/engineering/11_TECHNICAL_DEBT_REGISTER.md` — tracked debt/risk inventory (severity, blast radius, owner).
 13. `docs/engineering/12_SPRINT_0_EXIT_REPORT.md` — Sprint 0 completion status and GO/NO-GO recommendation for Issue #1.
+14. `docs/engineering/13_FOUNDER_ARCHITECTURE_REVIEW.md` — target-architecture hardening (AuthIdentity, Consent, versioned taxonomy, ClientAssignment, InterviewMessage, AuditLog, AiTrace) ahead of Issue #1.
+15. **`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` — source of truth for the first commercial product, «МОЖУ: Мій Напрям» V1.**
+16. **`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md` — V1's staged implementation sequence and the Issue #1–#10 scope reconciliation.**
+
+## Platform architecture vs. V1 implementation scope
+
+Everything in `docs/architecture/*` and the rest of this index describes
+the **platform target architecture** — the full, global, multi-channel
+Human Development OS. It remains the destination and is not reduced by the
+V1 pivot below.
+
+**`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` is the current
+commercial scope** — a deliberately narrow, intentionally-shippable first
+product built as a subset of this same architecture. If a capability is in
+`docs/architecture/*` but not listed in doc 14's scope, **do not build it
+yet** — see doc 14 §23 ("Explicitly NOT in V1") and
+`docs/product/06_R0_R1_BACKLOG.md`'s V1 scope notes.
 
 ## Sprint 0 baseline (as of exit — see `docs/engineering/12_SPRINT_0_EXIT_REPORT.md` for full detail)
 
@@ -46,7 +63,18 @@ Build one excellent closed loop first. Do not implement the full vision in paral
 
 ## Current team focus
 
-### P0
+**As of the Founder Product Reconciliation, "current team focus" means
+building `docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`, staged per
+`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`.** The P0 list
+below is the platform's long-term priority list; it is not a build order,
+and several of its items are explicitly narrowed for V1 (see doc 14 §26 and
+doc 15's reconciliation) — "Scenario Engine" ships as Direction
+Intelligence (TOP 3 + Alternative 3, not necessarily Safe/Growth/Bold),
+"90-day Roadmap" ships as the high-level Route Builder only, "Guide Client
+360" ships as the Consultant Review Workspace only, "Career seed graph"
+ships as a curated Knowledge Base, not a full graph.
+
+### P0 (platform, long-term)
 - Identity + consent
 - Adaptive assessment engine
 - Structured Human Potential Profile

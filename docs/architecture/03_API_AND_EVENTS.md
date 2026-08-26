@@ -1,5 +1,13 @@
 # API & Event Contracts v3.1
 
+> Platform target contracts. «МОЖУ: Мій Напрям» V1
+> (`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`) implements the
+> Identity, Discovery, and Profile/Evidence sections below, a Direction
+> Intelligence endpoint set replacing "Careers / Scenarios" 1:1 in shape
+> (TOP 3 + Alternative 3 instead of an arbitrary scenario list), and a new
+> Product Access/payment surface not yet listed here. Roadmap, Opportunities,
+> Guide OS, and Billing/Referral sections below are not implemented in V1.
+
 ## Principles
 
 - OpenAPI 3.1 is the source of truth for HTTP endpoints.

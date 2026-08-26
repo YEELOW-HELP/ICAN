@@ -1,5 +1,13 @@
 # System Architecture v3.1
 
+> This document describes the **platform target architecture** — the full
+> destination, not the current build. The currently authorized commercial
+> scope is «МОЖУ: Мій Напрям» V1
+> (`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`), a deliberately
+> narrow subset of everything below. Nothing here is deleted or reduced by
+> V1 — see that document's §23–§24 for what's in scope now vs. preserved
+> for later.
+
 ## 1. Architecture decision
 
 Use a **modular monolith first** with strict domain boundaries. Keep deployment simple until product-market fit. Extract services only when load, ownership or failure isolation justifies it.

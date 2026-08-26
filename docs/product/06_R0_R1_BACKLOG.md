@@ -1,5 +1,14 @@
 # R0/R1 Implementation Backlog
 
+> **V1 scope note (Founder Product Reconciliation):** this backlog is the
+> **platform's** long-term epic list — it is not the current build order.
+> The currently authorized build order is
+> `docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`, scoped by
+> `docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`. Several epics
+> below are narrowed for V1 — each narrowed epic has its own inline note;
+> **do not build the full version of a narrowed epic before its V1 slice
+> ships and is validated.**
+
 ## Priority convention
 
 - **P0** blocks the product loop.
@@ -24,6 +33,18 @@ Acceptance:
 - withdrawal is auditable.
 
 ## EPIC B — Assessment Engine
+
+**V1 scope note:** the architecture supports 4 assessment modes (Structured,
+Conversation, Hybrid, CV Assisted) as one system — that is an architecture
+requirement, not a claim that all four ship as production flows up front.
+**Commercial V1 release requires only Hybrid (default paid flow) with CV
+as an evidence-source capability inside it** — built first (Stage 1 of
+`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`). Structured
+ships later, at the Commerce/Funnel/Launch stage, as the free lead magnet.
+Conversation is not a Commercial V1 release blocker. See
+`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` §7–§9 for the full
+per-mode table. The acceptance criteria below are unchanged and still
+apply to whichever modes actually ship.
 
 ### B1 — Assessment state machine
 States: `draft → active → paused → complete → processing → ready → failed`.
@@ -68,6 +89,14 @@ Acceptance:
 
 ## EPIC E — Career Seed Graph
 
+**V1 scope note:** rescoped to a curated, versioned **Knowledge Base**
+sufficient for Direction Intelligence (`14_...md` §12), not a full world
+career graph and not automated ingestion — see roadmap Stage 3 (appendix
+sub-stage 6). The 50–100
+seed-careers target below is a platform-scale figure; V1's actual seed size
+is whatever Direction Intelligence needs to produce grounded, non-fabricated
+directions, likely smaller at first.
+
 ### E1 — Career entity and source provenance
 Acceptance:
 - seed 50–100 careers for first target cohorts;
@@ -83,6 +112,17 @@ Acceptance:
 - top candidates include factor breakdown.
 
 ## EPIC F — Scenario Engine
+
+**V1 scope note — REDEFINED, not narrowed:** the Founder Product
+Reconciliation redefines this epic as **Direction Intelligence** —
+TOP 3 main + 3 alternative directions (6 total). **Safe/Growth/Bold is not
+a required V1 product model.** No ERD change is implied
+(`SCENARIO.scenario_type` was already a free string). See
+`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` §11 and
+`15_..._ROADMAP.md`'s Stage 3 (appendix sub-stage 5) and its Issue #3
+reconciliation entry for full rationale. F1's acceptance criteria below still apply with
+"Safe/Growth/Bold" read as "however Direction Intelligence's methodology
+labels its 3 main + 3 alternative directions."
 
 ### F1 — Three scenarios
 Acceptance:
@@ -105,6 +145,13 @@ Acceptance:
 
 ## EPIC H — Roadmap Engine
 
+**V1 scope note:** **not built in V1.** V1 ships only the high-level Route
+Builder (`14_...md` §13, roadmap Stage 3 / appendix sub-stage 8: CURRENT
+STATE → GAPS → NEXT STEPS → TARGET DIRECTION) — no milestones, task execution states, effort
+estimation, or replanning. Do not start H1/H2/H3 below until the platform
+explicitly moves past V1 — see `15_..._ROADMAP.md`'s Issue #5
+reconciliation.
+
 ### H1 — 90-day roadmap
 Acceptance:
 - three phases / milestones;
@@ -124,6 +171,15 @@ Acceptance:
 - old version remains viewable/auditable.
 
 ## EPIC I — Guide Client 360
+
+**V1 scope note:** **not built in V1.** V1 needs only the Consultant Review
+Workspace required for the mandatory Human Review gate
+(`14_...md` §14–§15, roadmap Stage 3 / appendix sub-stage 10) — client basic info, assessment,
+transcript, CV, structured answers, evidence, profile, proposed directions,
+routes, and the approve/edit/regenerate/reject controls. Full Client 360
+(session booking, long-term relationship tooling, timeline beyond what
+review needs) is deferred — see `15_..._ROADMAP.md`'s Issue #6
+reconciliation. I1–I3 below describe the full future Guide OS, not V1.
 
 ### I1 — Client list
 Acceptance:
@@ -173,6 +229,12 @@ Acceptance:
 
 ## EPIC L — Admin QA
 
+**V1 scope note:** extended, not narrowed — this epic is the engineering
+home for V1's **non-negotiable mandatory Human Review gate**
+(`14_...md` §14, roadmap Stage 3 / appendix sub-stage 10): every paid report requires an
+`approved` state, enforced server-side, before it can reach a user. See
+`15_..._ROADMAP.md`'s Issue #9 reconciliation.
+
 Acceptance:
 - list failed/flagged generations;
 - inspect transcript/evidence/output/version;
@@ -180,10 +242,18 @@ Acceptance:
 - classify error;
 - every admin action audited.
 
-## R0 sprint cut
+## R0 sprint cut / R1 sprint cut — superseded for current work
+
+These two sections describe the platform's original, pre-V1 sequencing and
+are kept for historical reference. **Current sequencing is
+`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`'s staged plan**,
+which covers similar ground (assessment → evidence → direction →
+review/QA) but adds Product Access/payment, the mandatory human review
+gate, and explicitly excludes H1/H2/H3 and I1–I3's full scope from V1
+entirely rather than deferring them to "R1."
+
+Original text, unchanged:
 
 Build first: **B1, B2, C1, C2, D1, F1, L basic** using existing Telegram/FastAPI foundation. Career data can initially be a curated seed fixture.
-
-## R1 sprint cut
 
 Add: **A cleanup, E1/E2, F2, G, H1/H2/H3, I1/I2, J1/J2, K**.

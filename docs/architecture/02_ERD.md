@@ -1,6 +1,20 @@
 # Canonical ERD v3.1
 
 > Hardened by the Founder Architecture Review (`docs/engineering/13_FOUNDER_ARCHITECTURE_REVIEW.md`) after Sprint 0. Entities added or changed there are marked inline. Nothing in this document has been implemented as a schema/migration yet.
+>
+> This is the **platform target ERD**. «МОЖУ: Мій Напрям» V1
+> (`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`) implements only a
+> subset of these entities (`USER`/`AUTH_IDENTITY`, `CONSENT`,
+> `INTERVIEW_SESSION`/`ANSWER`/`INTERVIEW_MESSAGE`, `EVIDENCE`/
+> `POTENTIAL_PROFILE`/`PROFILE_CLAIM`/`GOAL`/`CONSTRAINT`/`EXPERIENCE`,
+> `SCENARIO`/`DIRECTION_DECISION` used as Direction Intelligence rather
+> than Safe/Growth/Bold, `AUDIT_LOG`, `AI_TRACE`) plus a **new, not-yet-
+> specified** Product Access/Entitlement layer (organization, package,
+> promo code, redemption — V1 doc §27.3) that doesn't exist below yet.
+> `OPPORTUNITY*`, full `ROADMAP`/`MILESTONE`/`ROADMAP_TASK`,
+> `GUIDE_PROFILE`/`CLIENT_RELATIONSHIP`/`GUIDE_SESSION`/`GUIDE_NOTE`, and
+> `TENANT`/`MEMBERSHIP`/`CLIENT_ASSIGNMENT` remain valid future entities,
+> not needed for V1.
 
 ```mermaid
 erDiagram
