@@ -60,19 +60,29 @@ def _run_alembic(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-def test_alembic_upgrade_head_applies_cleanly_to_postgres():
+@pytest.fixture(scope="module")
+def upgraded_to_head() -> subprocess.CompletedProcess:
+    """Applies the migration chain to the clean database exactly once for
+    this module, as an explicit prerequisite every test below declares by
+    depending on this fixture -- not an implicit assumption about which
+    test function pytest happens to run first."""
     result = _run_alembic("upgrade", "head")
     assert result.returncode == 0, (
         f"alembic upgrade head failed against real Postgres:\n"
         f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
+    return result
 
 
-def test_alembic_current_reports_head_after_upgrade():
-    """Runs after the upgrade above (pytest executes a module's tests in
-    file order by default, no randomization plugin is configured) --
-    confirms the applied revision is actually the chain's head, not just
-    that some upgrade step somewhere didn't error."""
+def test_alembic_upgrade_head_applies_cleanly_to_postgres(upgraded_to_head):
+    # The fixture's own assertion is what actually proves this; a failure
+    # there is reported as a setup error against every test that depends on
+    # it, which is still a loud, unambiguous signal. This test exists so
+    # "upgrade succeeds" is also its own named, reportable result.
+    assert upgraded_to_head.returncode == 0
+
+
+def test_alembic_current_reports_head_after_upgrade(upgraded_to_head):
     result = _run_alembic("current")
     assert result.returncode == 0, (
         f"alembic current failed:\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
