@@ -1,5 +1,13 @@
 # AI System v3.1
 
+> V1 note: component 5 ("Scenario Ranker") is «МОЖУ: Мій Напрям» V1's **Direction
+> Intelligence** (`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`
+> §11) — same pipeline, output redefined as TOP 3 + Alternative 3 rather
+> than Safe/Growth/Bold. Components 7 ("Roadmap Planner"), 8 ("Opportunity
+> Matcher"), 9 ("Mentor"), and 10 ("Guide Copilot") are not built in V1;
+> V1's Route Builder is a much smaller, non-AI-first module (see doc 14
+> §13). Components 1–4, 6, and 11 are V1-relevant as described below.
+
 ## Goal
 
 AI must improve personalization without becoming an unauditable source of invented facts. The platform uses deterministic services, retrieval and versioned LLM calls together.

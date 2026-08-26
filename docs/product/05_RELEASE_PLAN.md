@@ -4,6 +4,19 @@
 
 A release date is not a reason to advance. Advance only after the exit gate is met.
 
+## Relationship to «МОЖУ: Мій Напрям» V1
+
+The Founder Product Reconciliation fixed **«МОЖУ: Мій Напрям» V1**
+(`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`) as the concrete
+commercial product being built across R0/R1. It is a real, narrower,
+paid-from-day-one product, not merely a "prototype" in the sense R0 implies
+below — but it is built on exactly this R0/R1 foundation and does not
+change the platform's longer-term R2→R5 destination. Where R0's scope below
+says "three scenarios," read it as V1's "TOP 3 + Alternative 3 directions"
+(doc 14 §11) — the engineering is the same, the product framing evolved.
+See `docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md` for the
+actual build sequence and stage-by-stage exit criteria V1 uses in practice.
+
 ## R0 — Prototype
 
 **Goal:** prove the core insight loop.
