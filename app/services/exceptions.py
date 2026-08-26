@@ -54,6 +54,14 @@ class CVFileTooLargeError(DomainError):
     code = "cv_file_too_large"
 
 
+class ConsentOwnershipError(DomainError):
+    """Raised when withdraw_consent is called without an actor authorized
+    to withdraw the target consent -- neither the owning user nor a
+    sufficiently privileged admin."""
+
+    code = "consent_ownership_error"
+
+
 class UnfinishedAssessmentExistsError(DomainError):
     """A user may have at most one unfinished (draft/active/paused)
     InterviewSession at a time (Founder decision, Issue #1 readiness

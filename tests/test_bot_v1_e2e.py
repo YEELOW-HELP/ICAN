@@ -50,7 +50,7 @@ async def test_full_happy_path_start_to_completion_via_promo(session_factory):
         await session.commit()
         await session.refresh(admin)
         allocation = await create_package_allocation(session, plan_code="BASIC", total_quantity=5, created_by_admin=admin)
-        promo = await issue_promo_code(session, allocation_id=allocation.id)
+        promo = await issue_promo_code(session, allocation_id=allocation.id, issued_by_admin=admin)
 
     extractor = ScriptedExtractor()
     harness = BotHarness(session_factory, lambda: extractor, register_fn=register_handlers_v1)
@@ -90,7 +90,7 @@ async def test_explicit_pause_and_resume_continues_where_it_left_off(session_fac
         await session.commit()
         await session.refresh(admin)
         allocation = await create_package_allocation(session, plan_code="BASIC", total_quantity=5, created_by_admin=admin)
-        promo = await issue_promo_code(session, allocation_id=allocation.id)
+        promo = await issue_promo_code(session, allocation_id=allocation.id, issued_by_admin=admin)
 
     extractor = ScriptedExtractor()
     harness = BotHarness(session_factory, lambda: extractor, register_fn=register_handlers_v1)
@@ -131,7 +131,7 @@ async def test_resume_across_simulated_process_restart(session_factory):
         await session.commit()
         await session.refresh(admin)
         allocation = await create_package_allocation(session, plan_code="BASIC", total_quantity=5, created_by_admin=admin)
-        promo = await issue_promo_code(session, allocation_id=allocation.id)
+        promo = await issue_promo_code(session, allocation_id=allocation.id, issued_by_admin=admin)
 
     extractor = ScriptedExtractor()
     telegram_id = 5003
@@ -177,7 +177,7 @@ async def test_cv_upload_prefills_a_dimension_and_it_is_not_asked_again(session_
         await session.commit()
         await session.refresh(admin)
         allocation = await create_package_allocation(session, plan_code="BASIC", total_quantity=5, created_by_admin=admin)
-        promo = await issue_promo_code(session, allocation_id=allocation.id)
+        promo = await issue_promo_code(session, allocation_id=allocation.id, issued_by_admin=admin)
 
     class CVAwareExtractor:
         """Only the CV-derived facts come back confident -- everything else

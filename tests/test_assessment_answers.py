@@ -182,7 +182,7 @@ async def test_completed_session_rejects_new_answers(session_factory):
 
         await complete_assessment(session, session_id=interview_session.id, user_id=user.id)
         await session.refresh(interview_session)
-        assert interview_session.status.value == "ready"
+        assert interview_session.status.value == "complete"  # Stage 1 stops here -- Stage 2 owns processing/ready
 
         with pytest.raises(InvalidStateTransitionError):
             await submit_answer(

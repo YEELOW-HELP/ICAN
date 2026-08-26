@@ -6,6 +6,7 @@ updates, or chat ids.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -28,20 +29,46 @@ from app.services.exceptions import (
     ProductAccessRequiredError,
     UnfinishedAssessmentExistsError,
 )
-from app.services.product_access import can_user_start_assessment
+from app.services.product_access import get_any_active_entitlement, get_entitlement_by_id
 
 _STATES_ACCEPTING_ANSWERS = {AssessmentStatus.DRAFT, AssessmentStatus.ACTIVE, AssessmentStatus.PAUSED}
 _UNFINISHED_STATES = (AssessmentStatus.DRAFT, AssessmentStatus.ACTIVE, AssessmentStatus.PAUSED)
+
+# Bounds how long a concurrent duplicate submission waits for the request
+# that won the idempotency reservation (see submit_answer) to finish
+# extraction -- not a business value, an internal engineering timeout.
+_PENDING_ANSWER_POLL_INTERVAL_SECONDS = 0.05
+_PENDING_ANSWER_POLL_MAX_ATTEMPTS = 40
 
 
 async def start_assessment(
     session: AsyncSession, *, user_id: uuid.UUID, plan_code: str, entitlement_id: uuid.UUID | None = None
 ) -> InterviewSession:
-    """Requires an active entitlement for `plan_code` -- callers must have
-    already checked `can_user_start_assessment` themselves if they want a
-    friendlier pre-check, but this is the authoritative, server-side gate."""
-    if not await can_user_start_assessment(session, user_id=user_id, plan_code=plan_code):
-        raise ProductAccessRequiredError(f"user {user_id} has no active entitlement for {plan_code}")
+    """Resolves and persists the *concrete* entitlement backing this
+    assessment -- `InterviewSession.entitlement_id` is never left NULL
+    when a real entitlement exists (Founder hardening review, item 2).
+
+    If the caller already knows which entitlement to use (`entitlement_id`
+    given), it is validated server-side rather than trusted: it must
+    belong to `user_id`, be unrevoked, and match `plan_code`. Otherwise
+    the most recently granted active entitlement for `plan_code` is
+    resolved here -- this function, not the caller, is the single source
+    of truth for "which entitlement did this assessment actually run
+    under.\""""
+    if entitlement_id is not None:
+        entitlement = await get_entitlement_by_id(session, entitlement_id)
+        if entitlement is None or entitlement.user_id != user_id:
+            raise ProductAccessRequiredError(f"entitlement {entitlement_id} does not belong to user {user_id}")
+        if entitlement.revoked_at is not None:
+            raise ProductAccessRequiredError(f"entitlement {entitlement_id} has been revoked")
+        if entitlement.plan_code != plan_code:
+            raise ProductAccessRequiredError(
+                f"entitlement {entitlement_id} is for plan {entitlement.plan_code}, not {plan_code}"
+            )
+    else:
+        entitlement = await get_any_active_entitlement(session, user_id=user_id, plan_code=plan_code)
+        if entitlement is None:
+            raise ProductAccessRequiredError(f"user {user_id} has no active entitlement for {plan_code}")
 
     if await get_unfinished_session_for_user(session, user_id) is not None:
         raise UnfinishedAssessmentExistsError(
@@ -49,7 +76,7 @@ async def start_assessment(
         )
 
     interview_session = InterviewSession(
-        user_id=user_id, entitlement_id=entitlement_id, status=AssessmentStatus.DRAFT, mode="hybrid"
+        user_id=user_id, entitlement_id=entitlement.id, status=AssessmentStatus.DRAFT, mode="hybrid"
     )
     session.add(interview_session)
     try:
@@ -107,15 +134,26 @@ async def submit_answer(
     """Idempotent regardless of channel: a repeated call with the same
     `idempotency_key` for the same session always returns the same Answer
     row and never re-runs extraction (no duplicate AI call, no duplicate
-    event) -- see UNIQUE(session_id, idempotency_key) on the Answer table.
-    A PAUSED session is automatically resumed to ACTIVE by a valid new
-    answer (Founder decision, Stage 1); a DRAFT session transitions to
-    ACTIVE on its first answer."""
+    event). A PAUSED session is automatically resumed to ACTIVE by a
+    valid new answer (Founder decision, Stage 1); a DRAFT session
+    transitions to ACTIVE on its first answer.
+
+    Concurrency (Founder hardening review, item 1): two concurrent calls
+    with the same idempotency_key must result in exactly one AI Gateway
+    call, not one-per-caller-that-loses-later. This is enforced by
+    inserting a *reservation* -- an Answer row with extracted_value=None --
+    under UNIQUE(session_id, idempotency_key) BEFORE calling the AI
+    Gateway, not by catching the unique-constraint conflict after the
+    call already happened. The loser of that insert never reaches the AI
+    Gateway at all; it waits for the winner's row to resolve and returns
+    that (see _await_pending_answer)."""
     interview_session = await get_owned_session(session, session_id=session_id, user_id=user_id)
 
     existing = await find_answer_by_idempotency_key(session, session_id, idempotency_key)
     if existing is not None:
-        return existing
+        if existing.extracted_value is not None:
+            return existing
+        return await _await_pending_answer(session, session_id, idempotency_key)
 
     if interview_session.status not in _STATES_ACCEPTING_ANSWERS:
         raise InvalidStateTransitionError(
@@ -133,53 +171,96 @@ async def submit_answer(
     await record_message(session, session_id=session_id, role="user", content=raw_text)
 
     question = QUESTIONS_BY_ID.get(question_id)
+    # Resolved *before* the reservation below is inserted -- otherwise the
+    # reservation (extracted_value=None) could be picked up as its own
+    # "previous answer" and corrupt contradiction detection.
     previous = await _latest_answer_for_question(session, session_id, question_id)
     previous_value = previous.extracted_value if previous is not None else None
+
+    reservation = Answer(
+        session_id=session_id,
+        question_id=question_id,
+        answer_text=raw_text,
+        extracted_value=None,
+        confidence=None,
+        contradicts_previous=False,
+        source=source,
+        idempotency_key=idempotency_key,
+    )
+    session.add(reservation)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Lost the reservation race to a concurrent duplicate submission
+        # carrying the same idempotency key -- crucially, *before* any AI
+        # Gateway call was made on this path. Wait for the winner instead.
+        await session.rollback()
+        return await _await_pending_answer(session, session_id, idempotency_key)
+    await session.refresh(reservation)
 
     if question is not None and question.kind == "structured":
         extracted_value = raw_text
         confidence = 1.0
         contradicts_previous = previous_value is not None and previous_value != raw_text
     else:
-        # Deliberately not wrapped in try/except: a provider failure must
-        # propagate to the caller (the Telegram adapter shows a graceful
-        # error) rather than being swallowed here. The session is already
-        # ACTIVE (transitioned above) and stays ACTIVE either way -- no
-        # automatic fail_session() call exists on this path, by design.
-        result = await (extractor or AnswerExtractor()).extract(
-            question_prompt=question_id if question is None else question.question_id,
-            raw_answer_text=raw_text,
-            previous_value=previous_value,
-        )
+        try:
+            # Deliberately not wrapped to swallow the error: a provider
+            # failure must propagate to the caller (the Telegram adapter
+            # shows a graceful error) rather than being hidden here. The
+            # session is already ACTIVE (transitioned above) and stays
+            # ACTIVE either way -- no automatic fail_session() call exists
+            # on this path, by design. The reservation itself IS deleted
+            # on failure so a genuine retry (new attempt, possibly the
+            # same idempotency_key) is not permanently blocked by a
+            # half-written row with no value.
+            result = await (extractor or AnswerExtractor()).extract(
+                question_prompt=question_id if question is None else question.question_id,
+                raw_answer_text=raw_text,
+                previous_value=previous_value,
+            )
+        except Exception:
+            await session.delete(reservation)
+            await session.commit()
+            raise
         extracted_value = result.extracted_value
         confidence = result.confidence
         contradicts_previous = result.contradicts_previous
 
-    answer = Answer(
-        session_id=session_id,
-        question_id=question_id,
-        answer_text=raw_text,
-        extracted_value=extracted_value,
-        confidence=confidence,
-        contradicts_previous=contradicts_previous,
-        source=source,
-        idempotency_key=idempotency_key,
-    )
-    session.add(answer)
-    try:
-        await session.commit()
-    except IntegrityError:
-        # Lost a race with a concurrent duplicate submission carrying the
-        # same idempotency key -- the other request's row won, use it.
-        await session.rollback()
-        existing = await find_answer_by_idempotency_key(session, session_id, idempotency_key)
-        assert existing is not None
-        return existing
+    reservation.extracted_value = extracted_value
+    reservation.confidence = confidence
+    reservation.contradicts_previous = contradicts_previous
+    await session.commit()
+    await session.refresh(reservation)
 
-    await session.refresh(answer)
-    await mark_question_answered(session, session_id=session_id, question_id=question_id, answer_id=answer.id)
+    await mark_question_answered(session, session_id=session_id, question_id=question_id, answer_id=reservation.id)
     emit_event("answer_submitted", user_id=str(user_id), session_id=str(session_id), question_id=question_id)
-    return answer
+    return reservation
+
+
+async def _await_pending_answer(session: AsyncSession, session_id: uuid.UUID, idempotency_key: str) -> Answer:
+    """Waits for a concurrent submit_answer call that won the idempotency
+    reservation to finish extraction, without ever calling the AI Gateway
+    itself. Bounded: if the winner never resolves it (e.g. it crashed
+    between reserving and either finishing or cleaning up -- an
+    out-of-process failure this deterministic single-process design
+    cannot observe), the still-pending row is returned rather than
+    hanging forever; a subsequent genuine retry with the same
+    idempotency_key from the caller is expected to make progress."""
+    for _ in range(_PENDING_ANSWER_POLL_MAX_ATTEMPTS):
+        existing = await find_answer_by_idempotency_key(session, session_id, idempotency_key)
+        if existing is not None and existing.extracted_value is not None:
+            return existing
+        await _poll_delay()
+    existing = await find_answer_by_idempotency_key(session, session_id, idempotency_key)
+    assert existing is not None, "reservation row disappeared without resolving"
+    return existing
+
+
+async def _poll_delay() -> None:
+    """Isolated seam for _await_pending_answer's wait -- tests patch this
+    instead of the global asyncio.sleep, so a deterministic race
+    simulation never risks affecting unrelated concurrent timers."""
+    await asyncio.sleep(_PENDING_ANSWER_POLL_INTERVAL_SECONDS)
 
 
 async def record_message(session: AsyncSession, *, session_id: uuid.UUID, role: str, content: str) -> InterviewMessage:
@@ -235,11 +316,15 @@ async def fail_session(session: AsyncSession, *, session_id: uuid.UUID, reason: 
 
 async def complete_assessment(session: AsyncSession, *, session_id: uuid.UUID, user_id: uuid.UUID) -> InterviewSession:
     """Completion is blocked until the deterministic minimum-data rule
-    passes -- never decided by the LLM (Section 13). Stage 1's
-    complete -> processing -> ready transition is a synchronous,
-    zero-AI-call pass-through: there is no profile to synthesize yet
-    (that's Stage 2), so "processing" here only means "finalize the
-    completeness snapshot," not a real job."""
+    passes -- never decided by the LLM (Section 13).
+
+    Stage 1 owns data collection only and stops at COMPLETE (Founder
+    hardening review, item 5). COMPLETE -> PROCESSING -> READY belongs to
+    Stage 2, which will actually synthesize the Human Potential
+    Profile/Evidence Graph before advancing past COMPLETE -- Stage 1 must
+    not synchronously fast-forward through states whose real work doesn't
+    exist yet, since that would misrepresent "ready" as meaning something
+    it doesn't."""
     interview_session = await get_owned_session(session, session_id=session_id, user_id=user_id)
 
     statuses = await compute_completeness(session, session_id)
@@ -250,15 +335,6 @@ async def complete_assessment(session: AsyncSession, *, session_id: uuid.UUID, u
 
     interview_session.completeness = completeness_summary(statuses)
     state_machine.transition(interview_session, AssessmentStatus.COMPLETE)
-    await session.commit()
-
-    # Stage 1 placeholder: no real processing job exists yet (Stage 2 owns
-    # Human Potential Profile synthesis). Transition through PROCESSING to
-    # READY synchronously so the state machine's shape already matches the
-    # target architecture from day one.
-    state_machine.transition(interview_session, AssessmentStatus.PROCESSING)
-    await session.commit()
-    state_machine.transition(interview_session, AssessmentStatus.READY)
     await session.commit()
 
     emit_event("assessment_completed", user_id=str(user_id), session_id=str(session_id))
@@ -273,9 +349,16 @@ async def find_answer_by_idempotency_key(session: AsyncSession, session_id: uuid
 
 
 async def _latest_answer_for_question(session: AsyncSession, session_id: uuid.UUID, question_id: str) -> Answer | None:
+    """Excludes still-pending reservations (extracted_value IS NULL) --
+    a concurrent in-flight submission to the same question must not be
+    mistaken for the "previous value" used in contradiction detection."""
     result = await session.execute(
         select(Answer)
-        .where(Answer.session_id == session_id, Answer.question_id == question_id)
+        .where(
+            Answer.session_id == session_id,
+            Answer.question_id == question_id,
+            Answer.extracted_value.isnot(None),
+        )
         .order_by(Answer.created_at.desc())
         .limit(1)
     )

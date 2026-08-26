@@ -58,6 +58,12 @@ async def get_any_active_entitlement(
     return result.scalar_one_or_none()
 
 
+async def get_entitlement_by_id(session: AsyncSession, entitlement_id: uuid.UUID) -> Entitlement | None:
+    """For callers (start_assessment) that were handed a specific
+    entitlement to validate, rather than resolving "any" active one."""
+    return await session.get(Entitlement, entitlement_id)
+
+
 async def grant_manual_access(
     session: AsyncSession,
     *,
@@ -125,12 +131,27 @@ async def create_package_allocation(
 
 
 async def issue_promo_code(
-    session: AsyncSession, *, allocation_id: uuid.UUID, max_redemptions: int = 1
+    session: AsyncSession, *, allocation_id: uuid.UUID, issued_by_admin: AdminUser, max_redemptions: int = 1
 ) -> PromoCode:
+    """Issuing a code is what actually creates redeemable access, not just
+    bookkeeping alongside an already-audited allocation -- so it gets its
+    own role check and its own AuditLog entry, same as
+    grant_manual_access/create_package_allocation. Founder hardening
+    review, item 3: this previously had no server-side role enforcement
+    at all."""
+    _require_grant_role(issued_by_admin)
     code = PromoCode(allocation_id=allocation_id, code=_generate_code(), max_redemptions=max_redemptions)
     session.add(code)
     await session.commit()
     await session.refresh(code)
+    await record_audit(
+        session,
+        entity_type="promo_code",
+        entity_id=str(code.id),
+        action="issue",
+        actor_admin_id=issued_by_admin.id,
+        after={"allocation_id": str(allocation_id), "max_redemptions": max_redemptions},
+    )
     return code
 
 
@@ -201,7 +222,10 @@ async def redeem_promo_code(session: AsyncSession, *, code: str, user_id: uuid.U
     session.add(entitlement)
     await session.commit()
     await session.refresh(entitlement)
-    emit_event("promo_redeemed", user_id=str(user_id), plan_code=allocation.plan_code, promo_code=code)
+    emit_event(
+        "promo_redeemed", user_id=str(user_id), plan_code=allocation.plan_code,
+        promo_code_id=str(promo.id), allocation_id=str(allocation.id),
+    )
     emit_event("product_access_granted", user_id=str(user_id), plan_code=allocation.plan_code, source="promo")
     return entitlement
 

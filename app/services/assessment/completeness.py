@@ -41,7 +41,14 @@ async def compute_completeness(session: AsyncSession, session_id: uuid.UUID) -> 
     statuses: dict[str, DimensionStatus] = {}
     for question in QUESTION_BANK:
         answer = latest.get(question.question_id)
-        if answer is None:
+        if answer is None or answer.extracted_value is None:
+            # `extracted_value is None` means this is a still-pending
+            # idempotency reservation (app/services/assessment/sessions.py
+            # inserts the row before calling the AI Gateway, then fills it
+            # in) -- treated as not-yet-answered, never as "resolved",
+            # otherwise a concurrent in-flight submission could briefly
+            # make a required dimension look satisfied before it actually
+            # has a value.
             statuses[question.question_id] = DimensionStatus(question.question_id, "missing", None)
         elif answer.contradicts_previous:
             statuses[question.question_id] = DimensionStatus(question.question_id, "contradiction", answer.id)

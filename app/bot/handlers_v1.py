@@ -106,9 +106,11 @@ def register_handlers_v1(
             await state.set_state(V1Flow.awaiting_open_answer)
             await send(get_question_prompt(question.question_id))
 
-    async def _start_and_offer_cv(session, user: IdentityUser, plan_code: str, state: FSMContext, send: Send) -> None:
+    async def _start_and_offer_cv(session, user: IdentityUser, entitlement, state: FSMContext, send: Send) -> None:
         try:
-            interview_session = await start_assessment(session, user_id=user.id, plan_code=plan_code)
+            interview_session = await start_assessment(
+                session, user_id=user.id, plan_code=entitlement.plan_code, entitlement_id=entitlement.id
+            )
         except UnfinishedAssessmentExistsError:
             interview_session = await get_unfinished_session_for_user(session, user.id)
         await state.update_data(session_id=str(interview_session.id))
@@ -121,7 +123,7 @@ def register_handlers_v1(
             await state.set_state(V1Flow.awaiting_promo)
             await send(get_message("no_access"))
             return
-        await _start_and_offer_cv(session, user, entitlement.plan_code, state, send)
+        await _start_and_offer_cv(session, user, entitlement, state, send)
 
     # ---- Entry point ----
 
@@ -191,7 +193,7 @@ def register_handlers_v1(
                 await message.answer(get_message("promo_invalid"))
                 return
             await message.answer(get_message("promo_success"))
-            await _start_and_offer_cv(session, user, entitlement.plan_code, state, message.answer)
+            await _start_and_offer_cv(session, user, entitlement, state, message.answer)
 
     # ---- Optional CV ----
 
@@ -264,7 +266,7 @@ def register_handlers_v1(
                     source="telegram", extractor=_extractor(),
                 )
             except Exception:
-                logger.exception("submit_answer failed for telegram_id=%s session_id=%s", message.from_user.id, session_id)
+                logger.exception("submit_answer failed for user_id=%s session_id=%s", user.id, session_id)
                 await message.answer(get_message("turn_error"))
                 return
             await _advance(session, session_id=session_id, user_id=user.id, state=state, send=message.answer)
@@ -284,7 +286,7 @@ def register_handlers_v1(
                     raw_text=choice, idempotency_key=f"tg-cb-{callback.id}", source="telegram",
                 )
             except Exception:
-                logger.exception("submit_answer failed for telegram_id=%s session_id=%s", callback.from_user.id, session_id)
+                logger.exception("submit_answer failed for user_id=%s session_id=%s", user.id, session_id)
                 await callback.message.answer(get_message("turn_error"))
                 await callback.answer()
                 return
