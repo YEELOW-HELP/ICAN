@@ -215,31 +215,27 @@ out in full in `app/services/profile/generation.py`'s module docstring:
   the per-attempt, per-version lifecycle. Every attempt — first, retry,
   or regeneration — is its own permanent row.
 
-**If a generation attempt fails, `InterviewSession.status` is
-deliberately left at `PROCESSING`**, not moved to `FAILED` — mirroring
-Stage 1's own `submit_answer` precedent (a provider failure must not
-move the session to a dead-end state; it stays put for the next
-attempt). This is what makes retry actually possible: a session sitting
-at `PROCESSING` is exactly eligible to call `generate_potential_profile`
-again. Moving `InterviewSession` to `FAILED` here would make it
-permanently terminal per Stage 1's own hardened test
-(`test_failed_is_terminal_no_outgoing_transition_exists`) and would make
-retry impossible without weakening that guarantee — so Stage 2 does not
-do that automatically. `PROCESSING -> FAILED` remains a real, legal,
-untouched transition on `InterviewSession`, reserved for a deliberate
-administrative `fail_session()` call (Stage 1), never invoked
-automatically from a profile-generation exception.
+**Founder decision (Stage 2 review, approved):** a transient/ordinary
+profile-generation failure does **not** move `InterviewSession` to
+`FAILED`. It is deliberately left at `PROCESSING` — mirroring Stage 1's
+own `submit_answer` precedent (a provider failure must not move the
+session to a dead-end state; it stays put for the next attempt). This is
+what makes retry actually possible: a session sitting at `PROCESSING` is
+exactly eligible to call `generate_potential_profile` again. Each failed
+attempt is fully and correctly recorded as its own permanent
+`PotentialProfile(status=FAILED)` row — the failure is never lost or
+hidden, just not projected onto the assessment's own coarse status.
 
-This is a considered deviation from Stage 2 brief §11's literal wording
-("If profile generation fails: PROCESSING → FAILED") — flagged here
-explicitly for Founder review. The reasoning: applying that transition
-automatically on every AI/pipeline exception would make `InterviewSession`
-permanently terminal (per Stage 1's own hardened, tested invariant),
-making retry impossible without contradicting a Stage 1 regression test.
-Modeling per-attempt failure entirely on `PotentialProfile.status`
-instead (which *does* reach `FAILED` on every failed attempt, correctly)
-preserves both guarantees at once: Stage 1's terminal-`FAILED` invariant
-stays true, and retry genuinely works.
+`InterviewSession.status -> FAILED` is reserved **exclusively** for an
+explicit administrative give-up / fatal termination (Stage 1's
+`fail_session()`) — never invoked automatically from a profile-generation
+exception. This keeps Stage 1's hardened, tested invariant intact
+(`test_failed_is_terminal_no_outgoing_transition_exists`: `FAILED` has
+zero outgoing transitions on `InterviewSession`) while still making
+retry genuinely possible: the retry lifecycle lives entirely on
+`PotentialProfile.status`, which is designed to cycle through
+`GENERATING -> FAILED` on every unsuccessful attempt without that ever
+touching the assessment's own terminal states.
 
 Concurrency: only one profile-generation attempt may be `GENERATING` per
 user at a time (`ProfileGenerationInProgressError` otherwise) — this is
