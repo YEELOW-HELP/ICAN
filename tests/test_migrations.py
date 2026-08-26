@@ -10,10 +10,14 @@ What this deliberately does NOT verify: that `alembic upgrade head` succeeds
 against real Postgres. The migrations use Postgres-only DDL (e.g. `ALTER
 COLUMN ... TYPE ...`, JSONB/ARRAY columns), so they cannot be executed against
 the SQLite engine the rest of this suite uses — SQLite has no `ALTER COLUMN`
-support at all. Running them against real Postgres would require a live
-database (Neon prod is explicitly off-limits for tests, and no local/CI
-Postgres is available in this environment yet). This is a known, currently
-uncovered risk — see the Part 1 risk list.
+support at all.
+
+That gap is now covered separately by `tests/test_migrations_postgres.py`,
+run against a real, ephemeral Postgres service container by the
+`postgres-migrations` CI job (`.github/workflows/ci.yml`) — never Neon prod,
+never this file. It's a dedicated file/job rather than being folded in here
+so a migration-chain failure and a structural-graph failure are never
+ambiguous about which one broke.
 """
 
 from alembic.config import Config
