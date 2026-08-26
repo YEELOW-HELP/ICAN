@@ -34,11 +34,17 @@ Acceptance:
 
 ## EPIC B — Assessment Engine
 
-**V1 scope note:** V1 requires all 4 assessment modes (Structured,
-Conversation, Hybrid, CV Assisted) as one architecture, with **Hybrid as
-the default paid mode** and CV upload as an optional evidence source, not
-a separate mode — see `docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md`
-§7–§9. The acceptance criteria below are unchanged and still apply.
+**V1 scope note:** the architecture supports 4 assessment modes (Structured,
+Conversation, Hybrid, CV Assisted) as one system — that is an architecture
+requirement, not a claim that all four ship as production flows up front.
+**Commercial V1 release requires only Hybrid (default paid flow) with CV
+as an evidence-source capability inside it** — built first (Stage 1 of
+`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`). Structured
+ships later, at the Commerce/Funnel/Launch stage, as the free lead magnet.
+Conversation is not a Commercial V1 release blocker. See
+`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` §7–§9 for the full
+per-mode table. The acceptance criteria below are unchanged and still
+apply to whichever modes actually ship.
 
 ### B1 — Assessment state machine
 States: `draft → active → paused → complete → processing → ready → failed`.
@@ -85,7 +91,8 @@ Acceptance:
 
 **V1 scope note:** rescoped to a curated, versioned **Knowledge Base**
 sufficient for Direction Intelligence (`14_...md` §12), not a full world
-career graph and not automated ingestion — see roadmap Stage 6. The 50–100
+career graph and not automated ingestion — see roadmap Stage 3 (appendix
+sub-stage 6). The 50–100
 seed-careers target below is a platform-scale figure; V1's actual seed size
 is whatever Direction Intelligence needs to produce grounded, non-fabricated
 directions, likely smaller at first.
@@ -112,8 +119,8 @@ TOP 3 main + 3 alternative directions (6 total). **Safe/Growth/Bold is not
 a required V1 product model.** No ERD change is implied
 (`SCENARIO.scenario_type` was already a free string). See
 `docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` §11 and
-`15_..._ROADMAP.md`'s Stage 5 and its Issue #3 reconciliation entry for
-full rationale. F1's acceptance criteria below still apply with
+`15_..._ROADMAP.md`'s Stage 3 (appendix sub-stage 5) and its Issue #3
+reconciliation entry for full rationale. F1's acceptance criteria below still apply with
 "Safe/Growth/Bold" read as "however Direction Intelligence's methodology
 labels its 3 main + 3 alternative directions."
 
@@ -139,8 +146,8 @@ Acceptance:
 ## EPIC H — Roadmap Engine
 
 **V1 scope note:** **not built in V1.** V1 ships only the high-level Route
-Builder (`14_...md` §13, roadmap Stage 8: CURRENT STATE → GAPS → NEXT STEPS
-→ TARGET DIRECTION) — no milestones, task execution states, effort
+Builder (`14_...md` §13, roadmap Stage 3 / appendix sub-stage 8: CURRENT
+STATE → GAPS → NEXT STEPS → TARGET DIRECTION) — no milestones, task execution states, effort
 estimation, or replanning. Do not start H1/H2/H3 below until the platform
 explicitly moves past V1 — see `15_..._ROADMAP.md`'s Issue #5
 reconciliation.
@@ -167,7 +174,7 @@ Acceptance:
 
 **V1 scope note:** **not built in V1.** V1 needs only the Consultant Review
 Workspace required for the mandatory Human Review gate
-(`14_...md` §14–§15, roadmap Stage 10) — client basic info, assessment,
+(`14_...md` §14–§15, roadmap Stage 3 / appendix sub-stage 10) — client basic info, assessment,
 transcript, CV, structured answers, evidence, profile, proposed directions,
 routes, and the approve/edit/regenerate/reject controls. Full Client 360
 (session booking, long-term relationship tooling, timeline beyond what
@@ -224,7 +231,7 @@ Acceptance:
 
 **V1 scope note:** extended, not narrowed — this epic is the engineering
 home for V1's **non-negotiable mandatory Human Review gate**
-(`14_...md` §14, roadmap Stage 10): every paid report requires an
+(`14_...md` §14, roadmap Stage 3 / appendix sub-stage 10): every paid report requires an
 `approved` state, enforced server-side, before it can reach a user. See
 `15_..._ROADMAP.md`'s Issue #9 reconciliation.
 

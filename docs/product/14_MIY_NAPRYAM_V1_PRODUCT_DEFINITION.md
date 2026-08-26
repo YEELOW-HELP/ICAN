@@ -62,10 +62,17 @@ forget.
 
 ## 5. Products / pricing model
 
-| Plan | Indicative price | Notes |
+| Plan | Indicative price | Scope |
 |---|---|---|
-| **BASIC** | ~500 UAH | Full paid Hybrid assessment → directions → route → human-reviewed report. |
-| **PREMIUM** | ~1000 UAH | Same core pipeline; premium tier scope (e.g. deeper report, CV-assisted emphasis, priority review) to be defined at implementation time — **not decided in this document**, see §10 open items in `15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`. |
+| **BASIC** | ~500 UAH | Paid Hybrid assessment; optional CV; human-reviewed final report; directions/routes; Telegram/Web/PDF delivery. |
+| **PREMIUM** | ~1000 UAH | Everything in BASIC, **plus a personal consultation/debrief with a career consultant.** |
+
+**The Basic/Premium functional difference is decided** — Premium's added
+value is the human consultant debrief, not a bigger AI report. The exact
+consultation duration/process (how long, sync call vs. async written
+debrief, scheduling mechanism) is not decided yet and is not a blocker for
+Stage 1–3 work — see
+`15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`.
 
 **Prices are configuration, never hard-coded business logic.** This maps
 directly onto the `Product`/`Price` entities already named in the
@@ -94,19 +101,24 @@ needs exactly one non-Telegram entry point (the website) to prove it.
 
 ## 7. Assessment modes
 
-The Assessment Engine (Issue #1 territory) must support four modes as a
-first-class architectural concept — not four separate systems:
+The Assessment Engine (Issue #1 territory) supports four modes as a
+first-class **architectural** concept — not four separate systems. That is
+an architecture requirement, not a claim that all four ship as production
+user flows on day one; the two are different claims and must not be
+conflated (see the corrected release-requirement table in
+`15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`).
 
-| Mode | Role in V1 | Description |
+| Mode | Architecture | Commercial V1 release requirement |
 |---|---|---|
-| **1. Structured** | Free lead magnet | Predetermined questions, deterministic scoring where applicable, minimal/zero LLM token use. Used standalone on the website and as an input source for the paid flow. |
-| **2. Conversation** | Experimental/future, not V1 default | Free-form AI conversational interview (today's ICAN 1.1 screening chat is architecturally this mode's ancestor). Future home for voice AI. |
-| **3. Hybrid** | **DEFAULT PAID MODE V1** | Short structured blocks + open questions + AI adaptive follow-up. The next question is chosen from completeness, evidence, confidence, and contradictions — never a mechanically fixed list (this is exactly Issue #1's adaptive next-question service, already designed). Target duration: 20–30 minutes. Pause/resume is mandatory. |
-| **4. CV Assisted** | Optional evidence input, not a mode a user "picks" instead of Hybrid | A CV/resume becomes an additional evidence source; the system extracts what it can and asks only for what's still missing. |
+| **1. Structured** | Predetermined questions, deterministic scoring where applicable, minimal/zero LLM token use. | **Required for commercial launch, built later** — the free website lead magnet, implemented at the Commerce/Funnel/Launch stage, not with the core assessment engine. |
+| **2. Conversation** | Free-form AI conversational interview (today's ICAN 1.1 screening chat is architecturally this mode's ancestor). Future home for voice AI. | **Not a Commercial V1 release blocker.** Experimental/future; architecture-compatible, not built for V1. |
+| **3. Hybrid** | Short structured blocks + open questions + AI adaptive follow-up. The next question is chosen from completeness, evidence, confidence, and contradictions — never a mechanically fixed list (Issue #1's adaptive next-question service). Target duration: 20–30 minutes. Pause/resume is mandatory. | **Required — the default paid flow**, built first. |
+| **4. CV Assisted** | A CV/resume becomes an additional evidence source; the system extracts what it can and asks only for what's still missing. | **Required as a capability/evidence source inside Hybrid** — never a standalone mode a user picks instead of Hybrid. |
 
-**V1's first Telegram flow: Hybrid is the default.** Before/during Hybrid,
-the user is offered "Завантажити резюме, якщо воно є" — CV is optional,
-never required.
+**V1's first Telegram flow: Hybrid is the default and is built first.**
+Before/during Hybrid, the user is offered "Завантажити резюме, якщо воно
+є" — CV is optional, never required, and ships as part of Hybrid, not
+separately.
 
 ## 8. Hybrid assessment flow
 
@@ -548,28 +560,30 @@ this document narrows the *scope* of, not its *content*.
 ## 27. Unresolved founder decisions
 
 Carried forward for explicit sign-off, not decided unilaterally in this
-document:
+document. (The Basic/Premium functional split, previously listed here, is
+now decided — see §5 — and is removed from this list.)
 
-1. **PREMIUM tier's actual scope difference from BASIC** (§5) — price is
-   set, feature differentiation is not.
-2. **Route Builder's data shape** (§13) — a deliberately thin reuse of the
+1. **Route Builder's data shape** (§13) — a deliberately thin reuse of the
    existing `ROADMAP`/`MILESTONE`/`ROADMAP_TASK` entities, or a separate,
    simpler V1-only structure superseded later. Real schema-design
    implications either way.
-3. **Product Access / Entitlement / PromoCode / Organization attribution**
+2. **Product Access / Entitlement / PromoCode / Organization attribution**
    (§5) has no ERD representation yet at all — needs its own focused
    architecture pass (schema only, no migration) before implementation,
    analogous to the Founder Architecture Review that specified
    `AUTH_IDENTITY`/`CONSENT`/`CLIENT_ASSIGNMENT`.
-4. **Report/Review state machine's exact states and transition table**
+3. **Report/Review state machine's exact states and transition table**
    (§14) — the *requirement* (server-side, non-negotiable gate) is fixed;
    the precise state names and transitions are not yet specified, matching
    how Issue #1's Assessment state machine was specified in its own
    dedicated planning pass.
-5. **Whether Knowledge Base needs any implementation at all in V1**, or
+4. **Whether Knowledge Base needs any implementation at all in V1**, or
    whether a hand-authored, versioned seed document is sufficient to launch
    commercially while the real ingestion pipeline architecture (§12) is
    designed later.
+5. **Exact PREMIUM consultation/debrief duration and process** (§5) — the
+   functional split (Premium = Basic + consultant debrief) is decided; the
+   logistics are not.
 6. **Repository/branch governance** — see
    `15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md`'s governance note; not a
    product decision, but flagged here since it affects how V1 work actually
