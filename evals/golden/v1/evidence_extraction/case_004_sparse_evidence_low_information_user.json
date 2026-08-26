@@ -1,0 +1,32 @@
+{
+  "case_id": "case_004_sparse_evidence_low_information_user",
+  "target": "evidence_extraction",
+  "dataset_version": "v1",
+  "segment": "low_information_user",
+  "locale": "uk",
+  "input": {
+    "question_prompt": "desired_direction_hint",
+    "raw_answer_text": "Не знаю, чесно кажучи. Ще не думав про це."
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "returns an empty evidence_items list -- 'no signal here' is the correct output, not a failure",
+    "does not force a fabricated observation just to have something to return"
+  ],
+  "unacceptable_outputs": [
+    "invents a direction or interest the candidate never stated",
+    "treats the absence of information itself as a meaningful 'undecided' personality trait claim",
+    "raises an error or refuses to respond instead of returning an empty list"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "The unknown must never be presented as fact (platform non-negotiable, docs/architecture/01_SYSTEM_ARCHITECTURE.md section 8). A low-information answer should legitimately produce zero evidence, not a hallucinated one.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "evidence-extraction-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

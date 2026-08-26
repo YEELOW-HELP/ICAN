@@ -1,0 +1,35 @@
+{
+  "case_id": "case_009_no_unsupported_personality_claim_from_weak_evidence",
+  "target": "profile_synthesis",
+  "dataset_version": "v1",
+  "segment": "low_information_user",
+  "locale": "uk",
+  "input": {
+    "evidence_items": [
+      { "index": 0, "evidence_type": "mentions_deadlines", "normalized_text": "Mentioned once that they usually meet deadlines", "confidence": 0.3 }
+    ]
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [],
+  "acceptable_outputs": [
+    "if a claim is emitted at all, its status is hypothesis or insufficient_evidence, never supported, given only one weak/ambiguous evidence item",
+    "does not present a full personality-type label (e.g. a Big Five or MBTI-style category) from this single weak signal"
+  ],
+  "unacceptable_outputs": [
+    "emits a 'conscientiousness' or similar trait claim with status=supported or high numeric confidence from one weak evidence item",
+    "produces a broad personality-type classification (e.g. 'this person is an ISTJ') that the evidence cannot possibly ground",
+    "invents additional supporting evidence that was never given"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [
+    { "status": "supported", "evidence_count": 1, "min_evidence_confidence_below": 0.5 }
+  ],
+  "reviewer_notes": "Tests that compute_claim_confidence's deterministic thresholds actually bite: a single confidence=0.3 evidence item must land as insufficient_evidence (below the 0.25 hypothesis floor is close, but a single weak item without corroboration or directness cannot reach the 0.6 supported threshold either way). Guards against the AI-side claim synthesizer's own labeling being trusted at face value for confidence/status, which is exactly why that computation is deterministic and not LLM-reported.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "claim-synthesis-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}

@@ -1,5 +1,10 @@
-# Reserved
+# Profile Synthesis (`target: "profile_synthesis"`)
 
-No cases yet — the Profile Synthesizer (`docs/architecture/04_AI_SYSTEM.md`
-component #3) doesn't exist in ICAN 1.1. Cases here will use
-`target: "profile_synthesis"` per `evals/golden/schema.json` once it does.
+Five cases (Stage 2, Issue #2) covering the Profile Synthesizer
+(`docs/architecture/04_AI_SYSTEM.md` component #3 —
+`app/services/profile/claim_synthesis.py`): contradictory evidence
+retained (never silently averaged), a hard constraint preserved without
+softening, no hallucinated salary/market data, no diagnosis/clinical
+language, and no unsupported personality claim from a single weak
+evidence item. See `evals/golden/README.md` for governance/review rules —
+all five are `status: draft`, not yet reviewed.

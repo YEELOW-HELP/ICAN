@@ -1,0 +1,36 @@
+{
+  "case_id": "case_003_open_answer_heavy_multiple_distinct_signals",
+  "target": "evidence_extraction",
+  "dataset_version": "v1",
+  "segment": "other",
+  "locale": "uk",
+  "input": {
+    "question_prompt": "key_skills_or_interests",
+    "raw_answer_text": "Я завжди любила організовувати заходи -- ще зі школи. Останні два роки організовувала благодійні ярмарки, і мені найбільше подобається саме робота з людьми, а не сидіти самій за комп'ютером."
+  },
+  "expected_facts": {},
+  "expected_constraints": [],
+  "expected_evidence": [
+    { "evidence_type": "enjoys_coordination", "normalized_text": "Has enjoyed organizing events since school" },
+    { "evidence_type": "event_organization_experience", "normalized_text": "Has organized charity fairs over the last two years" },
+    { "evidence_type": "prefers_people_facing_work", "normalized_text": "Prefers working with people over solitary computer work" }
+  ],
+  "acceptable_outputs": [
+    "extracts up to three separable observations from the single answer, matching the brief's own worked example (Stage 2 brief section 17)",
+    "does not merge distinct signals (a long-standing interest, concrete experience, and a stated preference) into one vague item"
+  ],
+  "unacceptable_outputs": [
+    "produces only one flattened observation when the text clearly supports several",
+    "invents a signal not stated (e.g. 'wants to work in event management professionally')",
+    "produces more than 5 items or pads with near-duplicate restatements of the same signal"
+  ],
+  "required_claims": [],
+  "forbidden_claims": [],
+  "reviewer_notes": "Directly mirrors the worked example in the Stage 2 brief section 17 -- proves one open answer can and should yield multiple normalized evidence items, not a single-value extraction like Stage 1's AnswerExtractor.",
+  "methodology_version": "potential_dimensions:v1",
+  "prompt_version": "evidence-extraction-v1",
+  "provenance": { "type": "synthetic", "notes": "Invented for Stage 2 golden-dataset coverage; no real candidate involved." },
+  "created_at": "2026-08-26",
+  "reviewed_by": { "role": null },
+  "status": "draft"
+}
