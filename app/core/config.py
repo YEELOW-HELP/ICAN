@@ -45,5 +45,13 @@ class Settings(BaseSettings):
     # contradictions, so the interview can never run forever.
     max_assessment_questions: int = 20
 
+    # Stage 2 (Evidence + Human Potential Profile). An Answer idempotency
+    # reservation (extracted_value IS NULL) older than this is considered
+    # abandoned -- e.g. the process that created it crashed before either
+    # finishing extraction or cleaning up on failure -- and is safe to
+    # discard: the raw text survives independently in InterviewMessage, so
+    # nothing is lost. Never treated as evidence before this timeout.
+    pending_answer_stale_after_seconds: int = 300
+
 
 settings = Settings()
