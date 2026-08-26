@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import enum
+import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Enum, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,9 +24,11 @@ class MessageRole(str, enum.Enum):
 
 
 class AdminRole(str, enum.Enum):
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
     MANAGER = "manager"
     CAREER_CONSULTANT = "career_consultant"
+    REVIEWER = "reviewer"
 
 
 class User(Base):
@@ -41,6 +44,14 @@ class User(Base):
     )
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Bridge to the new canonical identity (app/db/models_identity.py),
+    # populated opportunistically when a Telegram id already known here is
+    # first resolved through the V1 AuthIdentity flow -- never backfilled
+    # in bulk (Migration Map #1's additive-adapter approach; a full
+    # production cutover is a separate, explicitly reviewed step).
+    canonical_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("identity_users.id")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

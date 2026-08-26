@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import AnswerCallbackQuery, EditMessageReplyMarkup, SendMessage, TelegramMethod
-from aiogram.types import Chat, Message
+from aiogram.methods import AnswerCallbackQuery, EditMessageReplyMarkup, GetFile, SendMessage, TelegramMethod
+from aiogram.types import Chat, File, Message
 
 from app.bot.handlers import register_handlers
 
@@ -30,6 +30,10 @@ class FakeSession(BaseSession):
     def __init__(self) -> None:
         super().__init__()
         self.calls: list[TelegramMethod] = []
+        self._file_bytes: dict[str, bytes] = {}
+
+    def register_file(self, file_id: str, content: bytes) -> None:
+        self._file_bytes[file_id] = content
 
     async def close(self) -> None:
         pass
@@ -47,19 +51,22 @@ class FakeSession(BaseSession):
             return True
         if isinstance(method, EditMessageReplyMarkup):
             return True
+        if isinstance(method, GetFile):
+            return File(file_id=method.file_id, file_unique_id="fake_unique", file_path=method.file_id)
         raise NotImplementedError(f"FakeSession: unsupported Telegram method {type(method).__name__}")
 
     async def stream_content(self, url, headers=None, timeout=30, chunk_size=65536, raise_for_status=True):
-        yield b""
+        file_id = url.rsplit("/", 1)[-1]
+        yield self._file_bytes.get(file_id, b"")
 
 
 class BotHarness:
-    def __init__(self, session_factory, agent) -> None:
+    def __init__(self, session_factory, agent, register_fn=register_handlers) -> None:
         self.session = FakeSession()
         self.bot = Bot(token="123456:TEST-TOKEN-NOT-REAL", session=self.session)
         self.dp = Dispatcher()
         router = Router()
-        register_handlers(router, session_factory, agent)
+        register_fn(router, session_factory, agent)
         self.dp.include_router(router)
 
     @property
@@ -87,8 +94,12 @@ class BotHarness:
         }
         await self.dp.feed_raw_update(self.bot, update)
 
-    async def send_document(self, telegram_id: int, filename: str, chat_id: int | None = None) -> None:
+    async def send_document(
+        self, telegram_id: int, filename: str, chat_id: int | None = None, content_bytes: bytes = b""
+    ) -> None:
         chat_id = chat_id if chat_id is not None else telegram_id
+        file_id = f"fake_file_{_next_id()}"
+        self.session.register_file(file_id, content_bytes)
         update = {
             "update_id": _next_id(),
             "message": {
@@ -96,7 +107,7 @@ class BotHarness:
                 "date": int(time.time()),
                 "chat": {"id": chat_id, "type": "private"},
                 "from": {"id": telegram_id, "is_bot": False, "first_name": "Test"},
-                "document": {"file_id": "fake_file", "file_unique_id": "fake_unique", "file_name": filename},
+                "document": {"file_id": file_id, "file_unique_id": "fake_unique", "file_name": filename},
             },
         }
         await self.dp.feed_raw_update(self.bot, update)
