@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
@@ -30,12 +30,14 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -85,6 +87,19 @@ class InterviewSession(Base):
     this column alone."""
 
     __tablename__ = "interview_sessions"
+    __table_args__ = (
+        # Founder decision (Issue #1 readiness review, item 3): a user may
+        # have at most one unfinished (draft/active/paused) session at a
+        # time. Enforced at the DB level, not just in start_assessment --
+        # a partial unique index so completed/failed history is unbounded.
+        Index(
+            "uq_one_unfinished_session_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status IN ('draft', 'active', 'paused')"),
+            sqlite_where=text("status IN ('draft', 'active', 'paused')"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity_users.id"), index=True)
@@ -132,7 +147,14 @@ class Answer(Base):
     contradicts_previous: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(32))  # "telegram" | "cv" | ...
     idempotency_key: Mapped[str] = mapped_column(String(128))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    # Python-side default (microsecond precision): "latest answer wins" for
+    # a question_id is decided by ordering on this column
+    # (app/services/assessment/completeness.py, sessions.py) -- server-side
+    # CURRENT_TIMESTAMP is only second-granular, not precise enough to
+    # break ties between two answers recorded in the same second.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now(), index=True
+    )
 
     session: Mapped["InterviewSession"] = relationship(back_populates="answers")
 
@@ -168,7 +190,12 @@ class QuestionSelection(Base):
     session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("interview_sessions.id"), index=True)
     question_id: Mapped[str] = mapped_column(String(64))
     reason: Mapped[SelectionReason] = mapped_column(Enum(SelectionReason, native_enum=False))
-    selected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Python-side default -- next_question.py's mark_question_answered()
+    # orders by this column to find the most recent unanswered selection
+    # for a question_id; same tie-breaking rationale as Answer.created_at.
+    selected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     answer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("answers.id"))
 
