@@ -33,7 +33,7 @@ composite score. See `methodology_lab/04_CAREER_FIT_MODEL/MNP_RANKING_POLICY_V0.
 `SCENARIO_SCORE` / `DIRECTION_DECISION` names are superseded for this
 slice.
 
-## Slice 1 exercise status
+## Slice 1 exercise status (superseded by Slice 2 below)
 
 - `ScoringConfig`, `RankingPolicy` -- EXERCISED (versioned experimental config).
 - `ProfileConstraint` -- EXERCISED via the deterministic derivation in
@@ -43,9 +43,20 @@ slice.
   written by any orchestrator (Slice 2 scope). Creating them now keeps
   Slice 2 migration-free.
 
+## Slice 2: end-to-end orchestrator (`app/services/direction/pipeline.py`)
+
+`generate_directions()` now writes every table above end-to-end: resolves
+the READY `PotentialProfile`, pins every version column on `DirectionRun`,
+retrieves candidates through `app/services/knowledge/retrieval.py` only,
+evaluates the hard constraint gate, computes all four outputs, applies
+`RankingPolicy`, deduplicates exact KB collisions, and persists a
+deterministic explanation bundle per recommended `Direction` (see the
+`explanation_bundle`/`duplicate_of_career_code`/`dedup_reason`/
+`diversity_warning` columns added in the Slice 2 migration).
+
 The consultant-review / critic-finding tables
 (`direction_reviews`/`consultant_corrections`/`direction_critic_findings`)
-are deliberately NOT in this migration -- built with their logic later.
+are deliberately still NOT in this schema -- built with their logic later.
 """
 
 from __future__ import annotations
@@ -370,6 +381,16 @@ class Direction(Base):
 
     # skills classified UNKNOWN (Founder decision P) -- information gaps, not penalties
     skills_to_verify: Mapped[list | None] = mapped_column(JSON)
+
+    # --- Slice 2: deterministic explanation bundle + material-differentiation ---
+    # Structured backend data (WHY_FIT/WHY_NOW/TRANSITION/CONFIDENCE/PROVENANCE)
+    # for consultant review -- not client-facing prose (plan section 8).
+    explanation_bundle: Mapped[dict | None] = mapped_column(JSON)
+    # Set only when placement == DEDUPED (app/services/direction/dedup.py):
+    # exact title/alias collision only, never a similarity guess.
+    duplicate_of_career_code: Mapped[str | None] = mapped_column(String(128))
+    dedup_reason: Mapped[str | None] = mapped_column(Text)
+    diversity_warning: Mapped[str | None] = mapped_column(Text)
 
     narrative_text: Mapped[str | None] = mapped_column(Text)
     narrative_locale: Mapped[str | None] = mapped_column(String(8))
