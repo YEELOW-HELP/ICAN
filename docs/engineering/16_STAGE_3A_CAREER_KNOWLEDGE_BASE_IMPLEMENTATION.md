@@ -84,6 +84,37 @@ three external-taxonomy reference columns (§10).
 any candidate's suitability for it — user fit is entirely Stage 3B's
 concern (brief §7's non-negotiable).
 
+**Approved V1 trade-off (Founder-approved, explicitly not to be
+"fixed" into JSON or a generic EAV model without a separate decision):**
+the seven characteristics are explicit, typed, relational columns on
+`Career`, not a `characteristics: JSON` blob and not a generic
+entity-attribute-value table. This is a deliberate choice, weighed and
+kept as-is in the Stage 3A review:
+
+- **Queryable** — `find_careers(min_characteristics=..., max_characteristics=...)`
+  (§11) compiles to plain indexed-comparable `WHERE` clauses; a JSON/EAV
+  design would need JSON-path queries or a join-heavy value table for the
+  same filters.
+- **Typed** — each column is a real `Float`, so a malformed value (a
+  string where a number belongs) is a schema violation, not a silent
+  runtime surprise discovered deep in Stage 3B's matching logic.
+- **Auditable** — the column list itself documents exactly which
+  characteristics Stage 3A claims to model; nothing hides in an
+  untyped bag that could silently grow inconsistent keys across careers.
+- **The cost, accepted deliberately:** adding an eighth characteristic
+  (or changing what one means) requires a migration, not a data-only
+  change. Given `docs/architecture/02_ERD.md`'s database rule 1
+  ("critical business data must be relational; JSON is for flexible
+  snapshots, not the only source of truth"), this cost is the intended
+  trade-off, not a gap to close.
+- **Future methodology expansion** (a genuinely larger or restructured
+  set of matching dimensions, e.g. driven by real Stage 3B/methodology
+  research) may require an explicit schema evolution — a new migration
+  adding columns, not a reinterpretation of the existing ones and not a
+  quiet pivot to JSON to dodge the migration. That evolution, if and when
+  it's needed, is a Stage 3B-or-later decision, not something this
+  document pre-authorizes.
+
 `CareerWorkContext` (one row per career) holds the environment/logistics
 attributes (brief §10) split out for readability: `setting`
 (office/remote/field/mixed), `indoor_outdoor`, `travel_required`,
@@ -143,6 +174,27 @@ after the KB has moved on.
 The Stage 3A seed uses `TYPICAL_RECOMMENDATION` exclusively (see §9) —
 it cites no actual jurisdiction-specific legal source, so it never
 claims `HARD_FACTUAL`.
+
+**Stage 3B contract (Founder-approved, binding on the future Direction
+Intelligence engine):** `CareerRequirement.certainty ==
+TYPICAL_RECOMMENDATION` **MUST NOT** be treated as an automatic hard
+blocking constraint by any future matching/ranking logic. It is a
+curated, generally-reasonable expectation an editor wrote down — not a
+verified, jurisdiction-specific legal fact — and Stage 3A never claims
+otherwise. A future hard block (e.g. "this candidate's hard constraint
+makes career X impossible") may rely **only** on requirement data that
+is sufficiently authoritative and machine-readable per whatever Stage
+3B/methodology contract eventually defines that bar — which, for a
+`CareerRequirement`, effectively means `certainty == HARD_FACTUAL` (and
+therefore carries a real `source_id`), not `TYPICAL_RECOMMENDATION` or
+`UNKNOWN`. Every `CareerRequirement` in the Stage 3A seed is
+`TYPICAL_RECOMMENDATION` (§9) precisely so that a naive future
+implementation that *did* wire "any requirement" into a hard blocker
+would immediately and visibly over-block on seed data that was never
+meant to carry that weight — this is a deliberate safeguard, not an
+oversight to fix later. Stage 3A implements no matching logic at all;
+this paragraph exists solely so Stage 3B cannot accidentally
+misinterpret what `certainty` already on disk actually means.
 
 ## 7. Source provenance (brief §12) and market-sensitive facts (brief §20)
 
@@ -282,19 +334,68 @@ already takes a `locale` parameter and switches which title column
 (`title_uk`/`title_en`) it matches against. Adding `de`/`ru` aliases
 later needs zero code changes here, only new `CareerAlias` rows.
 
-## 13. Privacy / auditability
+## 13. Privacy / auditability / write-path contract
 
+**Founder-approved architectural contract (Stage 3A review):** every
+mutation of a Career Knowledge Base entity — `Career`, `CareerAlias`,
+`CareerSkill`, `CareerRequirement`, `CareerWorkContext`, `CareerRelation`,
+`CareerFact`, `KnowledgeSource`, `KnowledgeBaseVersion` — **MUST** go
+through `app/services/knowledge/*` (`careers.py`, `versioning.py`,
+`skills.py`). This is what makes the provenance guarantees in §6/§7 real:
+`HardFactualRequirementRequiresSourceError` and
+`MarketSensitiveFactRequiresSourceError` are raised by
+`careers.add_career_requirement`/`add_career_fact` themselves — a caller
+that constructs `CareerRequirement(certainty=HARD_FACTUAL, ...)` or
+`CareerFact(is_market_sensitive=True, ...)` directly via the ORM and
+calls `session.add()`/`session.commit()` bypasses those checks entirely,
+since nothing at the database schema level (no `CHECK` constraint)
+enforces them — this is a deliberate, documented V1 trade-off (see §6),
+not an oversight, and it is exactly why the *service layer itself* is
+the approved write path, not merely a convenience wrapper around it.
+
+`tests/test_knowledge_careers.py::test_direct_orm_write_bypasses_provenance_guards_this_is_why_the_service_layer_is_the_contract`
+demonstrates this concretely: a direct `session.add(CareerFact(...))`
+with `is_market_sensitive=True` and no `source_id` **succeeds** at the
+ORM/DB level, while the equivalent call through
+`careers.add_career_fact()` raises. The test exists to make the
+contract's necessity legible in the test suite itself, not just in prose.
+
+**Concretely, this means:**
+- **Approved write path:** any future handler, API endpoint, or Admin
+  curation surface (Stage 3B+) calls
+  `careers.create_career()`/`add_career_alias()`/`add_career_skill()`/
+  `add_career_requirement()`/`set_career_work_context()`/
+  `add_career_relation()`/`add_career_fact()`/`create_knowledge_source()`
+  and `versioning.create_draft_version()`/`publish_version()` — never
+  raw ORM inserts/updates against these tables from outside
+  `app/services/knowledge/`.
+- **Not approved:** direct `session.add(Career(...))` /
+  `session.execute(update(CareerFact)...)` etc. from a route handler,
+  admin controller, script, or any other future caller. There is
+  nothing technically stopping this (no DB `CHECK`, no ORM-level guard),
+  which is precisely why it is a documented *contract*, not a
+  self-enforcing property of the schema.
+- **A future Admin curation API (Stage 3B+) must preserve the same
+  guards** by calling these same functions, not by reimplementing
+  equivalent validation in the API/handler layer — do not duplicate the
+  `HARD_FACTUAL`/market-sensitive business rules a second time elsewhere;
+  the single source of truth for them stays
+  `app/services/knowledge/careers.py`.
+- Every mutation already goes through a service function in this
+  codebase today (`create_career`, `add_career_*`, `publish_version`) —
+  this section documents that as a binding contract for all future
+  callers, not merely today's incidental structure.
+
+Additional privacy notes:
 - No table in this migration references user/assessment/profile data
   (§3). No raw user answer or CV text has ever touched this schema.
 - Zero `logger.*` calls anywhere in `app/services/knowledge/`.
-- Every mutation (`create_career`, `add_career_*`, `publish_version`)
-  goes through a service function — no route/handler is expected to
-  write these tables directly once an admin surface exists (not built in
-  Stage 3A, per brief §22/§28).
 - No AuditLog integration was added: Stage 3A introduces no privileged
   *user-facing* admin action yet (no admin UI exists to gate) — the
   version-immutability model itself (§5) is what currently prevents
-  silent overwrites. Revisit when a real curation UI is built.
+  silent overwrites. A future Admin curation API, per the contract above,
+  should wire `record_audit()` into these same service functions rather
+  than adding a parallel write path that would need its own auditing.
 
 ## 14. AI usage (brief §23)
 
@@ -311,7 +412,7 @@ with structured-output validation, and its output must land as a `DRAFT`
 | File | Covers |
 |---|---|
 | `test_knowledge_versioning.py` (8) | Draft/publish/supersede lifecycle, current-version invariant, historical preservation |
-| `test_knowledge_careers.py` (16) | Code uniqueness per version, draft-only mutation, alias normalization, skill↔taxonomy linkage, HARD_FACTUAL/market-sensitive provenance enforcement, cross-version relation rejection, source traceability |
+| `test_knowledge_careers.py` (17) | Code uniqueness per version, draft-only mutation, alias normalization, skill↔taxonomy linkage, HARD_FACTUAL/market-sensitive provenance enforcement, cross-version relation rejection, source traceability, and the write-path contract (§13: a direct ORM write bypasses the same guard the service layer enforces) |
 | `test_knowledge_retrieval.py` (11) | Retrieval API, domain/characteristic filters, Ukrainian/English alias search, version-scoped lookups after republish, bounded-domain FK isolation |
 | `test_knowledge_seed.py` (6) | Idempotency, no duplicates, diversity, aliases/skills/work-context completeness, no HARD_FACTUAL-without-source, zero market-sensitive facts, relation integrity |
 
@@ -331,10 +432,9 @@ legacy tests remain green, untouched.
   tests today; from a future admin surface or Stage 3B tooling later).
 - No `AuditLog` integration (see §13) — added once a real privileged
   curation surface exists.
-- `Career.score`-equivalent fields (the seven characteristics) are a
-  fixed, hand-designed set for V1 — extending them requires a migration,
-  by design (they are relational/queryable columns, not a JSON bag,
-  per `docs/architecture/02_ERD.md`'s database rule 1).
+- The seven `Career` characteristics are a fixed, hand-designed set for
+  V1 — extending or restructuring them requires a migration, by design;
+  see §4's "Approved V1 trade-off" for the full rationale.
 - External taxonomy IDs (ESCO/O*NET/ISCO) are schema-ready but
   unpopulated — no mapping work was done in Stage 3A.
 - The skills taxonomy (~36 terms) and the 32-career seed are both

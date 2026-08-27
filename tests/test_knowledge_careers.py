@@ -235,3 +235,41 @@ async def test_source_provenance_answers_where_did_this_come_from(session_factor
         sources = await get_sources_for_career(session, career.id)
         assert len(sources) == 1
         assert sources[0].id == source.id
+
+
+async def test_direct_orm_write_bypasses_provenance_guards_this_is_why_the_service_layer_is_the_contract(session_factory):
+    """Founder-approved write-path contract (docs/engineering/16_...md
+    section 13): HARD_FACTUAL/market-sensitive provenance is enforced in
+    app/services/knowledge/careers.py, NOT by a DB CHECK constraint --
+    consistent with this codebase's existing enforcement-at-the-service-
+    layer convention (RBAC, idempotency, etc.). This test makes that
+    trade-off's real consequence visible in the suite itself: a direct
+    ORM write that skips careers.add_career_fact() entirely bypasses the
+    guard it would otherwise hit. This is not a bug to fix -- it is the
+    reason every future handler/API/Admin curation surface MUST mutate
+    these entities exclusively through app/services/knowledge/*, never
+    via a direct session.add()/execute() from outside that module."""
+    from app.db.models_knowledge import CareerFact
+
+    async with session_factory() as session:
+        career, _ = await _make_career(session)
+
+        # The approved path rejects this exact shape:
+        with pytest.raises(MarketSensitiveFactRequiresSourceError):
+            await add_career_fact(
+                session, career_id=career.id, fact_type="salary_range", value_text="high",
+                is_market_sensitive=True,
+            )
+
+        # A direct ORM write constructing the identical, guard-violating
+        # row succeeds -- proving the guard lives in the service function,
+        # not the schema, and therefore must never be bypassed in practice.
+        bypassed = CareerFact(
+            career_id=career.id, knowledge_base_version_id=career.knowledge_base_version_id,
+            fact_type="salary_range", value_text="high", is_market_sensitive=True,
+            verification_state=FactVerificationState.UNVERIFIED, source_id=None,
+        )
+        session.add(bypassed)
+        await session.commit()  # succeeds -- no DB-level CHECK exists to stop it
+        assert bypassed.source_id is None
+        assert bypassed.is_market_sensitive is True
