@@ -1,9 +1,13 @@
-"""Schema smoke for the Stage 3B tables (Founder decisions E + F + M2).
+"""Schema smoke for the Stage 3B tables (Founder decisions E + F).
 
 Proves: the four-output columns exist and persist; the score-component
 UNIQUE is (direction_id, output_family, component_key) so one claim can
-feed multiple families; ProfileConstraint uses the 12-subtype field;
-AI_TRACE persists call metadata idempotently and holds no content.
+feed multiple families; ProfileConstraint uses the 12-subtype field.
+
+No persisted AI_TRACE table exists in this slice (superseding the earlier
+Founder decision M2) -- full AI_TRACE persistence is deferred to a
+separate architecture decision; only safe string trace identifiers are
+kept where already useful for provenance (e.g. `DirectionRun.trace_ids`).
 """
 
 import uuid
@@ -11,7 +15,6 @@ import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.ai_gateway import GatewayTrace
 from app.db.models_direction import (
     Direction,
     DirectionConstraintCheck,
@@ -25,9 +28,7 @@ from app.db.models_direction import (
     ConstraintCheckResult,
 )
 from app.db.models_knowledge import KnowledgeBaseVersion, KnowledgeBaseVersionStatus
-from app.db.models_platform import AITrace
 from app.db.models_profile import PotentialProfile, ProfileClaim, ProfileDimension, ClaimStatus, ProfileGenerationStatus
-from app.services.ai_trace import record_ai_trace
 from app.services.direction.config import ensure_experimental_ranking_policy, ensure_experimental_scoring_config
 from app.services.direction.versions import (
     CONSTRAINT_TAXONOMY_VERSION,
@@ -169,19 +170,19 @@ async def test_constraint_check_row_persists(session_factory):
         await session.commit()
 
 
-async def test_ai_trace_persists_metadata_only_and_is_idempotent(session_factory):
-    async with session_factory() as session:
-        trace = GatewayTrace(
-            trace_id="trace-abc", task_name="direction_narrative", provider="anthropic", model="claude-sonnet-5",
-            prompt_version="direction-narrative-v0.1", input_tokens=100, output_tokens=50, latency_ms=1234.5,
-            estimated_cost_usd=0.001, retry_count=0, stop_reason="end_turn",
-        )
-        row = await record_ai_trace(session, trace=trace, status="ok")
-        assert isinstance(row, AITrace)
-        assert row.task == "direction_narrative"
-        assert row.input_tokens == 100
-        # no content fields exist on the model at all
-        assert not any(c.name in ("prompt", "messages", "content", "system") for c in AITrace.__table__.columns)
+def test_no_persisted_ai_traces_table_exists():
+    """Founder hardening decision (superseding decision M2): Stage 3B
+    Slice 1 must not introduce a persisted AI_TRACE architecture. No
+    `ai_traces` table, no `AITrace` model, no `app/services/ai_trace.py`
+    helper -- only the existing log-only gateway trace behavior plus safe
+    string trace identifiers (e.g. `DirectionRun.trace_ids`,
+    `Evidence.trace_id`) already used for provenance elsewhere."""
+    import importlib
 
-        dup = await record_ai_trace(session, trace=trace, status="ok")
-        assert dup is None  # idempotent by trace_id
+    from app.db.base import Base
+    from app.db import models_platform  # noqa: F401 -- ensure it's registered on Base.metadata
+
+    assert "ai_traces" not in Base.metadata.tables
+    assert not hasattr(models_platform, "AITrace")
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("app.services.ai_trace")

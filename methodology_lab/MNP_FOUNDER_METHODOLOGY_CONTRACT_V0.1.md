@@ -267,6 +267,30 @@ methodology improve.
 
 ---
 
+## 2B. Post-reconciliation hardening addendum (Founder decision — binding)
+
+Issued after reconciling two parallel Stage 3B Slice 1 implementations.
+Refines decision M2 only; all other Wave A decisions (N–Q) stand.
+
+### M2 (superseded). AI_TRACE persistence is NOT approved for Stage 3B Slice 1
+
+Wave A's decision M2 ("persist `AI_TRACE` if it can be a clean additive
+change") is **superseded**. The binding rule going forward:
+
+- No `ai_traces` table.
+- No new persisted AI_TRACE architecture of any kind.
+- Existing AI Gateway log-only trace behavior is unchanged.
+- Only safe string trace identifiers / prompt / model / version metadata
+  are stored where already useful for provenance (e.g.
+  `DirectionRun.trace_ids`, `Evidence.trace_id`) — never prompt/message/
+  tool content, and never a new table dedicated to call metadata.
+- Full AI_TRACE persistence (a durable per-call record queryable
+  independently of logs) remains deferred to a separate, dedicated
+  architecture decision — it is not something Stage 3B Slice 1 decides by
+  side effect.
+
+---
+
 ## 3. What v0.1 explicitly does NOT decide
 
 Recorded so a later version, not an implementer, closes them:

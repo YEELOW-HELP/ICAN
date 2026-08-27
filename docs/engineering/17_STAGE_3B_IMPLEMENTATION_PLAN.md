@@ -1278,12 +1278,20 @@ part of the definition of Potential Fit and never a composite score
   ranking is the lexicographic RankingPolicy (PF → GA → TF → EC, None
   last), never a composite.
 - **AI_TRACE** — the pre-Wave-A body (§3, §15 R4) said "do not persist".
-  Founder decision M2 says "persist if it can be a clean additive
-  change". Slice 1 **creates the `ai_traces` table + `record_ai_trace`
-  helper** (clean, additive, no PII); wiring `AIGateway` to call it is
-  deferred to the slice that adds Direction LLM tasks. **This is a
-  divergence from the committed pre-Wave-A plan body and is flagged in
-  the Founder Report.**
+  Research Wave A's decision M2 said "persist if it can be a clean
+  additive change", and the branch that first shipped this slice created
+  an `ai_traces` table + `record_ai_trace` helper on that basis.
+  **SUPERSEDED by a later, binding Founder hardening decision (post-merge
+  reconciliation of two parallel Stage 3B implementations): AI_TRACE
+  persistence is NOT approved for Stage 3B Slice 1.** The `ai_traces`
+  table, the `AITrace` model on `models_platform.py`, and
+  `app/services/ai_trace.py` were removed from the migration/codebase
+  before this branch was pushed. Current, binding state: no `ai_traces`
+  table, no new persisted AI_TRACE architecture, existing gateway/log-only
+  trace behavior unchanged, only safe string trace identifiers (e.g.
+  `DirectionRun.trace_ids`) are stored. Full AI_TRACE persistence remains
+  deferred to a separate, dedicated architecture decision (§17's
+  technical-debt note, restored to governing status on this point).
 
 ### 19.3 Skill-state semantics (Founder decision P)
 
@@ -1297,11 +1305,16 @@ CONFIRMED_MISSING); empty assessed set ⇒ `INSUFFICIENT_DATA`.
 
 ### 19.4 Slice 1 delivered (this branch)
 
-`methodology_lab/` (6 canonical docs), `app/db/models_direction.py`
-(+`AITrace` on `models_platform.py`), one additive migration
-`3a1b9d5c7e21`, `app/services/direction/` (versions, dimensions,
-dimension_mapping, config, constraints, threshold, scoring/*, ranking),
-`app/services/ai_trace.py`, and 66 focused tests
-(`tests/test_direction_*.py`). Not built: LLM narrative, LLM critic,
-ranking **orchestration** (row persistence), consultant-review API/UI,
-Route Builder, report, PDF.
+`methodology_lab/` (6 canonical docs), `app/db/models_direction.py`,
+one additive migration `3a1b9d5c7e21`, `app/services/direction/`
+(versions, dimensions, dimension_mapping, config, constraints, threshold,
+scoring/*, ranking), and focused tests (`tests/test_direction_*.py`). Not
+built: LLM narrative, LLM critic, ranking **orchestration** (row
+persistence), consultant-review API/UI, Route Builder, report, PDF.
+
+**Post-push hardening (see §19.2's AI_TRACE note above):** the `AITrace`
+model on `models_platform.py`, `app/services/ai_trace.py`, and the
+`ai_traces` table were removed from this branch before/after the parallel-
+implementation reconciliation -- they are no longer part of Slice 1's
+delivered surface. A test (`test_no_persisted_ai_traces_table_exists`)
+guards against silently reintroducing them.

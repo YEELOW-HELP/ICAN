@@ -4,11 +4,10 @@ Revision ID: 3a1b9d5c7e21
 Revises: 7d3720363f8e
 Create Date: 2026-08-27
 
-Purely additive. 9 new tables:
+Purely additive. 8 new tables:
 
   scoring_configs             versioned EXPERIMENTAL per-output weights + thresholds
   ranking_policies            SEPARATE versioned decision layer (Founder decisions O + G)
-  ai_traces                   persistent AI Gateway call metadata (Founder decision M2)
   profile_constraints         structured, matchable projection of constraint-dimension claims
   direction_runs              one versioned Direction Intelligence generation attempt (per user)
   directions                  one candidate career -- FOUR separate output blocks (Founder decision N)
@@ -97,26 +96,6 @@ def upgrade() -> None:
         postgresql_where=sa.text("status = 'active'"),
         sqlite_where=sa.text("status = 'active'"),
     )
-
-    op.create_table(
-        "ai_traces",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("trace_id", sa.String(length=64), nullable=False),
-        sa.Column("task", sa.String(length=64), nullable=False),
-        sa.Column("provider", sa.String(length=32), nullable=False),
-        sa.Column("model", sa.String(length=64), nullable=False),
-        sa.Column("prompt_version", sa.String(length=64), nullable=False),
-        sa.Column("latency_ms", sa.Integer(), nullable=True),
-        sa.Column("input_tokens", sa.Integer(), nullable=True),
-        sa.Column("output_tokens", sa.Integer(), nullable=True),
-        sa.Column("estimated_cost_usd", sa.Float(), nullable=True),
-        sa.Column("status", sa.String(length=32), nullable=False),
-        sa.Column("error_type", sa.String(length=64), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("trace_id"),
-    )
-    op.create_index("ix_ai_traces_trace_id", "ai_traces", ["trace_id"])
 
     op.create_table(
         "profile_constraints",
@@ -296,7 +275,6 @@ def downgrade() -> None:
     op.drop_table("directions")
     op.drop_table("direction_runs")
     op.drop_table("profile_constraints")
-    op.drop_table("ai_traces")
     op.drop_index("uq_one_active_ranking_policy", table_name="ranking_policies")
     op.drop_table("ranking_policies")
     op.drop_index("uq_one_active_scoring_config", table_name="scoring_configs")
