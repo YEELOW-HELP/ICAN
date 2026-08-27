@@ -83,3 +83,60 @@ class UnfinishedAssessmentExistsError(DomainError):
     should resume the existing session, not start a new one."""
 
     code = "unfinished_assessment_exists"
+
+
+# ---- Stage 3A: Career Knowledge Base (Issue #4) ----
+
+
+class NoCurrentKnowledgeBaseVersionError(DomainError):
+    """No published KnowledgeBaseVersion exists yet -- retrieval callers
+    get this instead of silently reading nothing or reading a DRAFT."""
+
+    code = "no_current_knowledge_base_version"
+
+
+class KnowledgeBaseVersionNotFoundError(DomainError):
+    code = "knowledge_base_version_not_found"
+
+
+class KnowledgeBaseVersionNotDraftError(DomainError):
+    """Careers/skills/relations/facts may only be added to a DRAFT
+    version -- a PUBLISHED version is immutable (brief §14)."""
+
+    code = "knowledge_base_version_not_draft"
+
+
+class CareerNotFoundError(DomainError):
+    code = "career_not_found"
+
+
+class DuplicateCareerCodeError(DomainError):
+    """Raised when a career `code` is added twice within the same
+    (still-DRAFT) KnowledgeBaseVersion -- `code` is the stable business
+    key and must be unique within a version."""
+
+    code = "duplicate_career_code"
+
+
+class CrossVersionRelationError(DomainError):
+    """A CareerRelation must connect two careers in the same
+    KnowledgeBaseVersion -- a relation spanning two different KB versions
+    is never a meaningful thing to create."""
+
+    code = "cross_version_relation"
+
+
+class MarketSensitiveFactRequiresSourceError(DomainError):
+    """Brief §20: a market-sensitive fact (salary, demand, growth, ...)
+    without a source must never be persisted -- "unknown" beats a
+    plausible-looking fabrication."""
+
+    code = "market_sensitive_fact_requires_source"
+
+
+class HardFactualRequirementRequiresSourceError(DomainError):
+    """Brief §9: a CareerRequirement marked HARD_FACTUAL (as opposed to
+    TYPICAL_RECOMMENDATION or UNKNOWN) must carry a source -- otherwise it
+    is not actually a verified fact."""
+
+    code = "hard_factual_requirement_requires_source"
