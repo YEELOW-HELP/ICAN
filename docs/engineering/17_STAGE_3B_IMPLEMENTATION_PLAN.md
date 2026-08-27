@@ -1305,11 +1305,14 @@ CONFIRMED_MISSING); empty assessed set ⇒ `INSUFFICIENT_DATA`.
 
 ### 19.4 Slice 1 delivered (this branch)
 
-`methodology_lab/` (6 canonical docs), `app/db/models_direction.py`,
-one additive migration `3a1b9d5c7e21`, `app/services/direction/`
+`methodology_lab/` (README + 7 canonical docs: FOUNDER_METHODOLOGY_CONTRACT,
+HUMAN_POTENTIAL_MODEL, EVIDENCE_STANDARD, CAREER_FIT_MODEL, RANKING_POLICY,
+LEARNING_AND_FEEDBACK_PROTOCOL, EVALUATIONS), `app/db/models_direction.py`,
+one additive migration `3a1b9d5c7e21` (8 tables), `app/services/direction/`
 (versions, dimensions, dimension_mapping, config, constraints, threshold,
-scoring/*, ranking), and focused tests (`tests/test_direction_*.py`). Not
-built: LLM narrative, LLM critic, ranking **orchestration** (row
+scoring/*, ranking), `app/services/exceptions.py` (+2 domain errors), and
+69 focused tests (`tests/test_direction_*.py` + `tests/test_migrations.py`).
+Not built: LLM narrative, LLM critic, ranking **orchestration** (row
 persistence), consultant-review API/UI, Route Builder, report, PDF.
 
 **Post-push hardening (see §19.2's AI_TRACE note above):** the `AITrace`

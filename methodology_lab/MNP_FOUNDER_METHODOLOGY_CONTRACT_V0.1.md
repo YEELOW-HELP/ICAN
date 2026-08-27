@@ -156,8 +156,13 @@ constraints, rationale, and ambiguity notes preserved.
 ### M. Additional decisions
 1. **`Direction*` naming** is used for V1; the legacy ERD `SCENARIO`
    terminology is superseded for this product slice.
-2. **Persist `AI_TRACE`** if it can be a clean additive change; no
-   secrets/PII in traces.
+2. **~~Persist `AI_TRACE`~~ — SUPERSEDED by §2B.** A persisted `AI_TRACE`
+   subsystem is **NOT** approved for Stage 3B Slice 1: no `ai_traces`
+   table, no `AITrace` model. Only safe string trace / prompt / model /
+   version identifiers are stored where already useful for provenance
+   (`DirectionRun.trace_ids`, `Evidence.trace_id`). Full AI_TRACE
+   persistence is deferred to a separate, dedicated architecture
+   decision. See §2B for the binding rule.
 3. A Stage 3B `ClarificationRequest` may be created, but the **Stage 1
    assessment state machine is not reopened** in this stage.
 4. `request_changes` preserves immutable history. Regeneration creates a
