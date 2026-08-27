@@ -6,12 +6,14 @@ Each component compares ONE compatible structured pair and returns a
 otherwise `INSUFFICIENT_DATA` (never zero -- Founder decision F). No LLM.
 
 v0.1 implements three real Potential Fit scorers (`pf_interests`,
-`pf_skills_match`, `pf_work_environment`) and one real Transition
-Feasibility scorer (`tf_skill_gap`, using the PRESENT/CONFIRMED_MISSING/
-UNKNOWN model -- Founder decision P). Every other component is registered,
-enabled, and returns `INSUFFICIENT_DATA` with a documented reason, per the
-Model's v0.1 status table. They become real as methodology + KB curation
-supply the missing structured pair.
+`pf_skills_match`, `pf_work_environment`), one real Goal Alignment scorer
+(`ga_goals`, Slice 3 -- explicit `CanonicalDimension.GOALS` claims only,
+matched against structured Career KB data, never CV/occupation/Interests/
+Values), and one real Transition Feasibility scorer (`tf_skill_gap`, using
+the PRESENT/CONFIRMED_MISSING/UNKNOWN model -- Founder decision P). Every
+other component is registered, enabled, and returns `INSUFFICIENT_DATA`
+with a documented reason, per the Model's v0.1 status table. They become
+real as methodology + KB curation supply the missing structured pair.
 """
 
 from __future__ import annotations
@@ -187,8 +189,109 @@ def _pf_stub(key: str, reason: str):
 
 
 # ---------------------------------------------------------------- Goal Alignment
-# All INSUFFICIENT_DATA in legacy v0.1 (Career Fit / Direction Eval Model 3.2;
-# Founder decision B for decision-relevant Values).
+# Slice 3: `ga_goals` is now a REAL scorer -- v0.1's smallest defensible
+# implementation (Founder instruction, Slice 3 §1). `ga_motivation` and
+# `ga_decision_relevant_values` remain INSUFFICIENT_DATA stubs (Career Fit
+# / Direction Eval Model 3.2; Founder decision B for decision-relevant
+# Values) -- no structured career-side motivation/decision-relevance data
+# exists yet.
+#
+# `ga_goals` reads ONLY explicit `CanonicalDimension.GOALS` claims -- never
+# CV, current occupation, Interests, Values, or any other dimension. A
+# goal claim's text is matched against structured Career KB data ONLY
+# (never salary/market/lifestyle facts, none of which exist in the KB
+# schema anyway): desired career domain, desired work format/environment,
+# desired responsibility/leadership level, desired activity orientation.
+# A goal that cannot be matched to any of these returns INSUFFICIENT_DATA
+# -- never guessed, never zero.
+
+_GOAL_DOMAIN_KEYWORDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("technology", "software", "it ", "програмув", "программир", "розробк", "разработ"), "technology"),
+    (("sales", "продаж", "продажі"), "sales"),
+    (("healthcare", "medicine", "медицин", "охорони здоров'я", "охраны здоровья"), "healthcare"),
+    (("management", "менеджмент", "управлінн", "управлен"), "management"),
+    (("education", "teaching", "освіт", "образован", "виклада", "препода"), "education"),
+    (("creative", "design", "творч", "дизайн"), "creative"),
+    (("finance", "фінанс", "финанс"), "finance"),
+    (("marketing", "маркетинг"), "marketing"),
+)
+_GOAL_REMOTE_KEYWORDS = ("remote", "from home", "віддален", "удал", "дистанц")
+_GOAL_OFFICE_KEYWORDS = ("office", "офіс", "офис", "on-site", "onsite", "on site")
+_GOAL_LEADERSHIP_KEYWORDS = (
+    "leadership", "management role", "manage a team", "lead a team", "керівн", "управлінськ", "лідерств",
+    "керувати командою", "руководящ",
+)
+
+
+def ga_goals(ctx: ScoreContext) -> ScoreComponentResult:
+    claims = _claims_for(ctx, CanonicalDimension.GOALS)
+    if not claims:
+        return insufficient("ga_goals", _GA, "no usable Goals claims")
+
+    pairs: list[tuple[str, float]] = []
+    used_claim_ids = []
+    for mc in claims:
+        haystack = f"{mc.legacy_term_key or ''} {mc.label} {mc.normalized_value}".lower()
+        matched_this_claim = False
+
+        # 1. explicit desired career domain
+        for needles, domain in _GOAL_DOMAIN_KEYWORDS:
+            if any(n in haystack for n in needles):
+                pairs.append((f"domain:{domain}", 1.0 if domain == ctx.career_domain else 0.0))
+                matched_this_claim = True
+                break
+
+        # 2. desired work environment/format
+        setting = ctx.work_context.get("setting")
+        if setting is not None:
+            if any(n in haystack for n in _GOAL_REMOTE_KEYWORDS):
+                pairs.append(("work_format", 1.0 if str(setting) in ("remote", "mixed", "WorkSetting.REMOTE", "WorkSetting.MIXED") else 0.0))
+                matched_this_claim = True
+            elif any(n in haystack for n in _GOAL_OFFICE_KEYWORDS):
+                pairs.append(("work_format", 1.0 if str(setting) in ("office", "mixed", "WorkSetting.OFFICE", "WorkSetting.MIXED") else 0.0))
+                matched_this_claim = True
+
+        # 3. desired responsibility/leadership level
+        if any(n in haystack for n in _GOAL_LEADERSHIP_KEYWORDS):
+            level = ctx.work_context.get("responsibility_level")
+            if level is None:
+                level = ctx.career_characteristics.get("autonomy_level")
+            if level is not None:
+                pairs.append(("responsibility_level", _clamp01(float(level))))
+                matched_this_claim = True
+
+        # 4. desired activity orientation (same structured signals pf_interests uses)
+        for needles, char_key in _INTEREST_SIGNAL_MAP:
+            if any(n in haystack for n in needles):
+                value = ctx.career_characteristics.get(char_key)
+                if value is not None:
+                    pairs.append((char_key, float(value)))
+                    matched_this_claim = True
+                break
+
+        if matched_this_claim:
+            used_claim_ids.append(mc.source_claim_id)
+
+    if not pairs:
+        return insufficient(
+            "ga_goals", _GA,
+            "explicit Goals claims exist but none could be matched to structured Career KB data "
+            "(domain/work format/responsibility level/activity orientation)",
+        )
+
+    raw = _clamp01(sum(v for _, v in pairs) / len(pairs))
+    return ScoreComponentResult(
+        component_key="ga_goals",
+        family=_GA,
+        status=ScoreComponentStatus.SCORED,
+        raw_score=raw,
+        rationale=(
+            f"mean alignment of {len(pairs)} explicit-goal signal(s) with structured Career KB data "
+            f"({', '.join(sorted({k for k, _ in pairs}))})"
+        ),
+        contributing_claim_ids=tuple(c for c in used_claim_ids if c is not None),
+        contributing_career_attributes={k: v for k, v in pairs},
+    )
 
 
 def _ga_stub(key: str, reason: str):
@@ -268,8 +371,9 @@ COMPONENTS: dict[str, Callable[[ScoreContext], ScoreComponentResult]] = {
     "pf_experience_relevance": _pf_stub(
         "pf_experience_relevance", "no structured user Experience representation in v0.1"
     ),
-    # Goal Alignment (all INSUFFICIENT_DATA in legacy v0.1)
-    "ga_goals": _ga_stub("ga_goals", "no structured career goal-target data in KB v1"),
+    # Goal Alignment -- ga_goals is real as of Slice 3; the other two stay
+    # INSUFFICIENT_DATA (no structured career-side counterpart yet).
+    "ga_goals": ga_goals,
     "ga_motivation": _ga_stub("ga_motivation", "no structured career-side motivation counterpart"),
     "ga_decision_relevant_values": _ga_stub(
         "ga_decision_relevant_values",

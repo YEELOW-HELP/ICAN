@@ -132,6 +132,13 @@ EXPERIMENTAL_NON_PRODUCTION_SCORING_CONFIG_V1: dict = {
         "ec_kb_incompleteness_penalty_factor": 0.15,
         # Candidate selection (plan section 7) -- NOT ranking.
         "candidate_shortlist_cap": 25,
+        # Deterministic Critic (Slice 3 -- Founder Methodology Contract v0.1
+        # decision I: "no arbitrary semantic-similarity thresholds", so
+        # every Critic cutoff lives here, versioned/configurable, same as
+        # every other threshold, rather than a bare number in critic.py.
+        "critic_low_coverage_ratio": 0.5,
+        "critic_many_skills_to_verify_count": 3,
+        "critic_weak_kb_completeness_ratio": 0.5,
     },
     "notes": (
         "EXPERIMENTAL / NON-PRODUCTION. Engineering placeholder weights + thresholds for "

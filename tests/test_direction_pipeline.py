@@ -84,18 +84,25 @@ async def test_all_directions_reference_real_kb_careers(session, world):
 async def test_four_outputs_are_persisted_separately(session, world):
     """#7: Potential Fit / Goal Alignment / Transition Feasibility /
     Evidence Confidence are four independently stored fields, never one
-    blended score."""
+    blended score. Since Slice 3 (`ga_goals` is now a real scorer), the
+    fixture's explicit "wants a stable remote job" Goal claim genuinely
+    matches `dev_strong`'s REMOTE work context -- proving independence via
+    structurally disjoint contributing components, not merely "GA is
+    always None"."""
     run = await pipeline.generate_directions(session, user_id=world["user"].id)
     direction = (await _directions_by_code(session, run.id))["dev_strong"]
 
     assert direction.potential_fit_raw_experimental is not None
     assert direction.potential_fit_band is QualitativeBand.HIGH
-    # Goal Alignment has no real scorer in Slice 1 (all three components are
-    # documented stubs) -- it must independently read as unknown (None),
-    # never inherit or be corrupted by Potential Fit's HIGH value.
-    assert direction.goal_alignment_raw_experimental is None
-    assert direction.goal_alignment_band is None
-    assert direction.potential_fit_raw_experimental != direction.goal_alignment_raw_experimental
+    assert direction.goal_alignment_raw_experimental is not None  # ga_goals is real as of Slice 3
+    assert direction.goal_alignment_band is not None
+
+    rows = (
+        await session.execute(select(DirectionScoreComponent).where(DirectionScoreComponent.direction_id == direction.id))
+    ).scalars().all()
+    pf_keys = {r.component_key for r in rows if r.output_family is OutputFamily.POTENTIAL_FIT}
+    ga_keys = {r.component_key for r in rows if r.output_family is OutputFamily.GOAL_ALIGNMENT}
+    assert pf_keys.isdisjoint(ga_keys)  # not one shared component feeding both -- structurally independent
 
 
 async def test_missing_component_persisted_as_insufficient_data_not_zero(session, world):
@@ -283,23 +290,20 @@ async def test_never_pads_to_three_and_three(session, world):
 
 
 async def test_goal_alignment_never_conflated_with_potential_fit(session, world):
-    """#10 (known Slice-1 limitation, see Founder report item 18): every
-    real Goal Alignment component is still a documented stub in this
-    engine version, so a genuine LOW Goal Alignment cannot yet be produced
-    end-to-end from real data. What this test proves instead is the
-    orchestrator-level contract the ranking rule depends on: Goal
-    Alignment is computed, persisted, and fed into RankingPolicy as its
-    own independent value -- never defaulted to Potential Fit's band or
-    silently coerced into LOW -- so the already-unit-tested
-    `test_direction_ranking.py::test_low_known_goal_alignment_disqualifies_main_but_low_pf_still_allows_alternative_only_if_pf_medium`
-    rule applies correctly the moment a real Goal Alignment scorer exists."""
+    """#10, closed as of Slice 3 (`ga_goals` is now real): the profile's
+    explicit Goal claim ("wants a stable remote job") genuinely mismatches
+    `sales_manager`'s OFFICE work context -- a real, independently-computed
+    LOW Goal Alignment that has nothing to do with `sales_manager`'s own
+    (unrelated) Potential Fit value. Goal Alignment is never defaulted to
+    Potential Fit's band or silently coerced -- it can be LOW while PF is
+    something else entirely, and RankingPolicy's "unknown/LOW Goal
+    Alignment" rules (already unit-tested in test_direction_ranking.py)
+    apply to this real value correctly."""
     run = await pipeline.generate_directions(session, user_id=world["user"].id)
-    direction = (await _directions_by_code(session, run.id))["dev_strong"]
-    assert direction.potential_fit_band is QualitativeBand.HIGH
-    assert direction.goal_alignment_band is None  # unknown, not LOW, and never equal to potential_fit's band
-    # RankingPolicy's own "unknown Goal Alignment is not LOW" rule (Founder
-    # decision A.2) is exactly why this direction can still reach MAIN/ALT.
-    assert direction.placement in (DirectionPlacement.MAIN, DirectionPlacement.ALTERNATIVE)
+    direction = (await _directions_by_code(session, run.id))["sales_manager"]
+    assert direction.goal_alignment_band is QualitativeBand.LOW  # remote-job goal vs. OFFICE-only career
+    assert direction.potential_fit_band is not QualitativeBand.LOW  # PF is unrelated to GA's mismatch
+    assert direction.potential_fit_raw_experimental != direction.goal_alignment_raw_experimental
 
 
 # ---------------------------------------------------------------- 14

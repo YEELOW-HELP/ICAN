@@ -168,3 +168,36 @@ class DirectionGenerationInProgressError(DomainError):
     Slice 2 orchestrator."""
 
     code = "direction_generation_in_progress"
+
+
+class NoCurrentDirectionRunError(DomainError):
+    """No `DirectionRun` exists at all for this user -- there is nothing
+    for the Critic/review/approval layer to act on yet. Call
+    app/services/direction/pipeline.py::generate_directions first."""
+
+    code = "no_current_direction_run"
+
+
+class DirectionReviewNotFoundError(DomainError):
+    """No `DirectionReview` row exists for this `DirectionRun` -- call
+    app/services/direction/review.py::start_review first."""
+
+    code = "direction_review_not_found"
+
+
+class DirectionRunHasUnresolvedBlockerError(DomainError):
+    """A `DirectionRun` with at least one unresolved
+    `DirectionCriticFinding(severity=BLOCKER)` may never be
+    consultant-approved (Founder decision, Slice 3 §3/§7)."""
+
+    code = "direction_run_has_unresolved_blocker"
+
+
+class NoApprovedDirectionRunError(DomainError):
+    """No `DirectionRun` for this user has cleared the full approval gate
+    (READY status, zero unresolved BLOCKER findings, an APPROVED
+    `DirectionReview` from an authorized reviewer, bound to the exact
+    immutable run version) -- a later client-report layer must never treat
+    an unapproved run as final."""
+
+    code = "no_approved_direction_run"

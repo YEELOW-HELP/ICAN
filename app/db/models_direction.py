@@ -54,9 +54,23 @@ deterministic explanation bundle per recommended `Direction` (see the
 `explanation_bundle`/`duplicate_of_career_code`/`dedup_reason`/
 `diversity_warning` columns added in the Slice 2 migration).
 
-The consultant-review / critic-finding tables
-(`direction_reviews`/`consultant_corrections`/`direction_critic_findings`)
-are deliberately still NOT in this schema -- built with their logic later.
+## Slice 3: Critic + real Goal Alignment + consultant review + narrative
+
+`app/services/direction/critic.py` inspects a completed `DirectionRun`
+independently of the orchestrator that produced it and persists
+`DirectionCriticFinding` rows (BLOCKER/WARNING/INFO). A run with an
+unresolved BLOCKER can never be consultant-approved.
+`app/services/direction/review.py` implements the `DirectionReview` state
+machine (PENDING_REVIEW -> APPROVED | CHANGES_REQUESTED | REJECTED) plus
+append-only `ConsultantCorrection` rows -- the original `DirectionRun`/
+`Direction` rows are NEVER mutated by a review or correction.
+`app/services/direction/narrative.py` adds an optional, tightly-grounded
+LLM narrative layer (input: only the deterministic `explanation_bundle`,
+never raw CV/answer text) on top of `Direction.narrative_text`/
+`narrative_locale`/`narrative_trace_id` (already present since Slice 1)
+plus the new `narrative_structured` column below. No `ai_traces` table is
+introduced by this either -- narrative provenance stays exactly the
+existing trace_id-string pattern.
 """
 
 from __future__ import annotations
@@ -169,6 +183,50 @@ class ClarificationStatus(str, enum.Enum):
     OPEN = "open"
     ADDRESSED = "addressed"
     DISMISSED = "dismissed"
+
+
+class CriticSeverity(str, enum.Enum):
+    """`BLOCKER` prevents consultant approval (`review.approve_run`
+    re-checks this at approval time, never trusting a stale check).
+    `WARNING` never blocks approval by itself -- a WARNING is not a
+    BLOCKER (Slice 3 test invariant #7)."""
+
+    BLOCKER = "blocker"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class ReviewStatus(str, enum.Enum):
+    """A `DirectionReview` transitions at most once out of PENDING_REVIEW
+    (app/services/direction/review.py owns the state machine, mirroring
+    app/services/assessment/state_machine.py's "only one module changes
+    this status" discipline). A regeneration never resurrects an old
+    review -- it gets a brand new `DirectionReview` row at PENDING_REVIEW
+    on the new `DirectionRun`."""
+
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    CHANGES_REQUESTED = "changes_requested"
+    REJECTED = "rejected"
+
+
+class CorrectionReasonCode(str, enum.Enum):
+    """The exact closed set from the Founder Methodology Contract v0.1
+    decision K -- engineering may not add an entry to this set."""
+
+    WRONG_INFERENCE = "wrong_inference"
+    MISSING_INFERENCE = "missing_inference"
+    WRONG_DIMENSION = "wrong_dimension"
+    OVERCONFIDENCE = "overconfidence"
+    UNDERCONFIDENCE = "underconfidence"
+    CONTRADICTION_MISSED = "contradiction_missed"
+    CONSTRAINT_MISSED = "constraint_missed"
+    UNSUPPORTED_FACT = "unsupported_fact"
+    WRONG_DIRECTION_PRIORITY = "wrong_direction_priority"
+    CAREER_KNOWLEDGE_PROBLEM = "career_knowledge_problem"
+    EVIDENCE_EXTRACTION_PROBLEM = "evidence_extraction_problem"
+    WORDING_ONLY = "wording_only"
+    OTHER_WITH_COMMENT = "other_with_comment"
 
 
 class ScoringConfig(Base):
@@ -395,6 +453,13 @@ class Direction(Base):
     narrative_text: Mapped[str | None] = mapped_column(Text)
     narrative_locale: Mapped[str | None] = mapped_column(String(8))
     narrative_trace_id: Mapped[str | None] = mapped_column(String(64))
+    # Slice 3: structured LLM narrative -- {summary, why_fit, why_now,
+    # transition, risks, what_to_verify}. `narrative_text` continues to
+    # hold the `summary` field for any caller still reading the plain-text
+    # column (see app/services/direction/narrative.py). prompt_version/
+    # model live on DirectionRun (narrative_prompt_version/model, already
+    # present since Slice 1) -- not duplicated per-Direction.
+    narrative_structured: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )
@@ -483,3 +548,96 @@ class ClarificationRequest(Base):
     )
 
     run: Mapped["DirectionRun"] = relationship(back_populates="clarification_requests")
+
+
+class DirectionCriticFinding(Base):
+    """One deterministic Critic finding (app/services/direction/critic.py)
+    against a completed `DirectionRun`. `direction_id` is null for a
+    run-level finding (e.g. "insufficient direction diversity"), set for a
+    finding about one specific `Direction`. Never stores raw CV/answer
+    text -- `related_*_ids` are references, `message` is a deterministic,
+    templated description built only from IDs/counts/bands, never from
+    quoted free-text claim content."""
+
+    __tablename__ = "direction_critic_findings"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("direction_runs.id"), index=True)
+    direction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("directions.id"), index=True)
+    severity: Mapped[CriticSeverity] = mapped_column(Enum(CriticSeverity, native_enum=False), index=True)
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    message: Mapped[str] = mapped_column(Text)
+    related_claim_ids: Mapped[list | None] = mapped_column(JSON)
+    related_evidence_ids: Mapped[list | None] = mapped_column(JSON)
+    related_career_ids: Mapped[list | None] = mapped_column(JSON)
+    related_requirement_ids: Mapped[list | None] = mapped_column(JSON)
+    engine_version: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
+
+
+class DirectionReview(Base):
+    """The consultant-review workflow state for one `DirectionRun` (at
+    most one review per run -- a regeneration creates a NEW `DirectionRun`
+    and therefore a NEW review, never reopens an old one). The underlying
+    `DirectionRun`/`Direction` rows are immutable; only this row's
+    workflow fields (`status`/`reviewer_id`/`comment`/`decided_at`)
+    change, exactly like `InterviewSession.status` in Stage 1 -- the
+    content it is reviewing never moves."""
+
+    __tablename__ = "direction_reviews"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("direction_runs.id"), unique=True, index=True)
+    status: Mapped[ReviewStatus] = mapped_column(
+        Enum(ReviewStatus, native_enum=False), default=ReviewStatus.PENDING_REVIEW, index=True
+    )
+    reviewer_id: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"))
+    comment: Mapped[str | None] = mapped_column(Text)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
+
+    corrections: Mapped[list["ConsultantCorrection"]] = relationship(back_populates="review")
+
+
+class ConsultantCorrection(Base):
+    """Append-only (Founder Methodology Contract v0.1 decision K) -- never
+    UPDATE or DELETE a row here, mirroring `AuditLog`'s discipline. Both
+    `original_value` and `corrected_value` are captured at correction time
+    so the correction is self-explanatory without re-deriving "what did it
+    used to say" from history. Every provenance/version field is
+    denormalized onto the row (not just referenced via the run) so the
+    correction remains a complete, self-contained audit record even if the
+    referenced run/config/policy rows are inspected out of context."""
+
+    __tablename__ = "consultant_corrections"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    review_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("direction_reviews.id"), index=True)
+    direction_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("directions.id"), index=True)
+    # e.g. "direction_placement" | "direction_metadata" | "narrative" |
+    # "profile_flag" | "knowledge_flag" -- free string, extensible without
+    # a migration (same rationale as KnowledgeSource.source_type).
+    artifact_type: Mapped[str] = mapped_column(String(32))
+    original_value: Mapped[dict | None] = mapped_column(JSON)
+    corrected_value: Mapped[dict | None] = mapped_column(JSON)
+    reason_code: Mapped[CorrectionReasonCode] = mapped_column(Enum(CorrectionReasonCode, native_enum=False), index=True)
+    comment: Mapped[str | None] = mapped_column(Text)
+    reviewer_id: Mapped[int] = mapped_column(ForeignKey("admin_users.id"))
+    related_claim_ids: Mapped[list | None] = mapped_column(JSON)
+    related_evidence_ids: Mapped[list | None] = mapped_column(JSON)
+    methodology_version: Mapped[str] = mapped_column(String(64))
+    knowledge_base_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("knowledge_base_versions.id"))
+    scoring_config_version: Mapped[int] = mapped_column(Integer)
+    ranking_policy_version: Mapped[int] = mapped_column(Integer)
+    direction_engine_version: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str | None] = mapped_column(String(64))
+    prompt_version: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
+
+    review: Mapped["DirectionReview"] = relationship(back_populates="corrections")
