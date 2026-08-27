@@ -557,9 +557,22 @@ class DirectionCriticFinding(Base):
     finding about one specific `Direction`. Never stores raw CV/answer
     text -- `related_*_ids` are references, `message` is a deterministic,
     templated description built only from IDs/counts/bands, never from
-    quoted free-text claim content."""
+    quoted free-text claim content.
+
+    `identity_key` (Slice 3.5 hardening) makes a finding's identity
+    idempotent per (run_id, engine_version, direction_id, severity, code,
+    related-entity identity) -- `critic.py::_compute_identity_key` computes
+    it; `run_critic()` skips inserting a row whose `identity_key` already
+    exists for this `run_id`, so re-running the SAME critic engine version
+    on the SAME run never creates duplicate findings. A different, later
+    `engine_version` gets its own `identity_key`s and therefore its own,
+    additional finding set -- historical findings from a superseded engine
+    version are never deleted."""
 
     __tablename__ = "direction_critic_findings"
+    __table_args__ = (
+        UniqueConstraint("run_id", "identity_key", name="uq_direction_critic_finding_identity"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("direction_runs.id"), index=True)
@@ -572,6 +585,7 @@ class DirectionCriticFinding(Base):
     related_career_ids: Mapped[list | None] = mapped_column(JSON)
     related_requirement_ids: Mapped[list | None] = mapped_column(JSON)
     engine_version: Mapped[str] = mapped_column(String(64))
+    identity_key: Mapped[str] = mapped_column(String(64), index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
     )

@@ -21,6 +21,7 @@ deterministic, templated `message` string built from those.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from dataclasses import dataclass
 
@@ -91,11 +92,15 @@ class _Finding:
 
 
 async def run_critic(session: AsyncSession, *, run_id: uuid.UUID) -> list[DirectionCriticFinding]:
-    """Deterministic, re-runnable: calling this twice for the same run
-    produces the same findings from the same persisted data (it does not
-    delete/replace previous findings -- callers that want a fresh pass
-    should treat existing findings as historical, consistent with this
-    codebase's append-only-audit conventions)."""
+    """Deterministic AND idempotent for a given (run_id, engine_version):
+    calling this twice back-to-back for the same run produces the exact
+    same finding set the second time, with zero new rows inserted (Slice
+    3.5 hardening -- superseding Slice 3's non-idempotent version). Never
+    deletes historical findings, including ones from a different,
+    superseded `DIRECTION_ENGINE_VERSION` -- `identity_key` folds the
+    engine version in, so a genuinely new engine version naturally
+    produces its own, additional finding set alongside the old one,
+    rather than colliding with or erasing it."""
     run = await session.get(DirectionRun, run_id)
     if run is None:
         raise NoCurrentDirectionRunError(f"DirectionRun {run_id} does not exist")
@@ -107,27 +112,82 @@ async def run_critic(session: AsyncSession, *, run_id: uuid.UUID) -> list[Direct
     for direction in directions:
         findings.extend(await _check_direction(session, run=run, direction=direction))
 
-    rows = [
+    candidate_rows = [
         DirectionCriticFinding(
             run_id=run_id, direction_id=f.direction_id, severity=f.severity, code=f.code, message=f.message,
             related_claim_ids=f.related_claim_ids, related_evidence_ids=f.related_evidence_ids,
             related_career_ids=f.related_career_ids, related_requirement_ids=f.related_requirement_ids,
             engine_version=DIRECTION_ENGINE_VERSION,
+            identity_key=_compute_identity_key(
+                direction_id=f.direction_id, severity=f.severity, code=f.code, engine_version=DIRECTION_ENGINE_VERSION,
+                related_claim_ids=f.related_claim_ids, related_evidence_ids=f.related_evidence_ids,
+                related_career_ids=f.related_career_ids, related_requirement_ids=f.related_requirement_ids,
+            ),
         )
         for f in findings
     ]
-    session.add_all(rows)
+
+    existing_keys = set(
+        (
+            await session.execute(
+                select(DirectionCriticFinding.identity_key).where(DirectionCriticFinding.run_id == run_id)
+            )
+        ).scalars().all()
+    )
+    new_rows = [row for row in candidate_rows if row.identity_key not in existing_keys]
+
+    session.add_all(new_rows)
     await session.commit()
-    for row in rows:
+    for row in new_rows:
         await session.refresh(row)
 
-    blocker_count = sum(1 for r in rows if r.severity is CriticSeverity.BLOCKER)
-    warning_count = sum(1 for r in rows if r.severity is CriticSeverity.WARNING)
+    # Reflects THIS evaluation's full finding set (existing + newly
+    # inserted for the current engine_version), not just what was new.
+    current_version_rows = (
+        await session.execute(
+            select(DirectionCriticFinding).where(
+                DirectionCriticFinding.run_id == run_id, DirectionCriticFinding.engine_version == DIRECTION_ENGINE_VERSION
+            )
+        )
+    ).scalars().all()
+
+    blocker_count = sum(1 for r in current_version_rows if r.severity is CriticSeverity.BLOCKER)
+    warning_count = sum(1 for r in current_version_rows if r.severity is CriticSeverity.WARNING)
     emit_event(
         "direction_critic_completed", run_id=str(run_id), blocker_count=blocker_count, warning_count=warning_count,
-        total_findings=len(rows),
+        total_findings=len(current_version_rows), new_findings=len(new_rows),
     )
-    return rows
+    return current_version_rows
+
+
+def _compute_identity_key(
+    *,
+    direction_id: uuid.UUID | None,
+    severity: CriticSeverity,
+    code: str,
+    engine_version: str,
+    related_claim_ids: list[str] | None,
+    related_evidence_ids: list[str] | None,
+    related_career_ids: list[str] | None,
+    related_requirement_ids: list[str] | None,
+) -> str:
+    """A finding's identity is (direction_id, severity, code, engine_version,
+    related-entity identity) -- NOT run_id (already the partition key on
+    the uniqueness index) and NOT the free-text `message` (which may
+    legitimately vary in wording between evaluations of the same
+    underlying issue without being a different issue). Related-ID lists
+    are sorted before hashing so finding order never affects identity."""
+    parts = [
+        str(direction_id) if direction_id is not None else "run",
+        severity.value,
+        code,
+        engine_version,
+        ",".join(sorted(related_claim_ids or [])),
+        ",".join(sorted(related_evidence_ids or [])),
+        ",".join(sorted(related_career_ids or [])),
+        ",".join(sorted(related_requirement_ids or [])),
+    ]
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
 
 async def _check_run_level(session: AsyncSession, *, run: DirectionRun, directions: list[Direction]) -> list[_Finding]:
@@ -240,13 +300,18 @@ async def _check_direction(session: AsyncSession, *, run: DirectionRun, directio
         (OutputFamily.GOAL_ALIGNMENT, direction.goal_alignment_raw_experimental),
         (OutputFamily.TRANSITION_FEASIBILITY, direction.transition_feasibility_raw_experimental),
     ):
+        # Family-specific code suffix: three families genuinely produce
+        # three independent findings for the same direction, and their
+        # identity must not collide (Slice 3.5 hardening -- the bug this
+        # fixes was caught by the new idempotency UNIQUE constraint).
+        family_code = f"{CriticCode.SCORE_CONFLICTS_WITH_COMPONENTS}:{family.value}"
         family_components = [c for c in components if c.output_family is family]
         scored = [c for c in family_components if c.status is ScoreComponentStatus.SCORED and c.raw_score is not None]
         if not scored:
             if persisted_raw is not None:
                 findings.append(
                     _Finding(
-                        direction.id, CriticSeverity.BLOCKER, CriticCode.SCORE_CONFLICTS_WITH_COMPONENTS,
+                        direction.id, CriticSeverity.BLOCKER, family_code,
                         f"direction {direction.id} {family.value} raw={persisted_raw} but zero SCORED components exist",
                     )
                 )
@@ -256,7 +321,7 @@ async def _check_direction(session: AsyncSession, *, run: DirectionRun, directio
         if persisted_raw is None or recomputed is None or abs(persisted_raw - recomputed) > 1e-6:
             findings.append(
                 _Finding(
-                    direction.id, CriticSeverity.BLOCKER, CriticCode.SCORE_CONFLICTS_WITH_COMPONENTS,
+                    direction.id, CriticSeverity.BLOCKER, family_code,
                     f"direction {direction.id} {family.value} persisted raw={persisted_raw} does not match "
                     f"recomputed weighted mean {recomputed} from its own SCORED components",
                 )
@@ -374,7 +439,7 @@ def _check_direction_warnings(direction: Direction, *, thresholds: dict) -> list
         if ratio is not None and ratio < low_coverage:
             findings.append(
                 _Finding(
-                    direction.id, CriticSeverity.WARNING, CriticCode.LOW_COVERAGE,
+                    direction.id, CriticSeverity.WARNING, f"{CriticCode.LOW_COVERAGE}:{family_name}",
                     f"direction {direction.id} {family_name} coverage_ratio={ratio:.2f} is below {low_coverage}",
                 )
             )

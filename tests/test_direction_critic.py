@@ -180,3 +180,52 @@ async def test_critic_flags_duplicate_career_in_recommendations(session, world):
     by_code = await _findings_by_code(session, run.id)
     assert critic.CriticCode.DUPLICATE_CAREER_IN_RECOMMENDATIONS in by_code
     assert by_code[critic.CriticCode.DUPLICATE_CAREER_IN_RECOMMENDATIONS][0].severity is CriticSeverity.BLOCKER
+
+
+# ---------------------------------------------------------------- Slice 3.5: idempotency (16, 17)
+
+
+async def test_second_identical_critic_run_creates_no_duplicate_findings(session, world):
+    """#16."""
+    from app.services.direction.pipeline import generate_directions
+
+    run = await generate_directions(session, user_id=world["user"].id)
+    first_pass = await critic.run_critic(session, run_id=run.id)
+    first_count = len(
+        (await session.execute(select(DirectionCriticFinding).where(DirectionCriticFinding.run_id == run.id))).scalars().all()
+    )
+    assert len(first_pass) == first_count
+    assert first_count > 0  # this fixture always produces at least one WARNING
+
+    second_pass = await critic.run_critic(session, run_id=run.id)
+    second_count = len(
+        (await session.execute(select(DirectionCriticFinding).where(DirectionCriticFinding.run_id == run.id))).scalars().all()
+    )
+    assert second_count == first_count  # zero new rows inserted
+    assert len(second_pass) == first_count  # returned set matches the persisted, deduplicated set
+
+    third_pass = await critic.run_critic(session, run_id=run.id)
+    assert len(third_pass) == first_count
+
+
+async def test_different_engine_version_produces_its_own_finding_set(session, world, monkeypatch):
+    """#17: historical findings from a superseded engine version are never
+    deleted, and a new engine version gets its own, additional set."""
+    from app.services.direction.pipeline import generate_directions
+
+    run = await generate_directions(session, user_id=world["user"].id)
+    old_findings = await critic.run_critic(session, run_id=run.id)
+    old_count = len(old_findings)
+
+    monkeypatch.setattr(critic, "DIRECTION_ENGINE_VERSION", "direction-intelligence:v0.2-test")
+    new_findings = await critic.run_critic(session, run_id=run.id)
+    assert len(new_findings) == old_count  # same issues found under the new version too
+    assert all(f.engine_version == "direction-intelligence:v0.2-test" for f in new_findings)
+
+    all_rows = (
+        await session.execute(select(DirectionCriticFinding).where(DirectionCriticFinding.run_id == run.id))
+    ).scalars().all()
+    assert len(all_rows) == old_count * 2  # old engine-version rows preserved, new ones added alongside
+    engine_versions_present = {r.engine_version for r in all_rows}
+    assert "direction-intelligence:v0.1-slice1" in engine_versions_present
+    assert "direction-intelligence:v0.2-test" in engine_versions_present
