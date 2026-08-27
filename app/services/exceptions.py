@@ -140,3 +140,31 @@ class HardFactualRequirementRequiresSourceError(DomainError):
     is not actually a verified fact."""
 
     code = "hard_factual_requirement_requires_source"
+
+
+# ---- Stage 3B: Direction Intelligence (Founder decisions A-M) ----
+
+
+class NoActiveScoringConfigError(DomainError):
+    """No ACTIVE ScoringConfig exists -- Direction Intelligence cannot run
+    without versioned (experimental) weights/thresholds. Call
+    app/services/direction/config.py::ensure_experimental_scoring_config."""
+
+    code = "no_active_scoring_config"
+
+
+class NoActiveRankingPolicyError(DomainError):
+    """No ACTIVE RankingPolicy exists -- ranking is a separate versioned
+    decision layer (Founder decisions O + G). Call
+    app/services/direction/config.py::ensure_experimental_ranking_policy."""
+
+    code = "no_active_ranking_policy"
+
+
+class DirectionGenerationInProgressError(DomainError):
+    """A DirectionRun is already GENERATING for this user -- prevents two
+    concurrent runs racing to create uncontrolled duplicate versions (the
+    Stage 2 ProfileGenerationInProgressError precedent). Reserved for the
+    Slice 2 orchestrator."""
+
+    code = "direction_generation_in_progress"

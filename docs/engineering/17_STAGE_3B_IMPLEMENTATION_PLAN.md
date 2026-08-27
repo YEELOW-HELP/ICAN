@@ -1224,3 +1224,84 @@ vocabulary, MDR-11) still await *content* delivery as versioned data —
 this is normal, ongoing methodology work that continues in parallel
 without gating the engineering mechanism Slice 1 builds, exactly as
 Stage 2's taxonomy and Stage 3A's skills/KB content did.
+
+---
+
+## 19. Research Wave A addendum — four separate outputs (Founder decision, binding)
+
+> Added after Slice 1 implementation began, per the Founder "FOUR-OUTPUT
+> MODEL APPROVED" decision (A–H). Refines — does not replace — §4A / §5 /
+> §7. Where this addendum and the pre-Wave-A body differ, **this addendum
+> wins**. The canonical methodology text is now in-repo under
+> `methodology_lab/` (created this slice per the Founder "create the
+> missing methodology canon inside the SAME ICAN repository" instruction).
+
+### 19.1 What changed
+
+Stage 3B does **not** compute one blended Career Fit score from the 12
+dimensions. It computes **four structurally separate, separately stored
+outputs**:
+
+| Output | Inputs (canonical dimensions) | v0.1 status |
+|---|---|---|
+| **Potential Fit** | Interests, Strengths, Skills (match), Work Style, Work Environment, Values (general), relevant Experience | 3 real scorers (`pf_interests`, `pf_skills_match`, `pf_work_environment`); rest `INSUFFICIENT_DATA` |
+| **Goal Alignment** | Goals, Motivation, decision-relevant Values | entirely `INSUFFICIENT_DATA` in legacy v0.1 (no decision-relevance marker — Founder decision B) |
+| **Transition Feasibility** | Constraints, Skill gaps (`CONFIRMED_MISSING` only), Abilities & Learning Potential, Career Adaptability, career requirements | 1 real scorer (`tf_skill_gap`, using PRESENT/CONFIRMED_MISSING/UNKNOWN); rest `INSUFFICIENT_DATA` (Founder decision H — acceptable) |
+| **Evidence Confidence** | evidence strength E1–E3, claim confidence, source diversity, coverage across the 3 fit outputs, contradictions, KB completeness | dedicated deterministic function, LOW/MEDIUM/HIGH |
+
+Ranking is a **separate versioned decision layer** (`RankingPolicy`), never
+part of the definition of Potential Fit and never a composite score
+(Founder decisions O + G + A).
+
+### 19.2 Impacted plan sections
+
+- **§4.2 pipeline** — the single "Fit aggregation → confidence" step
+  becomes "score components (per family) → aggregate ×3 families →
+  Evidence Confidence (separate) → RankingPolicy (separate layer)".
+- **§5 models** — `Direction` stores four output blocks
+  (`potential_fit_*`, `goal_alignment_*`, `transition_feasibility_*`,
+  `evidence_confidence_*`) instead of one `fit_score` + one `confidence`.
+  `DirectionFitComponent` → `DirectionScoreComponent` with `output_family`
+  and `UNIQUE(direction_id, output_family, component_key)`. New
+  `RankingPolicy` table (versioned, one ACTIVE, `is_experimental`). New
+  `ProfileConstraint.constraint_subtype` uses the **12-subtype** taxonomy
+  (Founder decision Q): `time, financial, geography, mobility,
+  work_schedule, work_format, language, education, credential, legal,
+  family_logistics, functional`.
+- **§7 fit engine** — `app/services/direction/scoring/` (base, components,
+  skill_state, aggregate, evidence_confidence) + `ranking.py`. All
+  deterministic pure functions. `aggregate_family` excludes
+  `INSUFFICIENT_DATA` from numerator *and* denominator; `raw = None`
+  (band `None`, **not** `LOW`) below `min_scored_components`.
+- **§4A MDR-5/MDR-6/MDR-10** — superseded by decisions E/F/A: component
+  set is per-family; aggregation is per-family weighted mean of available;
+  ranking is the lexicographic RankingPolicy (PF → GA → TF → EC, None
+  last), never a composite.
+- **AI_TRACE** — the pre-Wave-A body (§3, §15 R4) said "do not persist".
+  Founder decision M2 says "persist if it can be a clean additive
+  change". Slice 1 **creates the `ai_traces` table + `record_ai_trace`
+  helper** (clean, additive, no PII); wiring `AIGateway` to call it is
+  deferred to the slice that adds Direction LLM tasks. **This is a
+  divergence from the committed pre-Wave-A plan body and is flagged in
+  the Founder Report.**
+
+### 19.3 Skill-state semantics (Founder decision P)
+
+`UNKNOWN ≠ NEGATIVE`. Per required `CareerSkill`: `PRESENT` (SUPPORTED
+matching claim), `CONFIRMED_MISSING` (CONTRADICTED / explicit-negation
+matching claim), `UNKNOWN` (anything else, incl. no claim). Only
+`CONFIRMED_MISSING` is a real gap; `UNKNOWN` required skills become
+`skills_to_verify` (a `ClarificationRequest`, never a penalty).
+`tf_skill_gap` is computed only from the assessed set (PRESENT +
+CONFIRMED_MISSING); empty assessed set ⇒ `INSUFFICIENT_DATA`.
+
+### 19.4 Slice 1 delivered (this branch)
+
+`methodology_lab/` (6 canonical docs), `app/db/models_direction.py`
+(+`AITrace` on `models_platform.py`), one additive migration
+`3a1b9d5c7e21`, `app/services/direction/` (versions, dimensions,
+dimension_mapping, config, constraints, threshold, scoring/*, ranking),
+`app/services/ai_trace.py`, and 66 focused tests
+(`tests/test_direction_*.py`). Not built: LLM narrative, LLM critic,
+ranking **orchestration** (row persistence), consultant-review API/UI,
+Route Builder, report, PDF.

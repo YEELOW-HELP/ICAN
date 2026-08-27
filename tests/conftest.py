@@ -11,6 +11,7 @@ from app.db import models_assessment  # noqa: F401
 from app.db import models_platform  # noqa: F401
 from app.db import models_profile  # noqa: F401
 from app.db import models_knowledge  # noqa: F401
+from app.db import models_direction  # noqa: F401
 
 
 @pytest_asyncio.fixture

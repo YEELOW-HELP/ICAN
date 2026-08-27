@@ -15,6 +15,7 @@ from app.db import models_assessment  # noqa: F401
 from app.db import models_platform  # noqa: F401
 from app.db import models_profile  # noqa: F401
 from app.db import models_knowledge  # noqa: F401
+from app.db import models_direction  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
