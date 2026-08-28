@@ -293,3 +293,14 @@ class MatchDisabledScaleError(DomainError):
     career-side matching vector, no exceptions, no silent override."""
 
     code = "match_disabled_scale"
+
+
+# ---- Matching V1 M4: deterministic matching engine (Founder Review, 2026-08-28) ----
+
+
+class MatchingResultNotFoundError(DomainError):
+    """No `MatchingResult` exists for the requested id -- call
+    `app/services/matching/engine.py::calculate_pair_match` or
+    `match_profile_to_careers` first."""
+
+    code = "matching_result_not_found"
