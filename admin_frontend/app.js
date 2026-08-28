@@ -1,5 +1,6 @@
 import { api, ApiError, getSession, isLoggedIn, setSession } from "./api.js";
 import { renderClientDetail, STATUS_META } from "./clientDetail.js";
+import { renderMnpClientCard, renderMnpList } from "./mnpWorkspace.js";
 import { attachShellEvents, debounce, esc, fmtDate, shell, toast } from "./ui.js";
 
 const root = document.getElementById("app");
@@ -381,6 +382,17 @@ function route() {
   const detailMatch = hash.match(/^#\/clients\/(\d+)$/);
   if (detailMatch) {
     renderClientDetail(root, detailMatch[1], navigate);
+    return;
+  }
+
+  const mnpDetailMatch = hash.match(/^#\/mnp\/([0-9a-fA-F-]{36})$/);
+  if (mnpDetailMatch) {
+    renderMnpClientCard(root, mnpDetailMatch[1], navigate);
+    return;
+  }
+
+  if (hash === "#/mnp" || hash.startsWith("#/mnp?")) {
+    renderMnpList(root, navigate);
     return;
   }
 

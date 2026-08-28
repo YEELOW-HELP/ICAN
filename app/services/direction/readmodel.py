@@ -42,12 +42,22 @@ or non-approved run, and raises the same `NoApprovedDirectionRunError`
 
 ## Privacy
 
-Nothing here ever reads `Answer`/`CVUpload`/`InterviewMessage` (raw
-CV/assessment-transcript content) or an AI Gateway prompt. Profile-level
-summary data is limited to structural counts/bands (canonical dimensions
-covered, SUPPORTED claim count, a confidence BAND -- never a raw claim's
-`label`/`normalized_value` text). `Evidence` is referenced by ID only,
-consistent with how `Direction.explanation_bundle` already does it.
+Nothing in this module ever reads `Answer`/`CVUpload`/`InterviewMessage`
+(raw CV/assessment-transcript content) or an AI Gateway prompt -- not
+imported, not queried, structurally unreachable from here. Two distinct
+levels of profile detail are exposed, deliberately:
+
+- `ProfileSummaryView` (the Client Card's lightweight overview block) is
+  limited to structural counts/bands only -- canonical dimensions
+  covered, SUPPORTED claim count, a confidence BAND -- never a raw
+  claim's `label`/`normalized_value` text.
+- `ProfileClaimView` (Founder Stage 4A §4/§5, consultant-only) DOES
+  include `label`/`normalized_value` -- Stage 2's already-normalized
+  claim text, not raw CV/answer text (that stays out of both views).
+  This is an explicit, Founder-authorized widening for the consultant
+  profile-detail screen; `Evidence` stays ID+source_type only even here,
+  never a fabricated summary (Founder §5: "Do NOT generate fake evidence
+  summaries from missing data").
 """
 
 from __future__ import annotations
@@ -67,12 +77,14 @@ from app.db.models_direction import (
     DirectionPlacement,
     DirectionReview,
     DirectionRun,
+    DirectionRunStatus,
     QualitativeBand,
     RankingPolicy,
     ReviewStatus,
     ScoringConfig,
 )
-from app.db.models_profile import ClaimStatus, PotentialProfile, ProfileClaim
+from app.db.models_identity import IdentityUser
+from app.db.models_profile import ClaimStatus, PotentialProfile, ProfileClaim, ProfileGenerationStatus
 from app.services.direction import review as review_module
 from app.services.direction.dimension_mapping import MappingStatus, map_claims
 from app.services.direction.dimensions import CanonicalDimension
@@ -92,10 +104,15 @@ __all__ = [
     "build_reviewed_direction_view",
     "get_publishable_direction_result",
     "ProfileSummaryView",
+    "ProfileClaimEvidenceRef",
+    "ProfileClaimView",
     "ProvenanceView",
     "ClientInfo",
     "ClientCardView",
     "build_client_card",
+    "CLIENT_LIST_FILTERS",
+    "DirectionClientSummary",
+    "list_client_summaries",
 ]
 
 # The only artifact_type values this projection knows how to apply.
@@ -365,9 +382,43 @@ class ProvenanceView:
 
 
 @dataclass(frozen=True)
+class ProfileClaimEvidenceRef:
+    """ID + source_type ONLY -- never a raw evidence summary generated
+    from missing data (Founder Stage 4A §5: "Do NOT generate fake evidence
+    summaries")."""
+
+    evidence_id: uuid.UUID
+    source_type: str
+
+
+@dataclass(frozen=True)
+class ProfileClaimView:
+    """Per-claim consultant-facing detail (Founder Stage 4A §4/§5) --
+    deliberately a DIFFERENT, more detailed view than `ProfileSummaryView`
+    above: `label`/`normalized_value` are Stage 2's already-normalized
+    claim text (never raw CV/answer text -- that stays out of this read
+    model entirely), shown here because this screen is explicitly
+    consultant-only and Founder's brief explicitly asks for it, unlike
+    the lighter Client Card summary block."""
+
+    claim_id: uuid.UUID
+    legacy_dimension: str
+    canonical_dimension: str | None
+    canonical_subdimension: str | None
+    mapping_status: str
+    label: str
+    normalized_value: str
+    status: str
+    confidence: float
+    evidence: list[ProfileClaimEvidenceRef] = field(default_factory=list)
+    is_contradicted: bool = False
+
+
+@dataclass(frozen=True)
 class ClientCardView:
     client: ClientInfo
     profile_summary: ProfileSummaryView
+    profile_claims: list[ProfileClaimView]
     provenance: ProvenanceView
     critic_summary: CriticSummary
     directions: list[ReviewedDirectionView]
@@ -388,6 +439,41 @@ async def _build_profile_summary(session: AsyncSession, *, profile_id: uuid.UUID
         supported_claim_count=len(supported), canonical_dimensions_covered=sorted(d.value for d in covered),
         canonical_dimensions_missing=missing, contradiction_count=len(contradicted), confidence_band=band,
     )
+
+
+async def _build_profile_claims(session: AsyncSession, *, profile_id: uuid.UUID) -> list[ProfileClaimView]:
+    from app.db.models_profile import Evidence, ProfileClaimEvidence
+
+    claims = (await session.execute(select(ProfileClaim).where(ProfileClaim.profile_id == profile_id))).scalars().all()
+    mapped_by_id = {mc.source_claim_id: mc for mc in map_claims(list(claims))}
+
+    evidence_rows = (
+        await session.execute(
+            select(ProfileClaimEvidence.claim_id, Evidence.id, Evidence.source_type)
+            .join(Evidence, Evidence.id == ProfileClaimEvidence.evidence_id)
+            .where(ProfileClaimEvidence.claim_id.in_([c.id for c in claims]))
+        )
+    ).all()
+    evidence_by_claim: dict[uuid.UUID, list[ProfileClaimEvidenceRef]] = {}
+    for claim_id, evidence_id, source_type in evidence_rows:
+        evidence_by_claim.setdefault(claim_id, []).append(
+            ProfileClaimEvidenceRef(evidence_id=evidence_id, source_type=source_type.value)
+        )
+
+    views: list[ProfileClaimView] = []
+    for claim in claims:
+        mc = mapped_by_id[claim.id]
+        views.append(
+            ProfileClaimView(
+                claim_id=claim.id, legacy_dimension=mc.legacy_dimension,
+                canonical_dimension=mc.canonical_dimension.value if mc.canonical_dimension else None,
+                canonical_subdimension=mc.canonical_subdimension, mapping_status=mc.status.value,
+                label=claim.label, normalized_value=claim.normalized_value, status=claim.status.value,
+                confidence=claim.confidence, evidence=evidence_by_claim.get(claim.id, []),
+                is_contradicted=claim.status == ClaimStatus.CONTRADICTED,
+            )
+        )
+    return views
 
 
 async def build_client_card(
@@ -419,6 +505,7 @@ async def build_client_card(
     profile_summary = await _build_profile_summary(
         session, profile_id=run.profile_id, thresholds=(scoring_config.thresholds if scoring_config else {})
     )
+    profile_claims = await _build_profile_claims(session, profile_id=run.profile_id)
 
     return ClientCardView(
         client=ClientInfo(
@@ -426,6 +513,7 @@ async def build_client_card(
             direction_run_id=run.id, direction_run_version=run.version, review_status=reviewed.review_status,
         ),
         profile_summary=profile_summary,
+        profile_claims=profile_claims,
         provenance=ProvenanceView(
             methodology_version=run.methodology_version, knowledge_base_version_id=run.knowledge_base_version_id,
             scoring_config_version=scoring_config.version if scoring_config else 0,
@@ -435,3 +523,109 @@ async def build_client_card(
         critic_summary=reviewed.critic_summary,
         directions=reviewed.directions,
     )
+
+
+# --------------------------------------------------------------------------
+# Client List (Stage 4A Dashboard) -- one row per assessed user (has a
+# PotentialProfile at all), left-joined with their current DirectionRun/
+# DirectionReview/current-engine-version Critic finding counts. Deliberately
+# simple per-user queries (not batch-optimized) -- fine at pilot scale;
+# flagged as a known limitation for real scale later.
+# --------------------------------------------------------------------------
+
+CLIENT_LIST_FILTERS = frozenset(
+    {"needs_review", "blockers", "changes_requested", "approved", "insufficient_information", "no_directions_yet"}
+)
+
+
+@dataclass(frozen=True)
+class DirectionClientSummary:
+    user_id: uuid.UUID
+    profile_status: str | None
+    profile_version: int | None
+    direction_run_id: uuid.UUID | None
+    direction_run_status: str | None
+    direction_run_version: int | None
+    review_status: str | None
+    blocker_count: int
+    warning_count: int
+    last_updated: datetime
+
+
+def _matches_filter(summary: DirectionClientSummary, filter_name: str) -> bool:
+    if filter_name == "needs_review":
+        return summary.direction_run_status == DirectionRunStatus.READY.value and summary.review_status in (None, ReviewStatus.PENDING_REVIEW.value)
+    if filter_name == "blockers":
+        return summary.blocker_count > 0
+    if filter_name == "changes_requested":
+        return summary.review_status == ReviewStatus.CHANGES_REQUESTED.value
+    if filter_name == "approved":
+        return summary.review_status == ReviewStatus.APPROVED.value
+    if filter_name == "insufficient_information":
+        return summary.direction_run_status == DirectionRunStatus.INSUFFICIENT_INFORMATION.value
+    if filter_name == "no_directions_yet":
+        return summary.direction_run_id is None
+    return True
+
+
+async def list_client_summaries(
+    session: AsyncSession, *, filter_name: str | None = None
+) -> list[DirectionClientSummary]:
+    """`filter_name` must be one of `CLIENT_LIST_FILTERS` or `None` (no
+    filter) -- an unrecognized value is treated as "no filter" rather than
+    raising, since this only ever drives a read-only list view."""
+    profiles = (
+        await session.execute(
+            select(PotentialProfile)
+            .join(IdentityUser, IdentityUser.id == PotentialProfile.user_id)
+            .where(PotentialProfile.is_current.is_(True), IdentityUser.deleted_at.is_(None))
+        )
+    ).scalars().all()
+
+    summaries: list[DirectionClientSummary] = []
+    for profile in profiles:
+        run = (
+            await session.execute(
+                select(DirectionRun).where(DirectionRun.user_id == profile.user_id, DirectionRun.is_current.is_(True))
+            )
+        ).scalar_one_or_none()
+
+        review_status = None
+        blocker_count = 0
+        warning_count = 0
+        last_updated = profile.created_at
+
+        if run is not None:
+            last_updated = max(last_updated, run.created_at)
+            review_row = (
+                await session.execute(select(DirectionReview).where(DirectionReview.run_id == run.id))
+            ).scalar_one_or_none()
+            if review_row is not None:
+                review_status = review_row.status.value
+                last_updated = max(last_updated, review_row.created_at)
+
+            findings = (
+                await session.execute(
+                    select(DirectionCriticFinding).where(
+                        DirectionCriticFinding.run_id == run.id,
+                        DirectionCriticFinding.engine_version == DIRECTION_ENGINE_VERSION,
+                    )
+                )
+            ).scalars().all()
+            blocker_count = sum(1 for f in findings if f.severity is CriticSeverity.BLOCKER)
+            warning_count = sum(1 for f in findings if f.severity is CriticSeverity.WARNING)
+
+        summaries.append(
+            DirectionClientSummary(
+                user_id=profile.user_id, profile_status=profile.status.value, profile_version=profile.version,
+                direction_run_id=run.id if run else None, direction_run_status=run.status.value if run else None,
+                direction_run_version=run.version if run else None, review_status=review_status,
+                blocker_count=blocker_count, warning_count=warning_count, last_updated=last_updated,
+            )
+        )
+
+    if filter_name in CLIENT_LIST_FILTERS:
+        summaries = [s for s in summaries if _matches_filter(s, filter_name)]
+
+    summaries.sort(key=lambda s: s.last_updated, reverse=True)
+    return summaries

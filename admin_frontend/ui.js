@@ -39,6 +39,9 @@ export function shell(activeNav, contentHtml) {
           <a href="#/clients" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${activeNav === "clients" ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100"}">
             <span>👥</span> Клієнти
           </a>
+          <a href="#/mnp" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${activeNav === "mnp" ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100"}">
+            <span>🧭</span> Напрями (MNP)
+          </a>
           ${isAdmin ? `
           <a href="#/staff" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${activeNav === "staff" ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100"}">
             <span>🧑‍💼</span> Персонал

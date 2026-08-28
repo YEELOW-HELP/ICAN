@@ -153,6 +153,18 @@ export const api = {
   listStaff: () => request("/crm/users"),
   createStaff: (data) => request("/crm/users", { method: "POST", body: data }),
   updateStaff: (id, data) => request(`/crm/users/${id}`, { method: "PATCH", body: data }),
+
+  // MNP Direction Intelligence consultant workspace (Stage 4A)
+  mnpListClients: (filter) => request(`/direction/clients${filter ? `?filter=${filter}` : ""}`),
+  mnpClientCard: (userId) => request(`/direction/clients/${userId}/card`),
+  mnpGenerateDirections: (userId) => request(`/direction/clients/${userId}/generate`, { method: "POST", body: {} }),
+  mnpRunCritic: (runId) => request(`/direction/runs/${runId}/critic`, { method: "POST" }),
+  mnpGenerateNarrative: (runId) => request(`/direction/runs/${runId}/narrative`, { method: "POST" }),
+  mnpCreateCorrection: (runId, data) => request(`/direction/runs/${runId}/corrections`, { method: "POST", body: data }),
+  mnpApprove: (runId, comment) => request(`/direction/runs/${runId}/approve`, { method: "POST", body: { comment } }),
+  mnpRequestChanges: (runId, comment) => request(`/direction/runs/${runId}/request-changes`, { method: "POST", body: { comment } }),
+  mnpReject: (runId, comment) => request(`/direction/runs/${runId}/reject`, { method: "POST", body: { comment } }),
+  mnpPublishablePreview: (userId) => request(`/direction/clients/${userId}/publishable`),
 };
 
 export { ApiError };
