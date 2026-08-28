@@ -265,3 +265,31 @@ class NoCurrentBasicProfileError(DomainError):
     user -- call `calculate_basic_profile` first."""
 
     code = "no_current_basic_profile"
+
+
+# ---- Matching V1 M3: Career Vector Knowledge Base (Founder Review, 2026-08-28) ----
+
+
+class CareerAlreadyMappedError(DomainError):
+    """A `CareerExternalMapping(career_id, source_system, external_code)`
+    already exists -- re-import is idempotent, not additive; callers
+    should check first rather than relying on this to no-op silently."""
+
+    code = "career_already_mapped"
+
+
+class NoCurrentCareerMatchingProfileError(DomainError):
+    """No `CareerMatchingProfile` with `is_current=True` exists for this
+    career -- call `create_career_matching_profile` (or the Alpha seed)
+    first."""
+
+    code = "no_current_career_matching_profile"
+
+
+class MatchDisabledScaleError(DomainError):
+    """Attempted to create a `CareerMatchingComponent` for a scale whose
+    MNP mapping_status is PROXY or MNP_ONLY (matching_usage=PROFILE_ONLY)
+    -- the hard Founder Review §8/§9 invariant: PROFILE_ONLY is never a
+    career-side matching vector, no exceptions, no silent override."""
+
+    code = "match_disabled_scale"
