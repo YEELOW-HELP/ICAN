@@ -247,3 +247,21 @@ class InvalidResponseError(DomainError):
     `response_type`/option set."""
 
     code = "invalid_response"
+
+
+# ---- Matching V1 M2: deterministic BASIC profile (Founder Review, 2026-08-28) ----
+
+
+class BasicAttemptNotCompletedError(DomainError):
+    """`calculate_basic_profile` requires a `BasicAssessmentAttempt` in
+    COMPLETED (or already CALCULATED, for idempotent re-entry) status --
+    an IN_PROGRESS/NOT_STARTED attempt has no profile to compute."""
+
+    code = "basic_attempt_not_completed"
+
+
+class NoCurrentBasicProfileError(DomainError):
+    """No `DeterministicProfile` with `is_current=True` exists for this
+    user -- call `calculate_basic_profile` first."""
+
+    code = "no_current_basic_profile"
