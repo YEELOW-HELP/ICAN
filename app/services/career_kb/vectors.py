@@ -1,13 +1,23 @@
-"""Career-side vector normalization and persistence, Matching V1 M3.
+"""Career-side vector normalization and persistence, Matching V1 M3
+(hardened in M4.5 with official-numeric normalization functions, purely
+additive -- nothing below this docstring that existed in M3 was changed).
 
-`holland_code_to_riasec_vector` is the ONE new transformation this slice
-introduces -- it is an explicit, documented, deterministic MNP convention
-for converting a real O*NET/Holland top-letter code into a full
-6-dimensional profile, not an O*NET-native numeric scale and not an
-invented psychometric formula: O*NET's own RIASEC *letters* are the real
-source value; the graduated numeric spread is this function's own
-disclosed rule (mirrors how `MNP_GOLDEN_TEST_V0.1.md` already normalizes
-raw Likert means into `[0,1]` via its own disclosed formula).
+`holland_code_to_riasec_vector` was M3's ONE transformation -- an explicit,
+documented, deterministic MNP convention for converting a real O*NET/
+Holland top-letter code into a full 6-dimensional profile, not an
+O*NET-native numeric scale. **Retained unchanged as
+`LEGACY_ENGINEERING_FALLBACK`** (Founder Review M4.5 §1) -- still used by
+`app/services/career_kb/seed.py`'s original M3 profile version, never
+edited, never silently mixed with the M4.5 numeric functions below.
+
+M4.5 adds four new, independent normalization functions for the OFFICIAL
+O*NET 30.3 numeric scales actually found in the raw database release
+(`oi_to_normalized`, `wi_to_normalized`, `cx_to_normalized`,
+`ct_to_normalized`) -- each a plain linear rescale from that scale's
+*official* min/max (`onet_30_3_numeric_fixture.py::SCALE_RANGES`, taken
+verbatim from O*NET's own `Scales Reference.txt`, never inferred) into
+the internal `[0,1]` range, exactly mirroring the same rescale convention
+`MNP_GOLDEN_TEST_V0.1.md` already uses for user-side Likert scores.
 
 `add_career_matching_component` is the ONE gate through which every
 `CareerMatchingComponent` is created -- it looks up the scale's
@@ -17,7 +27,7 @@ compatibility) and refuses outright (`MatchDisabledScaleError`) to create
 a component for any scale whose `matching_usage` is not `MATCH_ENABLED`.
 This is the literal enforcement of Founder Review's hard invariant
 (§8/§9): PROFILE_ONLY is never a career-side matching vector, no
-exceptions, no per-call override.
+exceptions, no per-call override. Unchanged in M4.5.
 """
 
 from __future__ import annotations
@@ -49,6 +59,53 @@ def holland_code_to_riasec_vector(holland_code: str) -> dict[str, float]:
     for rank, letter in enumerate(letters):
         vector[letter] = _RANK_VALUES[rank]
     return vector
+
+
+# ---------------------------------------------------------------------------
+# M4.5: official O*NET 30.3 numeric-scale normalization (CURRENT_OFFICIAL
+# quality tier). Every range below is the OFFICIAL scale definition from
+# O*NET 30.3's own "Scales Reference.txt" -- never inferred from the data
+# itself. Each function is a plain linear rescale to internal [0,1],
+# exactly the same rescale shape used everywhere else in Matching V1 for a
+# bounded source scale (Golden Test doc §6/§8).
+
+OI_TRANSFORMATION_VERSION = "onet_oi_numeric_v0.1"
+WI_TRANSFORMATION_VERSION = "onet_wi_numeric_v0.1"
+CX_TRANSFORMATION_VERSION = "onet_cx_numeric_v0.1"
+CT_TRANSFORMATION_VERSION = "onet_ct_numeric_v0.1"
+
+
+def oi_to_normalized(raw: float) -> float:
+    """O*NET Occupational Interests (`OI`) scale, official range 1-7."""
+
+    return (raw - 1.0) / 6.0
+
+
+def wi_to_normalized(raw: float) -> float:
+    """O*NET Work Styles Impact (`WI`) scale, official range -3 to +3 --
+    signed (negative = detrimental, positive = beneficial to performance
+    in this occupation). Rescaled linearly to [0,1]; 0 (neutral/
+    irrelevant) maps to 0.5, not to 0 -- a neutral/irrelevant trait is not
+    the same as a strongly detrimental one, and this rescale preserves
+    that distinction."""
+
+    return (raw + 3.0) / 6.0
+
+
+def cx_to_normalized(raw: float) -> float:
+    """O*NET Context (`CX`) scale, official range 1-5 -- the scale used by
+    most Work Context elements."""
+
+    return (raw - 1.0) / 4.0
+
+
+def ct_to_normalized(raw: float) -> float:
+    """O*NET Context (`CT`) scale, official range 1-3 -- confirmed
+    empirically to be the scale used specifically by the "Work Schedules"
+    Work Context element in O*NET 30.3 (a DIFFERENT scale than `CX`;
+    never assumed to be 1-5)."""
+
+    return (raw - 1.0) / 2.0
 
 
 async def create_career_matching_profile(
