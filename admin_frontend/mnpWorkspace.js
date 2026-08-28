@@ -151,6 +151,53 @@ export async function renderMnpList(root, navigate) {
   });
 }
 
+const PROFILE_STATUS_META = {
+  no_profile: { label: "НЕМАЄ ПРОФІЛЮ", cls: "text-slate-500" },
+  processing: { label: "ПРОФІЛЬ ОБРОБЛЯЄТЬСЯ", cls: "text-amber-600" },
+  ready: { label: "ПРОФІЛЬ ГОТОВИЙ", cls: "text-emerald-600" },
+  failed: { label: "ПОМИЛКА ГЕНЕРАЦІЇ ПРОФІЛЮ", cls: "text-red-600" },
+};
+
+async function renderNoDirectionRunScreen(root, userId, navigate) {
+  let profileStatus;
+  try {
+    profileStatus = await api.mnpProfileStatus(userId);
+  } catch (err) {
+    root.innerHTML = shell("mnp", `<div class="p-8 text-red-600">Помилка: ${esc(err.message)}</div>`);
+    return;
+  }
+
+  const meta = PROFILE_STATUS_META[profileStatus.status] || { label: profileStatus.status, cls: "text-slate-500" };
+  const canGenerateProfile = profileStatus.status === "no_profile" || profileStatus.status === "failed";
+  const canGenerateDirections = profileStatus.status === "ready";
+
+  root.innerHTML = shell("mnp", `
+    <div class="p-8 max-w-3xl mx-auto text-center">
+      <div class="text-lg font-semibold ${meta.cls} mb-2">${meta.label}</div>
+      ${profileStatus.failure_reason ? `<p class="text-xs text-slate-400 mb-4">${esc(profileStatus.failure_reason)}</p>` : ""}
+      <p class="text-slate-500 mb-4">У цього клієнта ще немає жодного DirectionRun.</p>
+      <div class="flex gap-2 justify-center">
+        ${canGenerateProfile ? `<button id="gen-profile" class="border border-slate-200 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg">Згенерувати профіль</button>` : ""}
+        ${canGenerateDirections ? `<button id="gen-first" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Згенерувати напрями</button>` : ""}
+        ${canGenerateDirections ? `<button id="gen-pipeline" class="border border-brand-300 text-brand-700 hover:bg-brand-50 text-sm font-medium px-4 py-2 rounded-lg">Повний MNP-результат</button>` : ""}
+      </div>
+    </div>`);
+  attachShellEvents();
+
+  document.getElementById("gen-profile")?.addEventListener("click", async () => {
+    try { await api.mnpGenerateProfile(userId); toast("Генерація профілю запущена/завершена"); renderMnpClientCard(root, userId, navigate); }
+    catch (e) { toast(e.message, "error"); }
+  });
+  document.getElementById("gen-first")?.addEventListener("click", async () => {
+    try { await api.mnpGenerateDirections(userId); renderMnpClientCard(root, userId, navigate); }
+    catch (e) { toast(e.message, "error"); }
+  });
+  document.getElementById("gen-pipeline")?.addEventListener("click", async () => {
+    try { const r = await api.mnpRunFullPipeline(userId); toast("Повний конвеєр запущено"); console.log(r); renderMnpClientCard(root, userId, navigate); }
+    catch (e) { toast(e.message, "error"); }
+  });
+}
+
 let activeMnpTab = "profile";
 
 export async function renderMnpClientCard(root, userId, navigate) {
@@ -161,16 +208,7 @@ export async function renderMnpClientCard(root, userId, navigate) {
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return;
     if (err instanceof ApiError && err.status === 404) {
-      root.innerHTML = shell("mnp", `
-        <div class="p-8 max-w-3xl mx-auto text-center">
-          <p class="text-slate-500 mb-4">У цього клієнта ще немає жодного DirectionRun.</p>
-          <button id="gen-first" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Згенерувати напрями</button>
-        </div>`);
-      attachShellEvents();
-      document.getElementById("gen-first").addEventListener("click", async () => {
-        try { await api.mnpGenerateDirections(userId); renderMnpClientCard(root, userId, navigate); }
-        catch (e) { toast(e.message, "error"); }
-      });
+      await renderNoDirectionRunScreen(root, userId, navigate);
       return;
     }
     root.innerHTML = shell("mnp", `<div class="p-8 text-red-600">Помилка: ${esc(err.message)}</div>`);
@@ -203,6 +241,7 @@ export async function renderMnpClientCard(root, userId, navigate) {
             <button id="act-generate" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">🔄 Перегенерувати</button>
             <button id="act-critic" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">🔍 Запустити Critic</button>
             <button id="act-narrative" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">✍ Згенерувати наратив</button>
+            <button id="act-pipeline" class="text-xs px-3 py-1.5 rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-50">⚡ Повний MNP-результат</button>
             ${canReview ? `
             <button id="act-approve" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">✔ Затвердити</button>
             <button id="act-changes" class="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">✎ Потрібні зміни</button>
@@ -237,6 +276,10 @@ export async function renderMnpClientCard(root, userId, navigate) {
   });
   document.getElementById("act-narrative").addEventListener("click", async () => {
     try { const r = await api.mnpGenerateNarrative(runId); toast(`Наратив згенеровано для ${r.narrated_count} напрямів`); rerender(); }
+    catch (e) { toast(e.message, "error"); }
+  });
+  document.getElementById("act-pipeline").addEventListener("click", async () => {
+    try { await api.mnpRunFullPipeline(userId); toast("Повний конвеєр виконано"); rerender(); }
     catch (e) { toast(e.message, "error"); }
   });
   if (canReview) {

@@ -51,14 +51,20 @@ from app.services.exceptions import (
     NoApprovedDirectionRunError,
     NoCurrentDirectionRunError,
     NoCurrentProfileError,
+    NoEligibleAssessmentSessionError,
+    ProfileAlreadyExistsError,
+    ProfileGenerationInProgressError,
 )
+from app.services.profile.generation import generate_profile_for_user, get_profile_status_summary
 
 router = APIRouter(prefix="/direction", tags=["direction"])
 
-_NOT_FOUND_ERRORS = (NoCurrentDirectionRunError, NoCurrentProfileError, DirectionReviewNotFoundError)
+_NOT_FOUND_ERRORS = (
+    NoCurrentDirectionRunError, NoCurrentProfileError, DirectionReviewNotFoundError, NoEligibleAssessmentSessionError,
+)
 _CONFLICT_ERRORS = (
     DirectionRunHasUnresolvedBlockerError, InvalidStateTransitionError, DirectionGenerationInProgressError,
-    NoActiveScoringConfigError, NoActiveRankingPolicyError,
+    NoActiveScoringConfigError, NoActiveRankingPolicyError, ProfileAlreadyExistsError, ProfileGenerationInProgressError,
 )
 
 
@@ -96,6 +102,97 @@ async def get_client_card(
         return await readmodel.build_client_card(session, user_id=_uuid(user_id, "user_id"))
     except DomainError as exc:
         _raise_mapped(exc)
+
+
+@router.get("/clients/{user_id}/profile-status")
+async def get_profile_status(
+    user_id: str, admin: AdminUser = Depends(get_current_admin), session: AsyncSession = Depends(get_session)
+):
+    """Dashboard NO_PROFILE / PROCESSING / READY / FAILED state (Founder
+    Stage 4A.5 §3) -- unlike `get_client_card`, never requires a
+    DirectionRun to exist yet."""
+    summary = await get_profile_status_summary(session, user_id=_uuid(user_id, "user_id"))
+    return {
+        "status": summary.status, "profile_id": str(summary.profile_id) if summary.profile_id else None,
+        "version": summary.version, "failure_reason": summary.failure_reason,
+    }
+
+
+@router.post("/clients/{user_id}/profile", status_code=status.HTTP_201_CREATED)
+async def generate_client_profile(
+    user_id: str, admin: AdminUser = Depends(get_current_admin), session: AsyncSession = Depends(get_session)
+):
+    """Admin fallback (Founder Stage 4A.5 §3): "Generate / Regenerate
+    Potential Profile -- only if it does not already exist." Calls the
+    existing Stage 2 service unchanged
+    (app/services/profile/generation.py::generate_profile_for_user) --
+    no profile-generation logic is duplicated here."""
+    try:
+        profile = await generate_profile_for_user(session, user_id=_uuid(user_id, "user_id"))
+    except DomainError as exc:
+        _raise_mapped(exc)
+    return {"profile_id": str(profile.id), "status": profile.status.value, "version": profile.version}
+
+
+@router.post("/clients/{user_id}/full-pipeline")
+async def run_full_pipeline(
+    user_id: str, admin: AdminUser = Depends(get_current_admin), session: AsyncSession = Depends(get_session)
+):
+    """Founder Stage 4A.5 §4: "Generate full MNP result" -- ensure READY
+    profile -> generate_directions -> run_critic -> optionally generate
+    narrative. Every step calls its own existing, unchanged service
+    function; this only sequences them and reports each step's outcome
+    without hiding any individual lifecycle state. If profile generation
+    fails, stops there. If Direction generation fails, the profile is
+    never touched (generate_directions has no write path to
+    PotentialProfile at all). If narrative fails, the deterministic
+    Direction result (already returned in `steps`) remains valid --
+    narrative failure is isolated and never re-raised."""
+    uid = _uuid(user_id, "user_id")
+    steps: dict = {}
+
+    profile_status = await get_profile_status_summary(session, user_id=uid)
+    if profile_status.status == "ready":
+        steps["profile"] = {"status": "ready", "profile_id": str(profile_status.profile_id)}
+    else:
+        try:
+            profile = await generate_profile_for_user(session, user_id=uid)
+            steps["profile"] = {"status": profile.status.value, "profile_id": str(profile.id)}
+        except ProfileAlreadyExistsError:
+            steps["profile"] = {"status": "ready"}  # became ready concurrently -- proceed
+        except DomainError as exc:
+            steps["profile"] = {"status": "failed", "error": exc.code}
+            return {"steps": steps}
+        if steps["profile"]["status"] != "ready":
+            return {"steps": steps}
+
+    try:
+        run = await generate_directions(session, user_id=uid)
+        steps["direction_run"] = {"status": run.status.value, "run_id": str(run.id), "version": run.version}
+    except DomainError as exc:
+        steps["direction_run"] = {"status": "failed", "error": exc.code}
+        return {"steps": steps}
+
+    if run.status.value != "ready":
+        return {"steps": steps}
+
+    try:
+        findings = await critic_service.run_critic(session, run_id=run.id)
+        steps["critic"] = {
+            "blocker_count": sum(1 for f in findings if f.severity.value == "blocker"),
+            "warning_count": sum(1 for f in findings if f.severity.value == "warning"),
+        }
+    except DomainError as exc:
+        steps["critic"] = {"status": "failed", "error": exc.code}
+        return {"steps": steps}
+
+    try:
+        narrated = await generate_narratives_for_run(session, run_id=run.id, narrator=DirectionNarrator())
+        steps["narrative"] = {"narrated_count": narrated}
+    except Exception as exc:
+        steps["narrative"] = {"status": "failed", "error": type(exc).__name__}
+
+    return {"steps": steps}
 
 
 @router.post("/clients/{user_id}/generate", status_code=status.HTTP_201_CREATED)

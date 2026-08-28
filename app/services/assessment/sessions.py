@@ -104,6 +104,28 @@ async def get_unfinished_session_for_user(session: AsyncSession, user_id: uuid.U
     return result.scalar_one_or_none()
 
 
+_PROFILE_ELIGIBLE_STATES = (AssessmentStatus.COMPLETE, AssessmentStatus.PROCESSING, AssessmentStatus.READY)
+
+
+async def get_latest_profile_eligible_session(session: AsyncSession, user_id: uuid.UUID) -> InterviewSession | None:
+    """The most recent `InterviewSession` for this user that has cleared
+    Stage 1's minimum-data rule (COMPLETE/PROCESSING/READY -- the same
+    `_ELIGIBLE_STATUSES` `app/services/profile/generation.py::
+    generate_potential_profile` itself checks). Used where a caller only
+    has `user_id` (the Stage 4A admin fallback, the Stage 1-to-2 bot
+    bridge) and needs the `session_id` `generate_potential_profile`
+    requires -- unlike `get_unfinished_session_for_user`, more than one
+    such session can exist over a user's history, so this always returns
+    the newest one."""
+    result = await session.execute(
+        select(InterviewSession)
+        .where(InterviewSession.user_id == user_id, InterviewSession.status.in_(_PROFILE_ELIGIBLE_STATES))
+        .order_by(InterviewSession.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_owned_session(session: AsyncSession, *, session_id: uuid.UUID, user_id: uuid.UUID) -> InterviewSession:
     interview_session = await session.get(InterviewSession, session_id)
     if interview_session is None:

@@ -360,3 +360,75 @@ async def test_unauthorized_role_cannot_approve_via_api(client, session_factory)
 
     resp = await client.post(f"/direction/runs/{run_id}/approve", json={}, headers=headers)
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------- Stage 4A.5
+
+
+async def test_profile_status_no_profile_and_direction_generation_blocked(client, session_factory):
+    """#4 (Stage 4A.5): with no PotentialProfile at all,
+    profile-status reads "no_profile" and Direction generation is
+    rejected -- never silently proceeding."""
+    async with session_factory() as session:
+        await ensure_experimental_scoring_config(session)
+        await ensure_experimental_ranking_policy(session)
+        await seed_knowledge_base(session)
+        user = await make_user(session)
+        user_id = str(user.id)
+
+    await _create_staff(session_factory, "admin5@ican.dev", AdminRole.ADMIN)
+    headers = await _login(client, "admin5@ican.dev")
+
+    status_resp = await client.get(f"/direction/clients/{user_id}/profile-status", headers=headers)
+    assert status_resp.status_code == 200
+    assert status_resp.json()["status"] == "no_profile"
+
+    gen_resp = await client.post(f"/direction/clients/{user_id}/generate", json={}, headers=headers)
+    assert gen_resp.status_code == 404
+
+
+async def test_admin_profile_fallback_endpoint(client, session_factory):
+    """#5 via the API surface."""
+    from tests.profile_test_helpers import make_complete_session
+
+    async with session_factory() as session:
+        _, interview_session = await make_complete_session(session)
+        user_id = str(interview_session.user_id)
+
+    await _create_staff(session_factory, "admin6@ican.dev", AdminRole.ADMIN)
+    headers = await _login(client, "admin6@ican.dev")
+
+    status_before = await client.get(f"/direction/clients/{user_id}/profile-status", headers=headers)
+    assert status_before.json()["status"] == "no_profile"
+
+    # The API endpoint calls generate_profile_for_user unchanged, which in
+    # turn calls generate_potential_profile with its real (AIGateway-backed)
+    # defaults -- exercising that here would make a real network call, so
+    # this test only proves the endpoint reaches the service and reports
+    # its precondition errors correctly (ProfileAlreadyExistsError path),
+    # not the full real generation (covered without network calls in
+    # tests/test_profile_generation_bridge.py and test_bot_v1_profile_bridge.py).
+    from unittest.mock import AsyncMock, patch
+
+    from app.db.models_profile import PotentialProfile, ProfileGenerationStatus
+
+    fake_profile = PotentialProfile(
+        id=__import__("uuid").uuid4(), user_id=interview_session.user_id, session_id=interview_session.id, version=1,
+        status=ProfileGenerationStatus.READY, is_current=True, methodology_version="test", prompt_version="test",
+    )
+    with patch("app.api.direction.generate_profile_for_user", new=AsyncMock(return_value=fake_profile)) as mocked:
+        resp = await client.post(f"/direction/clients/{user_id}/profile", headers=headers)
+        assert resp.status_code == 201
+        assert resp.json()["status"] == "ready"
+        mocked.assert_awaited_once()
+
+
+async def test_duplicate_profile_generation_rejected_via_api(client, session_factory):
+    """#2 via the API surface: `_seed_world` already produces a READY
+    profile, so the fallback endpoint must refuse a second generation."""
+    user_id = await _seed_world(session_factory)
+    await _create_staff(session_factory, "admin7@ican.dev", AdminRole.ADMIN)
+    headers = await _login(client, "admin7@ican.dev")
+
+    resp = await client.post(f"/direction/clients/{user_id}/profile", headers=headers)
+    assert resp.status_code == 409

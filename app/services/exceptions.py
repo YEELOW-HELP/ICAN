@@ -85,6 +85,26 @@ class UnfinishedAssessmentExistsError(DomainError):
     code = "unfinished_assessment_exists"
 
 
+class NoEligibleAssessmentSessionError(DomainError):
+    """Raised by the Stage 4A.5 admin-fallback profile-generation entry
+    point (app/services/profile/generation.py::generate_profile_for_user)
+    when the user has no InterviewSession in COMPLETE/PROCESSING/READY --
+    there is nothing `generate_potential_profile` could legally act on
+    yet (Stage 1's own minimum-data rule was never satisfied)."""
+
+    code = "no_eligible_assessment_session"
+
+
+class ProfileAlreadyExistsError(DomainError):
+    """Raised by the same admin-fallback entry point when the user
+    already has a current READY `PotentialProfile` -- the fallback is a
+    pilot-reliability safety net for a missing/failed automatic
+    generation, not a general "regenerate" button (Founder Stage 4A.5
+    §3: "only if it does not already exist")."""
+
+    code = "profile_already_exists"
+
+
 # ---- Stage 3A: Career Knowledge Base (Issue #4) ----
 
 

@@ -56,6 +56,7 @@ already-processed answers.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -74,12 +75,18 @@ from app.db.models_profile import (
 )
 from app.services.assessment import state_machine
 from app.services.assessment.question_bank import QUESTIONS_BY_ID
-from app.services.assessment.sessions import get_owned_session, recover_stale_pending_answers
+from app.services.assessment.sessions import (
+    get_latest_profile_eligible_session,
+    get_owned_session,
+    recover_stale_pending_answers,
+)
 from app.services.events import emit_event
 from app.services.exceptions import (
     AssessmentOwnershipError,
     InvalidStateTransitionError,
     NoCurrentProfileError,
+    NoEligibleAssessmentSessionError,
+    ProfileAlreadyExistsError,
     ProfileGenerationInProgressError,
 )
 from app.services.profile.claim_synthesis import PROMPT_VERSION as CLAIM_SYNTHESIS_PROMPT_VERSION
@@ -350,6 +357,54 @@ async def get_current_profile(session: AsyncSession, *, user_id: uuid.UUID) -> P
     return result.scalar_one_or_none()
 
 
+async def generate_profile_for_user(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    evidence_extractor: EvidenceExtractor | None = None,
+    claim_synthesizer: ClaimSynthesizer | None = None,
+    summarizer: ProfileSummarizer | None = None,
+    locale: str = "uk",
+) -> PotentialProfile:
+    """Stage 4A.5 admin-fallback entry point (Founder decision: "For
+    pilot reliability, add an authenticated consultant/admin action:
+    Generate / Regenerate Potential Profile -- only if it does not
+    already exist. It should call the EXISTING Stage 2 service. Do not
+    duplicate profile generation logic in API code.").
+
+    Resolves `session_id` from `user_id` (the Dashboard only has the
+    latter) via `get_latest_profile_eligible_session`, then delegates to
+    `generate_potential_profile` unchanged -- no business logic is
+    duplicated here, only the two preconditions the Founder brief spells
+    out:
+
+    - `ProfileAlreadyExistsError` if a current READY profile already
+      exists (this is a fallback for a missing/failed automatic
+      generation, never a general "regenerate" button);
+    - `NoEligibleAssessmentSessionError` if the user has no
+      COMPLETE/PROCESSING/READY `InterviewSession` to generate from at
+      all (Stage 1's minimum-data rule was never satisfied).
+
+    A FAILED profile-generation attempt is never `is_current`, so retry
+    after failure is unaffected by the first check -- exactly the
+    existing Stage 2 retry semantics, preserved unchanged.
+    """
+    existing = await get_current_profile(session, user_id=user_id)
+    if existing is not None:
+        raise ProfileAlreadyExistsError(f"user {user_id} already has a current READY PotentialProfile ({existing.id})")
+
+    interview_session = await get_latest_profile_eligible_session(session, user_id)
+    if interview_session is None:
+        raise NoEligibleAssessmentSessionError(
+            f"user {user_id} has no COMPLETE/PROCESSING/READY InterviewSession to generate a profile from"
+        )
+
+    return await generate_potential_profile(
+        session, session_id=interview_session.id, user_id=user_id, evidence_extractor=evidence_extractor,
+        claim_synthesizer=claim_synthesizer, summarizer=summarizer, locale=locale,
+    )
+
+
 async def get_owned_profile(session: AsyncSession, *, profile_id: uuid.UUID, user_id: uuid.UUID) -> PotentialProfile:
     profile = await session.get(PotentialProfile, profile_id)
     if profile is None:
@@ -357,6 +412,37 @@ async def get_owned_profile(session: AsyncSession, *, profile_id: uuid.UUID, use
     if profile.user_id != user_id:
         raise AssessmentOwnershipError(f"user {user_id} does not own PotentialProfile {profile_id}")
     return profile
+
+
+@dataclass(frozen=True)
+class ProfileStatusSummary:
+    """Stage 4A.5 §3 Dashboard requirement: NO_PROFILE / PROCESSING /
+    READY / FAILED, read-only, no business logic in the API layer that
+    calls this."""
+
+    status: str  # "no_profile" | "processing" | "ready" | "failed"
+    profile_id: uuid.UUID | None
+    version: int | None
+    failure_reason: str | None = None
+
+
+async def get_profile_status_summary(session: AsyncSession, *, user_id: uuid.UUID) -> ProfileStatusSummary:
+    current = await get_current_profile(session, user_id=user_id)
+    if current is not None:
+        return ProfileStatusSummary(status="ready", profile_id=current.id, version=current.version)
+
+    latest = (
+        await session.execute(
+            select(PotentialProfile).where(PotentialProfile.user_id == user_id).order_by(PotentialProfile.version.desc()).limit(1)
+        )
+    ).scalar_one_or_none()
+    if latest is None:
+        return ProfileStatusSummary(status="no_profile", profile_id=None, version=None)
+    if latest.status is ProfileGenerationStatus.GENERATING:
+        return ProfileStatusSummary(status="processing", profile_id=latest.id, version=latest.version)
+    if latest.status is ProfileGenerationStatus.FAILED:
+        return ProfileStatusSummary(status="failed", profile_id=latest.id, version=latest.version, failure_reason=latest.failure_reason)
+    return ProfileStatusSummary(status="ready", profile_id=latest.id, version=latest.version)
 
 
 async def explain_claim(session: AsyncSession, *, claim_id: uuid.UUID) -> list[Evidence]:

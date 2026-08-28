@@ -47,6 +47,7 @@ from app.services.exceptions import (
 )
 from app.services.identity import resolve_identity
 from app.services.product_access import get_any_active_entitlement, redeem_promo_code
+from app.services.profile.generation import generate_potential_profile
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +75,47 @@ def _structured_keyboard(question: Question) -> InlineKeyboardMarkup:
     )
 
 
+async def _trigger_profile_generation(
+    session,
+    *,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    evidence_extractor=None,
+    claim_synthesizer=None,
+    summarizer=None,
+) -> None:
+    """Stage 1 -> Stage 2 bridge (Founder Stage 4A.5 §2). Synchronous pilot
+    execution, per Founder decision ("no queue infrastructure... synchronous
+    or explicitly triggered pilot execution is acceptable... do NOT build a
+    new job platform solely for this"). Never raises -- a failure here must
+    never crash Telegram update processing; `generate_potential_profile`
+    already logs/emits `profile_generation_failed` and leaves a safe,
+    retryable state (see its own docstring), so all this wrapper adds is
+    "don't let the exception escape". No PII/raw text in the log line: only
+    IDs and the exception type name. The three `*_factory`-built
+    dependencies mirror `extractor_factory` below -- `None` means "use the
+    real AIGateway-backed defaults" (production); tests inject fakes the
+    same way they already do for `AnswerExtractor`.
+    """
+    try:
+        await generate_potential_profile(
+            session, session_id=session_id, user_id=user_id, evidence_extractor=evidence_extractor,
+            claim_synthesizer=claim_synthesizer, summarizer=summarizer,
+        )
+    except Exception as exc:
+        logger.warning(
+            "post_completion_profile_generation_failed session_id=%s user_id=%s exception_type=%s",
+            session_id, user_id, type(exc).__name__,
+        )
+
+
 def register_handlers_v1(
     router_: Router,
     session_factory,
     extractor_factory: Callable[[], AnswerExtractor] | None = None,
+    evidence_extractor_factory: Callable[[], object] | None = None,
+    claim_synthesizer_factory: Callable[[], object] | None = None,
+    summarizer_factory: Callable[[], object] | None = None,
 ) -> None:
     def _extractor() -> AnswerExtractor | None:
         return extractor_factory() if extractor_factory is not None else None
@@ -95,6 +133,22 @@ def register_handlers_v1(
             await complete_assessment(session, session_id=session_id, user_id=user_id)
             await state.clear()
             await send(get_message("completed"))
+            # Stage 4A.5 bridge: Stage 1 deliberately stops at COMPLETE
+            # (app/services/assessment/sessions.py::complete_assessment's own
+            # docstring) -- nothing previously advanced a session past that
+            # point. Fire Stage 2 synchronously, AFTER the user already has
+            # their "completed" message, so perceived latency is unchanged;
+            # never let a failure here propagate and crash update handling --
+            # generate_potential_profile already owns its own retry/failure
+            # semantics (a failed attempt leaves the profile row FAILED and
+            # the InterviewSession at PROCESSING, ready for the admin
+            # fallback or a future retry to pick up unchanged).
+            await _trigger_profile_generation(
+                session, session_id=session_id, user_id=user_id,
+                evidence_extractor=evidence_extractor_factory() if evidence_extractor_factory is not None else None,
+                claim_synthesizer=claim_synthesizer_factory() if claim_synthesizer_factory is not None else None,
+                summarizer=summarizer_factory() if summarizer_factory is not None else None,
+            )
             return
 
         question = result.question

@@ -157,6 +157,9 @@ export const api = {
   // MNP Direction Intelligence consultant workspace (Stage 4A)
   mnpListClients: (filter) => request(`/direction/clients${filter ? `?filter=${filter}` : ""}`),
   mnpClientCard: (userId) => request(`/direction/clients/${userId}/card`),
+  mnpProfileStatus: (userId) => request(`/direction/clients/${userId}/profile-status`),
+  mnpGenerateProfile: (userId) => request(`/direction/clients/${userId}/profile`, { method: "POST" }),
+  mnpRunFullPipeline: (userId) => request(`/direction/clients/${userId}/full-pipeline`, { method: "POST" }),
   mnpGenerateDirections: (userId) => request(`/direction/clients/${userId}/generate`, { method: "POST", body: {} }),
   mnpRunCritic: (runId) => request(`/direction/runs/${runId}/critic`, { method: "POST" }),
   mnpGenerateNarrative: (runId) => request(`/direction/runs/${runId}/narrative`, { method: "POST" }),
