@@ -1,5 +1,14 @@
 # MNP Ranking Policy v0.1
 
+> **AMENDED BY MATCHING V1 FOUNDER DEFINITION (2026-08-28):** the
+> **lexicographic, non-composite-score ranking principle** established
+> here is preserved and reused by BASIC V1, applied over the **new**
+> output set (Interest Fit / Work Style Fit / Values Fit / Feasibility)
+> instead of the old four-output tuple — see
+> `methodology_lab/05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md` §24–25. This
+> document remains authoritative for historical/PRO-track ranking and is
+> not rewritten.
+
 > **STATUS: Founder-approved engineering methodology contract v0.1.**
 > **EXPERIMENTAL. NOT calibrated.**
 > **Ranking is a SEPARATE versioned decision layer — it is NOT part of

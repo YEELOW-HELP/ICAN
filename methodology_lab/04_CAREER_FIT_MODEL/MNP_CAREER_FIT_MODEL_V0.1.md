@@ -1,5 +1,16 @@
 # MNP Career Fit / Direction Evaluation Model v0.1
 
+> **AMENDED BY MATCHING V1 FOUNDER DEFINITION (2026-08-28):** the
+> **four-output model** documented below (Potential Fit / Goal Alignment /
+> Transition Feasibility / Evidence Confidence) is **superseded for BASIC
+> V1** by a new deterministic component list (Interest Fit / Work Style
+> Fit / Values Fit / Transition Feasibility / Coverage) — see
+> `methodology_lab/05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md` and
+> `docs/engineering/21_MATCHING_V1_RECONCILIATION_AND_IMPLEMENTATION_PLAN.md`
+> §2.3. This document remains fully authoritative for **historical
+> DirectionRun rows and the PRO Hybrid-Assessment track** — it is not
+> rewritten, and no historical row is ever re-scored under the new model.
+
 > **STATUS: Founder-approved engineering methodology contract v0.1.**
 > **NOT a validated psychometric instrument.**
 > **Scoring / calibration remains EXPERIMENTAL until evaluated.**

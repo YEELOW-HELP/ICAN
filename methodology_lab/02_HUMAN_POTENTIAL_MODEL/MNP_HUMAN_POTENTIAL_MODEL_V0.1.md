@@ -1,5 +1,15 @@
 # MNP Human Potential Model (MNP-HPM) v0.1
 
+> **AMENDED BY MATCHING V1 FOUNDER DEFINITION (2026-08-28):** Work Style
+> (§3.1) and Work Environment (§3.2) subdimensions below are **reused
+> unchanged** by the new BASIC V1 deterministic Golden Test. Work Values
+> (§3.4, previously top-level-only) gains a new 8-scale subdimension set
+> under Matching V1 — see `methodology_lab/05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md`
+> §11 and Open Question A. This is a light-touch pointer amendment; the
+> dimension/subdimension definitions below are not rewritten and remain
+> the canonical reference for both the historical (Stage 3B) and new
+> (Matching V1) methodologies.
+
 > **STATUS: Founder-approved engineering methodology contract v0.1.**
 > **NOT a validated psychometric instrument.**
 > **Scoring / calibration remains EXPERIMENTAL until evaluated.**

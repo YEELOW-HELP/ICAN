@@ -16,6 +16,29 @@ Intelligence) safely. It fixes vocabulary, layering, and rules. It does
 implies is explicitly experimental and lives in versioned configuration
 (`app/services/direction/config.py`), not in this canon.
 
+## Matching V1 (2026-08-28 Founder product pivot)
+
+`docs/product/20_MATCHING_V1_FOUNDER_DEFINITION.md` is the latest binding
+Founder product contract. It introduces a new BASIC V1 deterministic core
+(Structured Golden Test → deterministic profile → deterministic career
+matching → self-serve Career Dashboard) that **coexists** with, rather than
+replaces, the canon below. Old DirectionRuns and the PRO Hybrid-Assessment
+track keep their historical semantics unchanged; nothing in the Canon table
+is rewritten. See `docs/engineering/21_MATCHING_V1_RECONCILIATION_AND_IMPLEMENTATION_PLAN.md`
+for the full KEEP/SUPERSEDE/PRO-ONLY/NEW/DEFER reconciliation.
+
+| Path | Document | Owns |
+|---|---|---|
+| `05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md` | Golden Test v0.1 | the structured assessment (scales, item counts, scoring, missing-answer handling) and the deterministic matching mathematics (Interest/Work Style/Values Fit, Feasibility, Coverage) for BASIC V1 |
+| `06_CAREER_KB/MNP_CAREER_KB_V1.md` | Career KB V1 | the three-layer source model (Work.ua / O*NET / MNP curation), `CareerExternalMapping` crosswalk schema, `CareerMatchingProfile` vector schema, provenance/versioning rules |
+| `06_CAREER_KB/MNP_WORKUA_DATA_USE_DECISION_V0.1.md` | Work.ua Data Use Decision v0.1 | the licensing/data-use gate — what may be referenced, stored, displayed, or requires an agreement, before any automated Work.ua import |
+
+Three existing Canon documents below carry a **"AMENDED BY MATCHING V1
+FOUNDER DEFINITION"** pointer banner (light-touch, not rewritten): MNP-HPM
+v0.1 (Work Values gains new subdimensions), Career Fit Model v0.1 (four-output
+model superseded for BASIC, retained for historical/PRO), Ranking Policy v0.1
+(lexicographic principle reused over the new outputs).
+
 ## Layout
 
 ### Canon (frozen as `MNP-HPM / Direction Evaluation v0.1` — MVP EXPERIMENTAL BASELINE)
@@ -23,10 +46,10 @@ implies is explicitly experimental and lives in versioned configuration
 | Path | Document | Owns |
 |---|---|---|
 | `MNP_FOUNDER_METHODOLOGY_CONTRACT_V0.1.md` | Founder Methodology Contract v0.1 | the binding Founder decisions (A–M + Wave A N–Q + §2B) and the hard limits on what engineering may decide |
-| `02_HUMAN_POTENTIAL_MODEL/MNP_HUMAN_POTENTIAL_MODEL_V0.1.md` | MNP-HPM v0.1 | the 12 canonical dimensions, their subdimensions, the Fact/Evidence/Claim/Interpretation/Recommendation layering, the legacy→canonical claim mapping |
+| `02_HUMAN_POTENTIAL_MODEL/MNP_HUMAN_POTENTIAL_MODEL_V0.1.md` | MNP-HPM v0.1 *(amended — see Matching V1 above)* | the 12 canonical dimensions, their subdimensions, the Fact/Evidence/Claim/Interpretation/Recommendation layering, the legacy→canonical claim mapping |
 | `03_EVIDENCE_STANDARD/MNP_EVIDENCE_STANDARD_V0.1.md` | Evidence Standard v0.1 | evidence levels E0–E3, deterministic confidence inputs, LOW/MEDIUM/HIGH public semantics, contradiction rules |
-| `04_CAREER_FIT_MODEL/MNP_CAREER_FIT_MODEL_V0.1.md` | Career Fit / Direction Evaluation Model v0.1 | the **four separate outputs**, score components, profile↔career comparison rules, per-output aggregation, the hard-constraint gate, skill-state semantics, the 12-subtype constraint taxonomy |
-| `04_CAREER_FIT_MODEL/MNP_RANKING_POLICY_V0.1.md` | Ranking Policy v0.1 | the **separate versioned decision layer**: eligibility, band gates, lexicographic ordering, pool sizes — never a composite score |
+| `04_CAREER_FIT_MODEL/MNP_CAREER_FIT_MODEL_V0.1.md` | Career Fit / Direction Evaluation Model v0.1 *(amended — see Matching V1 above)* | the **four separate outputs**, score components, profile↔career comparison rules, per-output aggregation, the hard-constraint gate, skill-state semantics, the 12-subtype constraint taxonomy |
+| `04_CAREER_FIT_MODEL/MNP_RANKING_POLICY_V0.1.md` | Ranking Policy v0.1 *(amended — see Matching V1 above)* | the **separate versioned decision layer**: eligibility, band gates, lexicographic ordering, pool sizes — never a composite score |
 | `07_CONSULTANT_FEEDBACK/MNP_LEARNING_AND_FEEDBACK_PROTOCOL_V0.1.md` | Learning & Feedback Protocol v0.1 | consultant correction reason codes, append-only correction model, the controlled learning loop |
 | `09_EVALUATIONS/MNP_EVALUATIONS_V0.1.md` | Evaluations v0.1 | engineering fixtures vs authoritative Golden Cases, and how a Golden Case earns authority |
 
