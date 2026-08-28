@@ -221,3 +221,29 @@ class NoApprovedDirectionRunError(DomainError):
     an unapproved run as final."""
 
     code = "no_approved_direction_run"
+
+
+# ---- Matching V1 M1: BASIC structured assessment (Founder Review, 2026-08-28) ----
+
+
+class BasicAssessmentDefinitionNotFoundError(DomainError):
+    """No active `AssessmentDefinition` exists for the requested mode --
+    call `app/services/basic_assessment/seed.py::seed_alpha_long_form`
+    first."""
+
+    code = "basic_assessment_definition_not_found"
+
+
+class BasicAttemptClosedError(DomainError):
+    """A `BasicAssessmentAttempt` in COMPLETED or CALCULATED state can
+    never receive a new answer -- "completed attempt cannot be silently
+    edited" (Founder Review, M1 test #18)."""
+
+    code = "basic_attempt_closed"
+
+
+class InvalidResponseError(DomainError):
+    """A structured answer's payload does not match its `AssessmentItem`'s
+    `response_type`/option set."""
+
+    code = "invalid_response"
