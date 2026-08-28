@@ -1,6 +1,8 @@
 # 21. Matching V1 — Reconciliation & Implementation Plan
 
 **Status:** ENGINEERING PLAN — documentation/specification only, no code changed by this document.
+
+> **HARDENED (2026-08-28) per Founder Review "Matching V1 M0":** M0 is approved in direction but **M1 production implementation has NOT started** — a methodology hardening pass was required first and is now complete. Three new companion documents resolve the previously-unresolved Open Math Questions A/B with actual research and computation: `methodology_lab/05_GOLDEN_TEST/MNP_SCALE_TO_ONET_MAPPING_V0.1.md` (verified against the current, 2024-redesigned O*NET Work Styles taxonomy), `MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` (11 computed cosine-vs-Euclidean cases; guarded cosine adopted), `MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md` (94-item bank reclassified as research estimate; ~75-item BASIC short form proposed). See the Founder Report for the full GO/CONDITIONAL-GO decision on M1.
 **Base:** built on top of `docs/product/20_MATCHING_V1_FOUNDER_DEFINITION.md` (binding Founder product contract, 2026-08-28).
 **Scope of this document:** reconcile everything already built (Stage 1–4A.5) against the new Matching V1 product model, define what is kept / superseded / deferred, and lay out the M1–M6 implementation slices. This document does not implement anything; M1 begins after Founder review of this plan.
 

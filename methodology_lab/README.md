@@ -29,8 +29,11 @@ for the full KEEP/SUPERSEDE/PRO-ONLY/NEW/DEFER reconciliation.
 
 | Path | Document | Owns |
 |---|---|---|
-| `05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md` | Golden Test v0.1 | the structured assessment (scales, item counts, scoring, missing-answer handling) and the deterministic matching mathematics (Interest/Work Style/Values Fit, Feasibility, Coverage) for BASIC V1 |
-| `06_CAREER_KB/MNP_CAREER_KB_V1.md` | Career KB V1 | the three-layer source model (Work.ua / O*NET / MNP curation), `CareerExternalMapping` crosswalk schema, `CareerMatchingProfile` vector schema, provenance/versioning rules |
+| `05_GOLDEN_TEST/MNP_GOLDEN_TEST_V0.1.md` | Golden Test v0.1 *(hardened 2026-08-28)* | the structured assessment (scales, item counts, scoring, missing-answer handling) and the deterministic matching mathematics (Interest/Work Style/Values Fit, Feasibility, Coverage) for BASIC V1 |
+| `05_GOLDEN_TEST/MNP_SCALE_TO_ONET_MAPPING_V0.1.md` | Scale ↔ O*NET Mapping v0.1 | per-scale MNP↔O*NET compatibility (DIRECT/DERIVED/PROXY/MNP_ONLY), verified against the current (2024-redesigned) O*NET Work Styles taxonomy, plus the Career Vector Compatibility Proof for each Fit family |
+| `05_GOLDEN_TEST/MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` | Matching Metric Benchmark v0.1 | 11 computed cosine-vs-Euclidean similarity cases, the guarded-cosine recommendation, and the band-cutoff sensitivity analysis |
+| `05_GOLDEN_TEST/MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md` | BASIC Short-Form Strategy v0.1 | full item bank vs. the ~75-item BASIC short form, minimum items/scale, reverse-item policy, insufficient-data rule |
+| `06_CAREER_KB/MNP_CAREER_KB_V1.md` | Career KB V1 *(hardened 2026-08-28)* | the three-layer source model (Work.ua / O*NET / MNP curation), `CareerExternalMapping` crosswalk schema, `CareerMatchingProfile` vector schema, provenance/versioning rules |
 | `06_CAREER_KB/MNP_WORKUA_DATA_USE_DECISION_V0.1.md` | Work.ua Data Use Decision v0.1 | the licensing/data-use gate — what may be referenced, stored, displayed, or requires an agreement, before any automated Work.ua import |
 
 Three existing Canon documents below carry a **"AMENDED BY MATCHING V1

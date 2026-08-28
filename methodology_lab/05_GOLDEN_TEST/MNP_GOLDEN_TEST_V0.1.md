@@ -1,6 +1,12 @@
 # MNP Golden Test V0.1 — Deterministic Assessment & Matching Mathematics
 
 **Status:** PROVISIONAL v0.1 — engineering/methodology specification, pending Founder sign-off and Golden Case calibration.
+
+> **HARDENED (2026-08-28) per Founder Review "Matching V1 M0":** the ~94-item count, the unconditional cosine-similarity recommendation, the hardcoded 29-scale Coverage denominator, and the assumed O*NET alignment of Work Style/Work Values have all been superseded or qualified by three new companion documents produced from actual research and computation, not assumption:
+> - `MNP_SCALE_TO_ONET_MAPPING_V0.1.md` — verified against the **current** O*NET Work Styles taxonomy (21 elements/7 factors, redesigned 2024, live in O*NET 30.1+ — the old 16-element taxonomy this document originally assumed is retired).
+> - `MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` — actual cosine-vs-Euclidean calculations on 11 cases; cosine is retained only in a **guarded** form (§17–19 below, revised).
+> - `MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md` — the 94-item bank is a research/planning estimate; BASIC V1 targets a ~75-item short form.
+> Sections below are annotated `[HARDENED]` where they were revised as a result.
 **Supersedes for BASIC V1:** the free-text/claims-based scoring path used by Stage 3B (`MNP_CAREER_FIT_MODEL_V0.1.md`, `MNP_RANKING_POLICY_V0.1.md`) — those documents remain the historical/PRO reference (see amendment banners added to each), and are not rewritten.
 **Depends on:** `MNP_HUMAN_POTENTIAL_MODEL_V0.1.md` (canonical dimensions, Work Style subdimensions §3.1, Work Environment facets §3.2, Constraints taxonomy §3.3), `docs/product/20_MATCHING_V1_FOUNDER_DEFINITION.md`, `docs/engineering/21_MATCHING_V1_RECONCILIATION_AND_IMPLEMENTATION_PLAN.md`.
 
@@ -26,7 +32,10 @@ Total Likert scales: **6 + 10 + 8 + 5 = 29**. This is the denominator of the Cov
 
 ---
 
-## 2. Exact item count
+## 2. Exact item count `[HARDENED]`
+
+**Superseded by `MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md`.** The 94-item bank below is the full research item bank; BASIC V1's actual target is the ~75-item short form defined in that document (3/scale RIASEC, 2/scale Work Style, 2/scale Work Values, 1/scale Work Environment, structured blocks unchanged). The table below is retained as the full-bank reference.
+
 
 | Block | Items/scale | Items | Rationale |
 |---|---|---|---|
@@ -124,21 +133,23 @@ If `k = 0` (no items answered), the scale is **UNSCORED** — not zero, not impu
 
 ## 9. RIASEC vector
 
-`riasec = (R, I, A, S, E, C)`, each component ∈ `[0, 1]`, computed per §6 from the 30 RIASEC items (5 per letter). Missing letters (insufficiently answered) leave that component `UNSCORED`; if more than 1 of 6 RIASEC letters is unscored, Interest Fit for that user is not computed (INSUFFICIENT_DATA — see §26 edge cases).
+`riasec = (R, I, A, S, E, C)`, each component ∈ `[0, 1]`, computed per §6 from the RIASEC items (5/letter full bank, 3/letter short form — `MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md`). Missing letters (insufficiently answered) leave that component `UNSCORED`; if more than 1 of 6 RIASEC letters is unscored **on either the user side or the career side**, Interest Fit for that pairing is not computed (INSUFFICIENT_DATA — see §26 edge cases). O*NET alignment: **DIRECT, all 6 letters, unconditionally** — confirmed unrevised in the current O*NET Content Model (`MNP_SCALE_TO_ONET_MAPPING_V0.1.md` §A).
 
 ---
 
-## 10. Work Style vector
+## 10. Work Style vector `[HARDENED]`
 
-`work_style = (autonomy, structure_preference, ambiguity_tolerance, pace, collaboration, leadership, customer_interaction, decision_responsibility, routine_tolerance, initiative)`, 10 components ∈ `[0, 1]`, using the **existing HPM v0.1 §3.1 keys unchanged** (no renaming, no new taxonomy version needed for this vector).
+`work_style = (autonomy, structure_preference, ambiguity_tolerance, pace, collaboration, leadership, customer_interaction, decision_responsibility, routine_tolerance, initiative)`, 10 components ∈ `[0, 1]`, using the **existing HPM v0.1 §3.1 keys unchanged** (no renaming, no new taxonomy version needed for this vector's internal structure).
+
+**O*NET alignment is NOT uniform** — see the full per-key mapping and status in `MNP_SCALE_TO_ONET_MAPPING_V0.1.md` §B: only 3 of 10 keys are DIRECT matches to the **current** (post-2024-redesign, 21-element) O*NET Work Style taxonomy (`ambiguity_tolerance`, `leadership`, `initiative`); 2 are DERIVED composites; 4 are cross-domain PROXY matches (job-context data standing in for a person-side trait); 1 (`autonomy`) is MNP_ONLY, since O*NET's own 2024 redesign removed its one autonomy-related Work Style (`Independence`) and reclassified it as a Work Value — independently validating this document's placement of `independence_value` under Work Values (§11) rather than Work Style. This vector's overall compatibility status is **PROVISIONAL**, not READY.
 
 ---
 
-## 11. Values vector
+## 11. Values vector `[HARDENED]`
 
 `work_values = (income, stability, growth, independence_value, impact_helping, recognition_status, work_life_balance, learning)`, 8 components ∈ `[0, 1]`. This is a **new** subdimension set (HPM v0.1 §3.4 currently lists Values as top-level-only) — requires the HPM amendment banner (see `MNP_HUMAN_POTENTIAL_MODEL_V0.1.md`, amended by this document). Naming note: `independence_value` is deliberately distinct from Work Style's `autonomy` key — the former is *what the person values* (independence as a work value), the latter is *how the person prefers to work* (behavioral autonomy preference); conflating the two keys would corrupt both vectors.
 
-O*NET alignment (for crosswalk purposes, Career KB doc §C): `independence_value`→O\*NET *Independence*, `recognition_status`→O\*NET *Recognition*, `impact_helping`→O\*NET *Relationships*, `stability`→O\*NET *Support* (partial). `income`, `growth`, `work_life_balance`, `learning` have no direct O*NET Work-Values equivalent (O*NET's 6-value model is coarser); these four are MNP additions grounded in standard vocational-values instruments (e.g., Super's Work Values Inventory) rather than invented ad hoc.
+**O*NET alignment** (full detail in `MNP_SCALE_TO_ONET_MAPPING_V0.1.md` §C): `independence_value`→O\*NET *Independence* (**DIRECT**, and now doubly confirmed as the correct domain by O*NET's own 2024 Work Styles redesign, which relocated Independence out of Work Styles into Work Values), `recognition_status`→O\*NET *Recognition* (**DIRECT**), `impact_helping`→O\*NET *Relationships* (**DIRECT**). `income`, `stability` are **PROXY** (partial overlap with O*NET's coarser *Working Conditions*/*Support* constructs, not a clean subset). `growth`, `work_life_balance`, `learning` are **MNP_ONLY** — no O*NET Work-Values equivalent exists; these three require their own MNP-curation-based sourcing plan for the career side (they cannot be populated from an O*NET import), not silently treated as O*NET-grounded. This vector's overall compatibility status is **PROVISIONAL**, not READY.
 
 ---
 
@@ -184,15 +195,19 @@ Each stored as a discrete/structured value (never free text in BASIC — free te
 
 ---
 
-## 15. Coverage formula
+## 15. Coverage formula `[HARDENED — schema-driven, not hardcoded]`
 
 Coverage measures **test completeness only** — not confidence, not psychometric certainty (Founder's explicit distinction, doc 20 §12).
 
+Per Founder decision D ("do NOT hard-code denominator 29"), Coverage is **schema-driven**:
+
 ```
-Coverage = (# of the 29 Likert scales that are "sufficiently answered", per §7)
-           ────────────────────────────────────────────────────────────────
-                                        29
+Coverage = (# of enabled, required, "sufficiently answered" Likert scales, per §7)
+           ────────────────────────────────────────────────────────────────────
+                    (# of enabled, required Likert scales in the active schema)
 ```
+
+"Enabled" and "required" are properties of the active assessment schema version (M1's item-bank table), not a fixed constant in this document. This makes Coverage correctly track the **short-form schema** (still 29 scales, since the short form reduces items-per-scale, not scale count — `MNP_BASIC_SHORT_FORM_STRATEGY_V0.1.md` §1–2), a future scale addition/removal, or a PRO-track schema with different enabled scales, without requiring this document to be edited every time the schema changes. The current BASIC V1 schema happens to enable all 29 scales as required, so the denominator is 29 today — but this is a schema fact, not a hardcoded rule.
 
 Context completeness (Goals/Experience/Constraints) is tracked as a **separate boolean flag**, `context_complete`, not blended into the Coverage percentage — it gates Feasibility computation independently (§20), rather than diluting the vector-completeness number.
 
@@ -209,36 +224,44 @@ Every `Career` row that has been mapped (Career KB doc §B/§C) carries a `Caree
 
 ---
 
-## 17. Interest Fit metric
+## 17. Interest Fit metric `[HARDENED — guarded cosine, per benchmark]`
 
-**Metric: cosine similarity** between the person's `riasec` vector and the career's `riasec` vector (see Open Question B, §B, for the full rationale):
+**Metric: guarded cosine similarity** between the person's `riasec` vector and the career's `riasec` vector. `MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` computed 11 concrete cases and found unguarded cosine produces materially wrong results for flat/undifferentiated and near-zero vectors (both user- and career-side) — guarding is not optional polish, it is required to avoid a demonstrated failure mode.
 
 ```
-InterestFit(u, c) = (riasec_u · riasec_c) / (‖riasec_u‖ × ‖riasec_c‖)
+1. dispersion_ok(v) := stdev(v components) ≥ 0.10        # placeholder threshold, PROVISIONAL
+2. If NOT dispersion_ok(riasec_u) OR NOT dispersion_ok(riasec_c):
+       InterestFit = INSUFFICIENT_DATA / LOW_DIFFERENTIATION   (never a computed score)
+3. Else:
+       InterestFit(u, c) = (riasec_u · riasec_c) / (‖riasec_u‖ × ‖riasec_c‖)
 ```
 
-Since both vectors have non-negative components in `[0,1]`, `InterestFit ∈ [0, 1]` directly — no rescaling needed. Undefined (both-zero vector) is treated as INSUFFICIENT_DATA, never as 0 or 1.
+Since both vectors have non-negative components in `[0,1]`, `InterestFit ∈ [0, 1]` directly when computed. Undefined (both-zero vector) is treated as INSUFFICIENT_DATA, never as 0 or 1 — and now, per the benchmark, so is any vector too flat to carry real signal, on **either** side of the comparison (fixes the Case 9 symmetric-missing-data gap — see benchmark doc §4).
 
 ---
 
-## 18. Work Style Fit metric
+## 18. Work Style Fit metric `[HARDENED — guarded cosine]`
 
-Cosine similarity on the concatenated `(work_style ‖ 0.5 × work_environment)` vectors (Work Environment enters at half weight as a secondary signal, per doc 20's note that Work Environment "partially overlaps with B" and is a smaller, less discriminating vector):
+Same guarded-cosine approach as §17, applied to the concatenated `(work_style ‖ 0.5 × work_environment)` vectors (Work Environment enters at half weight as a secondary signal, per doc 20's note that Work Environment "partially overlaps with B" and is a smaller, less discriminating vector):
 
 ```
-WorkStyleFit(u, c) = cos( work_style_u ⊕ 0.5·work_environment_u ,
-                          work_style_c ⊕ 0.5·work_environment_c )
+1. Check dispersion_ok() on both concatenated vectors (§17 rule).
+2. If either fails: WorkStyleFit = INSUFFICIENT_DATA / LOW_DIFFERENTIATION.
+3. Else: WorkStyleFit(u, c) = cos( work_style_u ⊕ 0.5·work_environment_u ,
+                                   work_style_c ⊕ 0.5·work_environment_c )
 ```
-where `⊕` denotes vector concatenation. If a user or career is missing the Work Environment component entirely, the metric falls back to `cos(work_style_u, work_style_c)` alone (documented fallback, not silent).
+where `⊕` denotes vector concatenation. If a user or career is missing the Work Environment component entirely, the metric falls back to `cos(work_style_u, work_style_c)` alone (documented fallback, not silent). Recall this whole vector is only **PROVISIONAL** for O*NET-groundedness (§10) — the guard here is an additional, independent safeguard against degenerate vectors, not a substitute for that caveat.
 
 ---
 
-## 19. Values Fit metric
+## 19. Values Fit metric `[HARDENED — guarded cosine]`
 
-Cosine similarity on the `work_values` vectors:
+Same guarded-cosine approach:
 
 ```
-ValuesFit(u, c) = cos(work_values_u, work_values_c)
+1. Check dispersion_ok() on both work_values vectors (§17 rule).
+2. If either fails: ValuesFit = INSUFFICIENT_DATA / LOW_DIFFERENTIATION.
+3. Else: ValuesFit(u, c) = cos(work_values_u, work_values_c)
 ```
 
 ---
@@ -296,7 +319,7 @@ Uniform three-band mapping applied to all four numeric outputs (Interest Fit, Wo
 - **MEDIUM**: 0.40 ≤ score < 0.70
 - **LOW**: score < 0.40
 
-**PROVISIONAL** — these cutoffs are placeholders pending Golden Case calibration against real pilot data (consistent with how Stage 3B's own band cutoffs were labeled provisional). No 5-star or single combined percentage is ever derived from these bands (Founder invariant, doc 20 §10).
+**PROVISIONAL** — these cutoffs are placeholders pending Golden Case calibration against real pilot data (consistent with how Stage 3B's own band cutoffs were labeled provisional). No 5-star or single combined percentage is ever derived from these bands (Founder invariant, doc 20 §10). `MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` §5 demonstrates concretely (not just asserts) that a ±0.05 cutoff shift materially reorders the ranked catalog — the provisional label is backed by evidence, not just caution.
 
 ---
 
@@ -365,9 +388,11 @@ Combined dot ≈ 3.895. Norms computed analogously (omitted for brevity of hand-
 
 ---
 
-## Open Math Questions (Founder decisions required before M1)
+## Open Math Questions — Founder Review outcomes (2026-08-28)
 
-### A. Work Preferences / Work Values exact scales
+> **A and B below are no longer fully open** — Founder Review "Matching V1 M0" issued explicit decisions superseding the original recommendations. C and D were **approved** (D with a change, applied above in §15). The original recommendation text is retained below for audit trail, with the Founder's actual decision layered on top.
+
+### A. Work Preferences / Work Values exact scales — CONDITIONAL APPROVE
 
 **Options:**
 1. Reuse existing HPM v0.1 Work Style (10 subdims) + Work Environment (5 facets) unchanged; add a new 8-scale Work Values set.
@@ -380,7 +405,9 @@ Combined dot ≈ 3.895. Norms computed analogously (omitted for brevity of hand-
 **WHY:** Existing taxonomy already covers doc 20's proposed scales plus 2 extra (decision_responsibility, initiative) at no cost; only Values genuinely needs new subscales (HPM v0.1 §3.4 left Values top-level-only).
 **PROVISIONAL STATUS:** Provisional — requires HPM v0.1 amendment sign-off (banner added) and Methodology Owner review of the 8 Values keys before final item authoring.
 
-### B. Vector-distance metric
+**FOUNDER DECISION:** Conceptual scale families (Work Style/Values as separate contextual/psychometric layers, Goals/Constraints/Experience as structured, non-Fit inputs) are approved. The Founder explicitly rejected freezing the 6+10+8+5=29 count as canonical merely because it appeared in the draft, and required an explicit MNP↔O*NET reconciliation before finalizing the schema — delivered in `MNP_SCALE_TO_ONET_MAPPING_V0.1.md`. Outcome: RIASEC confirmed stable (no incompatibility found, kept as the classical anchor per Founder's own instruction). Work Style and Work Values are **not** silently force-mapped where O*NET measures a different construct — each is now marked DIRECT/DERIVED/PROXY/MNP_ONLY per key, both vectors carry an overall **PROVISIONAL** compatibility status (not READY), and the 3 MNP_ONLY Work Values keys (`growth`, `work_life_balance`, `learning`) are flagged as needing their own non-O*NET sourcing plan for the career side.
+
+### B. Vector-distance metric — PROVISIONAL APPROVAL ONLY (not yet final)
 
 **Options:** cosine similarity; normalized Euclidean distance; Pearson profile correlation; Holland hexagonal C-index (RIASEC-specific).
 
@@ -390,7 +417,9 @@ Combined dot ≈ 3.895. Norms computed analogously (omitted for brevity of hand-
 **WHY:** Single, simple, auditable formula that generalizes across all vector shapes without per-metric special-casing; naturally bounded for our non-negative [0,1] vectors; avoids inventing per-vector normalization constants.
 **PROVISIONAL STATUS:** Provisional — cosine's known weakness (magnitude-blindness) is intentionally not compensated for inside the Fit metric itself; it is instead caught by the Coverage/consistency checks. Subject to Golden Case calibration; may be revisited if pilot data shows systematic over-scoring of low-magnitude profiles.
 
-### C. Goals' role
+**FOUNDER DECISION:** Cosine was explicitly NOT yet approved as final — Founder required an actual computed benchmark against normalized Euclidean distance, with ≥10 deliberately difficult cases including flat/undifferentiated profiles, near-zero vectors, and weak-coverage careers, before any recommendation stands. `MNP_MATCHING_METRIC_BENCHMARK_V0.1.md` delivers this: 11 computed cases, 2 of which (flat-profile and near-zero cases) show cosine producing materially misleading HIGH-band results where Euclidean does not. **Revised recommendation: guarded cosine** (§17–19 above) — cosine retained for its correct shape-matching behavior on well-differentiated vectors, but gated by a minimum-dispersion check (`stdev ≥ 0.10`, placeholder) that returns INSUFFICIENT_DATA/LOW_DIFFERENTIATION for flat or near-zero vectors on either side, rather than a possibly-inflated score. This remains **PROVISIONAL** pending Golden Case calibration of the dispersion threshold — it is a firmer, evidence-backed position than the original unconditional-cosine recommendation, not yet a final one.
+
+### C. Goals' role — APPROVED
 
 **Options:** (1) hard filter (excludes non-matching domains); (2) soft ranking booster within the primary sort (added into the Fit score); (3) pure tie-break only, never touching primary ranking; (4) purely informational, no mechanical role at all.
 
@@ -400,7 +429,9 @@ Combined dot ≈ 3.895. Norms computed analogously (omitted for brevity of hand-
 **WHY:** Satisfies doc 20's explicit constraint ("if and only if explicitly defined in Golden Test math... otherwise keep contextual") with the narrowest possible mechanical role — cannot manufacture a false top result, cannot mask a better psychometric match, fully reversible if Founder wants Option 4 instead.
 **PROVISIONAL STATUS:** Provisional — ties are expected to be rare given band-then-raw-score sorting, so this mechanism will affect very few rankings in practice; revisit after Golden Case data shows actual tie frequency.
 
-### D. Coverage threshold
+**FOUNDER DECISION: APPROVED.** Goals must never modify Interest/Work Style/Values Fit; the tie-break-only mechanical role (§25) is confirmed as the correct, minimal implementation. Fit and Intent remain conceptually separate, as designed.
+
+### D. Coverage threshold — APPROVED WITH CHANGE
 
 **Options:** (1) 100% required for any output; (2) 100%/80%/<80% three-band model (§15); (3) no threshold — always compute, just display the raw Coverage %.
 
@@ -409,6 +440,8 @@ Combined dot ≈ 3.895. Norms computed analogously (omitted for brevity of hand-
 **V0.1 RECOMMENDATION:** Option 2 — Full (100%) / Partial (80–99%, shown with a visible note) / Insufficient (<80%, fit computation withheld, completion prompted).
 **WHY:** Mirrors the existing Stage 3B "never manufacture recommendations from too little data" philosophy, recalibrated to the new item-based Coverage measure instead of the old claims-based one; 80% (≈24/29 scales) is a defensible floor given the test is designed for single-sitting completion with minimal expected skips.
 **PROVISIONAL STATUS:** Provisional — the 80% cutoff is a placeholder pending pilot skip-rate data; may be tightened or loosened once real completion patterns are observed.
+
+**FOUNDER DECISION: APPROVED WITH CHANGE.** The three-band model (Full/Partial/Insufficient) stands, but the denominator must be schema-driven, not hardcoded — applied in §15 above (`Coverage = scorable enabled required scales / enabled required scales`). Context completeness (Goals/Experience/Constraints) remains a separate boolean, never blended into psychometric Coverage, exactly as already specified in §15.
 
 ---
 
