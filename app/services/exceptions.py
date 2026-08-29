@@ -140,3 +140,37 @@ class HardFactualRequirementRequiresSourceError(DomainError):
     is not actually a verified fact."""
 
     code = "hard_factual_requirement_requires_source"
+
+
+# ---- MNP V1 (MNP_DEVELOPMENT_PACKAGE_V1) -- Career KB / Career Card ----
+# `Mnp`-prefixed to distinguish unambiguously from the Stage 3A errors
+# above, which belong to a different, superseded career-vector schema.
+
+
+class MnpCareerNotFoundError(DomainError):
+    code = "mnp_career_not_found"
+
+
+class MnpDuplicateCareerCodeError(DomainError):
+    """`MnpCareer.code` is the stable MNP_CAREER_ID business key -- unique
+    across the whole catalog, not just within one version (unlike Stage
+    3A's per-KB-version uniqueness)."""
+
+    code = "mnp_duplicate_career_code"
+
+
+class MnpInvalidLifecycleTransitionError(DomainError):
+    """MNP_CAREER_KB_ARCHITECTURE_V1 "Lifecycle": DRAFT -> VALIDATED ->
+    ACTIVE -> REVIEW_DUE -> ACTIVE/ARCHIVED (+ restore ARCHIVED ->
+    ACTIVE). Any other transition is rejected outright, not silently
+    coerced."""
+
+    code = "mnp_invalid_lifecycle_transition"
+
+
+class MnpSkillNotFoundError(DomainError):
+    code = "mnp_skill_not_found"
+
+
+class MnpCareerCardNotFoundError(DomainError):
+    code = "mnp_career_card_not_found"
