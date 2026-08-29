@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.admin import router as admin_router
 from app.api.crm import router as crm_router
+from app.api.mnp import router as mnp_router
 from app.db.models import User
 from app.db.session import get_session
 from app.schemas.profile import ProfileOut
@@ -15,10 +16,15 @@ from app.services import profile_service
 app = FastAPI(title="ICAN Screening MVP")
 app.include_router(admin_router)
 app.include_router(crm_router)
+app.include_router(mnp_router)
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "admin_frontend"
 if _FRONTEND_DIR.is_dir():
     app.mount("/dashboard", StaticFiles(directory=_FRONTEND_DIR, html=True), name="dashboard")
+
+_MNP_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "mnp_frontend"
+if _MNP_FRONTEND_DIR.is_dir():
+    app.mount("/mnp", StaticFiles(directory=_MNP_FRONTEND_DIR, html=True), name="mnp")
 
 
 @app.get("/health")

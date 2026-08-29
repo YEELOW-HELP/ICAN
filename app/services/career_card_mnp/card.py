@@ -101,7 +101,7 @@ async def record_evidence(
     return row
 
 
-async def _serialize_career_card(session: AsyncSession, career_card: MnpCareerCard) -> dict:
+async def serialize_career_card(session: AsyncSession, career_card: MnpCareerCard) -> dict:
     """Full denormalized snapshot -- deliberately independent of the live
     tables' shape evolving later (MNP_EVIDENCE_AND_CONFIDENCE_MODEL_V1
     §24 Auditability: a historical MatchRun must stay reproducible)."""
@@ -159,7 +159,7 @@ async def snapshot_career_card(session: AsyncSession, career_card: MnpCareerCard
     and every subsequent "edit Career Card -> recalculate")."""
 
     career_card.version += 1
-    snapshot = await _serialize_career_card(session, career_card)
+    snapshot = await serialize_career_card(session, career_card)
     snapshot["version"] = career_card.version
     row = MnpCareerCardVersion(career_card_id=career_card.id, version=career_card.version, snapshot=snapshot)
     session.add(row)

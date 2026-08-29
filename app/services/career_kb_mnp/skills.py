@@ -128,15 +128,23 @@ async def add_skill_alias(
 
 async def resolve_phrase(session: AsyncSession, raw_phrase: str, *, language: str = "uk") -> MnpSkill | None:
     """MNP_SKILL_SCHEMA_V1 §8 steps 3-4: exact alias, then normalized
-    alias. Never falls back to fuzzy/LLM matching in BASIC (no LLM
-    tokens) -- an unresolved phrase is the caller's job to queue via
+    alias -- and, since a Skill's own canonical name is always a valid
+    way to refer to it (not merely one alias among others), the
+    canonical name is checked too, not just `MnpSkillAlias` rows. Never
+    falls back to fuzzy/LLM matching in BASIC (no LLM tokens) -- an
+    unresolved phrase is the caller's job to queue via
     `queue_unmapped_phrase`, never silently dropped."""
 
     normalized = normalize_phrase(raw_phrase)
-    result = await session.execute(
-        select(MnpSkillAlias).where(MnpSkillAlias.language == language)
-    )
-    for row in result.scalars().all():
+
+    canonical_field = MnpSkill.canonical_name_uk if language == "uk" else MnpSkill.canonical_name_en
+    skill_result = await session.execute(select(MnpSkill).where(MnpSkill.status != SkillStatus.ARCHIVED))
+    for skill in skill_result.scalars().all():
+        if normalize_phrase(getattr(skill, canonical_field.key)) == normalized:
+            return skill
+
+    alias_result = await session.execute(select(MnpSkillAlias).where(MnpSkillAlias.language == language))
+    for row in alias_result.scalars().all():
         if normalize_phrase(row.alias) == normalized:
             skill = await session.get(MnpSkill, row.skill_id)
             if skill is not None and skill.status != SkillStatus.ARCHIVED:

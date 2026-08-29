@@ -63,6 +63,22 @@ EXPECTED_ROUTES = {
     ("POST", "/crm/tasks/{task_id}/cancel"),
     ("POST", "/crm/tasks/{task_id}/complete"),
     ("POST", "/crm/users"),
+    # MNP V1 (MNP_DEVELOPMENT_PACKAGE_V1, app/api/mnp.py) -- Founder-directed
+    # implementation, deliberate addition, not an accidental refactor side effect.
+    ("GET", "/v1/mnp/career-card"),
+    ("GET", "/v1/mnp/career-matches/{career_match_id}"),
+    ("GET", "/v1/mnp/career-matches/{career_match_id}/route"),
+    ("GET", "/v1/mnp/careers"),
+    ("GET", "/v1/mnp/careers/{career_id}"),
+    ("GET", "/v1/mnp/match-runs/{match_run_id}/careers"),
+    ("GET", "/v1/mnp/questionnaire/missing"),
+    ("PATCH", "/v1/mnp/admin/careers/{career_id}/status"),
+    ("POST", "/v1/mnp/admin/careers"),
+    ("POST", "/v1/mnp/documents"),
+    ("POST", "/v1/mnp/match-runs"),
+    ("POST", "/v1/mnp/questionnaire/career-capital"),
+    ("POST", "/v1/mnp/questionnaire/career-intent"),
+    ("POST", "/v1/mnp/session"),
 }
 
 
