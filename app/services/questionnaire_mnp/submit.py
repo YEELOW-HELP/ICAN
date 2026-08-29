@@ -30,6 +30,7 @@ from app.db.models_career_card import (
 from app.services.career_card_mnp.card import record_evidence
 from app.services.career_card_mnp.skill_application import apply_skill_phrase
 from app.services.career_card_mnp.work_values_seed import ensure_work_values_seeded
+from app.services.career_kb_mnp.alias_resolution import resolve_job_title_to_career
 from app.services.questionnaire_mnp.schema import CareerCapitalAnswers, CareerIntentAnswers
 
 _SOURCE = EvidenceSourceType.QUESTIONNAIRE
@@ -40,8 +41,10 @@ async def submit_career_capital(
 ) -> None:
     if answers.current_role:
         duration_months = int(answers.years_of_experience * 12) if answers.years_of_experience else None
+        matched_career = await resolve_job_title_to_career(session, answers.current_role)
         row = MnpExperience(
             career_card_id=career_card.id, raw_job_title=answers.current_role, is_current=True,
+            normalized_career_id=matched_career.id if matched_career else None,
             duration_months=duration_months, responsibilities_raw=answers.responsibilities,
             source_type=_SOURCE, confidence=1.0,
         )

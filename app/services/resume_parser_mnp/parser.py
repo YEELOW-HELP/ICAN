@@ -36,6 +36,7 @@ from app.services.career_card_mnp.card import (
     start_assessment_session,
 )
 from app.services.career_card_mnp.skill_application import apply_skill_phrase
+from app.services.career_kb_mnp.alias_resolution import resolve_job_title_to_career
 from app.services.crm.storage import LocalFileStorage
 from app.services.exceptions import CVFileTooLargeError
 from app.services.resume_parser_mnp.extract import ParsedResume, parse_resume_sections
@@ -56,10 +57,12 @@ async def apply_parsed_resume_to_career_card(
     session: AsyncSession, career_card: MnpCareerCard, parsed: ParsedResume, *, document_id: uuid.UUID,
 ) -> None:
     for exp in parsed.experiences:
+        matched_career = await resolve_job_title_to_career(session, exp.raw_job_title)
         row = MnpExperience(
             career_card_id=career_card.id,
             company_name=exp.company_name,
             raw_job_title=exp.raw_job_title,
+            normalized_career_id=matched_career.id if matched_career else None,
             start_date=exp.start_date,
             end_date=exp.end_date,
             is_current=exp.is_current,
