@@ -108,6 +108,23 @@ def ct_to_normalized(raw: float) -> float:
     return (raw - 1.0) / 2.0
 
 
+# M4.6 (DATA-002): O*NET Work Values "Extent" (`EX`) scale. Added for the
+# production import pass -- Work Values data is sourced from O*NET **30.2**
+# (the last release that still shipped `Work Values.txt`; removed from
+# 30.3 onward), only for the 3 DIRECT-mappable MNP keys. Official range
+# from O*NET 30.2's own `Scales Reference.txt`, verbatim (never inferred).
+EX_TRANSFORMATION_VERSION = "legacy_onet_work_values_30.2_v0.1"
+
+
+def ex_to_normalized(raw: float) -> float:
+    """O*NET Work Values Extent (`EX`) scale, official range 1-7 -- the
+    importance-of-outcome rating O*NET's Theory-of-Work-Adjustment-derived
+    Work Values model uses. Plain linear rescale to internal [0,1], same
+    convention as every other bounded source scale in Matching V1."""
+
+    return (raw - 1.0) / 6.0
+
+
 async def create_career_matching_profile(
     session: AsyncSession,
     *,

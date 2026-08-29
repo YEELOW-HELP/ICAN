@@ -1,0 +1,798 @@
+{
+  "_meta": {
+    "artifact_version": "onet_source_v3",
+    "generated_at_utc": "2026-08-29",
+    "generated_by": "scripts.onet_import.export_source_artifact",
+    "live_scales_source": "onet_31.0",
+    "note": "Scoped to O*NET-SOC codes referenced by CareerExternalMapping. riasec_oi / work_style_wi / work_context come from O*NET 31.0; work_values_ex comes from O*NET 30.2 (last release with Work Values.txt) and covers only the 3 DIRECT-mappable MNP keys. Regenerate with scripts.onet_import.export_source_artifact after any O*NET release or crosswalk change.",
+    "scale_ranges": {
+      "CT": [
+        1,
+        3
+      ],
+      "CX": [
+        1,
+        5
+      ],
+      "EX": [
+        1,
+        7
+      ],
+      "OI": [
+        1,
+        7
+      ],
+      "WI": [
+        -3,
+        3
+      ]
+    },
+    "soc_count": 23,
+    "work_values_source": "onet_30.2"
+  },
+  "occupations": {
+    "11-1021.00": {
+      "description": "Plan, direct, or coordinate the operations of public or private sector organizations, overseeing multiple departments or locations. Duties and responsibilities include formulating policies, managing daily operations, and planning the use of materials and human resources, but are too diverse and general in nature to be classified in any one functional area of management or administration, such as personnel, purchasing, or administrative services. Usually manage through subordinate supervisors. Excludes First-Line Supervisors.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.29,
+        "C": 5.34,
+        "E": 7.0,
+        "I": 2.37,
+        "R": 2.2,
+        "S": 3.38
+      },
+      "soc": "11-1021.00",
+      "title": "General and Operations Managers",
+      "work_context": {
+        "collaboration_context": 4.62,
+        "customer_interaction_context": 4.49,
+        "physical_environment_standing": 2.9,
+        "physical_environment_walking": 2.53,
+        "schedule_predictability": 1.16,
+        "setting": 4.39
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.64,
+        "collaboration_cooperation": 1.84,
+        "collaboration_social": 1.97,
+        "initiative": 2.22,
+        "leadership": 2.93
+      },
+      "work_values_ex": {
+        "impact_helping": 6.33,
+        "independence_value": 6.0,
+        "recognition_status": 5.67
+      }
+    },
+    "11-2022.00": {
+      "description": "Plan, direct, or coordinate the actual distribution or movement of a product or service to the customer. Coordinate sales distribution by establishing sales territories, quotas, and goals and establish training programs for sales representatives. Analyze sales statistics gathered by staff to determine sales potential and inventory requirements and monitor the preferences of customers.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.36,
+        "C": 5.53,
+        "E": 7.0,
+        "I": 1.67,
+        "R": 1.49,
+        "S": 3.37
+      },
+      "soc": "11-2022.00",
+      "title": "Sales Managers",
+      "work_context": {
+        "collaboration_context": 4.65,
+        "customer_interaction_context": 4.71,
+        "physical_environment_standing": 2.4,
+        "physical_environment_walking": 1.85,
+        "schedule_predictability": 1.38,
+        "setting": 4.45
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.51,
+        "collaboration_cooperation": 1.77,
+        "collaboration_social": 2.54,
+        "initiative": 2.07,
+        "leadership": 2.71
+      },
+      "work_values_ex": {
+        "impact_helping": 4.0,
+        "independence_value": 5.67,
+        "recognition_status": 4.67
+      }
+    },
+    "13-1081.00": {
+      "description": "Analyze and coordinate the ongoing logistical functions of a firm or organization. Responsible for the entire life cycle of a product, including acquisition, distribution, internal allocation, delivery, and final disposal of resources.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.1,
+        "C": 5.44,
+        "E": 5.02,
+        "I": 3.81,
+        "R": 2.35,
+        "S": 2.33
+      },
+      "soc": "13-1081.00",
+      "title": "Logisticians",
+      "work_context": {
+        "collaboration_context": 4.58,
+        "customer_interaction_context": 3.96,
+        "physical_environment_standing": 2.25,
+        "physical_environment_walking": 1.92,
+        "schedule_predictability": 1.17,
+        "setting": 4.08
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.29,
+        "collaboration_cooperation": 2.1,
+        "collaboration_social": 1.52,
+        "initiative": 1.75,
+        "leadership": 1.95
+      },
+      "work_values_ex": {
+        "impact_helping": 5.0,
+        "independence_value": 5.67,
+        "recognition_status": 5.0
+      }
+    },
+    "13-1082.00": {
+      "description": "Analyze and coordinate the schedule, timeline, procurement, staffing, and budget of a product or service on a per project basis. Lead and guide the work of technical staff. May serve as a point of contact for the client or customer.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.57,
+        "C": 5.55,
+        "E": 6.3,
+        "I": 2.75,
+        "R": 1.48,
+        "S": 3.32
+      },
+      "soc": "13-1082.00",
+      "title": "Project Management Specialists",
+      "work_context": {
+        "collaboration_context": 4.58,
+        "customer_interaction_context": 3.25,
+        "physical_environment_standing": 2.45,
+        "physical_environment_walking": 1.7,
+        "schedule_predictability": 1.33,
+        "setting": 4.42
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.78,
+        "collaboration_cooperation": 2.3,
+        "collaboration_social": 2.11,
+        "initiative": 2.0,
+        "leadership": 2.55
+      },
+      "work_values_ex": {}
+    },
+    "13-1151.00": {
+      "description": "Design or conduct work-related training and development programs to improve individual skills or organizational performance. May analyze organizational training needs or evaluate training effectiveness.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 3.19,
+        "C": 3.76,
+        "E": 3.68,
+        "I": 4.03,
+        "R": 2.03,
+        "S": 5.64
+      },
+      "soc": "13-1151.00",
+      "title": "Training and Development Specialists",
+      "work_context": {
+        "collaboration_context": 4.27,
+        "customer_interaction_context": 3.13,
+        "physical_environment_standing": 2.65,
+        "physical_environment_walking": 1.78,
+        "schedule_predictability": 1.26,
+        "setting": 4.17
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.33,
+        "collaboration_cooperation": 2.3,
+        "collaboration_social": 2.36,
+        "initiative": 1.93,
+        "leadership": 1.81
+      },
+      "work_values_ex": {
+        "impact_helping": 6.33,
+        "independence_value": 5.33,
+        "recognition_status": 4.67
+      }
+    },
+    "13-2011.00": {
+      "description": "Examine, analyze, and interpret accounting records to prepare financial statements, give advice, or audit and evaluate statements prepared by others. Install or advise on systems of recording costs or other financial and budgetary data.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.08,
+        "C": 7.0,
+        "E": 3.87,
+        "I": 3.57,
+        "R": 1.14,
+        "S": 2.13
+      },
+      "soc": "13-2011.00",
+      "title": "Accountants and Auditors",
+      "work_context": {
+        "collaboration_context": 4.1,
+        "customer_interaction_context": 3.38,
+        "physical_environment_standing": 2.07,
+        "physical_environment_walking": 1.48,
+        "schedule_predictability": 1.24,
+        "setting": 4.61
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": -0.15,
+        "collaboration_cooperation": 0.73,
+        "collaboration_social": 0.5,
+        "initiative": 1.0,
+        "leadership": 0.83
+      },
+      "work_values_ex": {
+        "impact_helping": 4.67,
+        "independence_value": 5.0,
+        "recognition_status": 4.67
+      }
+    },
+    "13-2051.00": {
+      "description": "Conduct quantitative analyses of information involving investment programs or financial data of public or private institutions, including valuation of businesses.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.78,
+        "C": 5.54,
+        "E": 5.09,
+        "I": 5.06,
+        "R": 1.0,
+        "S": 2.25
+      },
+      "soc": "13-2051.00",
+      "title": "Financial and Investment Analysts",
+      "work_context": {},
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.83,
+        "collaboration_cooperation": 1.0,
+        "collaboration_social": 1.43,
+        "initiative": 1.5,
+        "leadership": 1.0
+      },
+      "work_values_ex": {}
+    },
+    "15-1232.00": {
+      "description": "Provide technical assistance to computer users. Answer questions or resolve computer problems for clients in person, via telephone, or electronically. May provide assistance concerning the use of computer hardware and software, including printing, installation, word processing, electronic mail, and operating systems.",
+      "job_zone": 3,
+      "riasec_oi": {
+        "A": 1.0,
+        "C": 6.02,
+        "E": 2.36,
+        "I": 3.77,
+        "R": 4.13,
+        "S": 3.31
+      },
+      "soc": "15-1232.00",
+      "title": "Computer User Support Specialists",
+      "work_context": {
+        "collaboration_context": 4.07,
+        "customer_interaction_context": 2.01,
+        "physical_environment_standing": 2.18,
+        "physical_environment_walking": 2.17,
+        "schedule_predictability": 1.0,
+        "setting": 4.86
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.22,
+        "collaboration_cooperation": 1.99,
+        "collaboration_social": 1.74,
+        "initiative": 1.26,
+        "leadership": 0.25
+      },
+      "work_values_ex": {
+        "impact_helping": 5.33,
+        "independence_value": 5.0,
+        "recognition_status": 4.33
+      }
+    },
+    "15-1252.00": {
+      "description": "Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 2.37,
+        "C": 5.62,
+        "E": 1.87,
+        "I": 6.05,
+        "R": 3.61,
+        "S": 1.81
+      },
+      "soc": "15-1252.00",
+      "title": "Software Developers",
+      "work_context": {
+        "collaboration_context": 4.56,
+        "customer_interaction_context": 1.93,
+        "physical_environment_standing": 1.47,
+        "physical_environment_walking": 1.29,
+        "schedule_predictability": 1.02,
+        "setting": 3.2
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.72,
+        "collaboration_cooperation": 1.2,
+        "collaboration_social": 0.86,
+        "initiative": 1.59,
+        "leadership": 1.13
+      },
+      "work_values_ex": {}
+    },
+    "15-1254.00": {
+      "description": "Develop and implement websites, web applications, application databases, and interactive web interfaces. Evaluate code to ensure that it is properly structured, meets industry standards, and is compatible with browsers and devices. Optimize website performance, scalability, and server-side code and processes. May develop website infrastructure and integrate websites with other computer applications.",
+      "job_zone": 3,
+      "riasec_oi": {
+        "A": 3.13,
+        "C": 5.03,
+        "E": 2.96,
+        "I": 5.01,
+        "R": 2.98,
+        "S": 2.22
+      },
+      "soc": "15-1254.00",
+      "title": "Web Developers",
+      "work_context": {
+        "collaboration_context": 4.0,
+        "customer_interaction_context": 2.46,
+        "physical_environment_standing": 1.67,
+        "physical_environment_walking": 1.46,
+        "schedule_predictability": 1.25,
+        "setting": 4.38
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.41,
+        "collaboration_cooperation": 0.85,
+        "collaboration_social": 0.5,
+        "initiative": 1.62,
+        "leadership": -0.02
+      },
+      "work_values_ex": {
+        "impact_helping": 4.0,
+        "independence_value": 5.67,
+        "recognition_status": 5.0
+      }
+    },
+    "17-2051.00": {
+      "description": "Perform engineering duties in planning, designing, and overseeing construction and maintenance of building structures and facilities, such as roads, railroads, airports, bridges, harbors, channels, dams, irrigation projects, pipelines, power plants, and water and sewage systems.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 2.21,
+        "C": 4.61,
+        "E": 2.66,
+        "I": 5.15,
+        "R": 6.43,
+        "S": 1.69
+      },
+      "soc": "17-2051.00",
+      "title": "Civil Engineers",
+      "work_context": {
+        "collaboration_context": 4.38,
+        "customer_interaction_context": 3.57,
+        "physical_environment_standing": 2.19,
+        "physical_environment_walking": 2.05,
+        "schedule_predictability": 1.33,
+        "setting": 4.4
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.33,
+        "collaboration_cooperation": 1.44,
+        "collaboration_social": 0.86,
+        "initiative": 1.59,
+        "leadership": 2.01
+      },
+      "work_values_ex": {
+        "impact_helping": 4.0,
+        "independence_value": 6.0,
+        "recognition_status": 5.33
+      }
+    },
+    "17-2141.00": {
+      "description": "Perform engineering duties in planning and designing tools, engines, machines, and other mechanically functioning equipment. Oversee installation, operation, maintenance, and repair of equipment such as centralized heat, gas, water, and steam systems.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 2.02,
+        "C": 4.83,
+        "E": 1.97,
+        "I": 5.12,
+        "R": 6.39,
+        "S": 1.22
+      },
+      "soc": "17-2141.00",
+      "title": "Mechanical Engineers",
+      "work_context": {
+        "collaboration_context": 4.4,
+        "customer_interaction_context": 3.16,
+        "physical_environment_standing": 2.4,
+        "physical_environment_walking": 2.24,
+        "schedule_predictability": 1.12,
+        "setting": 4.57
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.24,
+        "collaboration_cooperation": 1.03,
+        "collaboration_social": 0.61,
+        "initiative": 1.44,
+        "leadership": 1.06
+      },
+      "work_values_ex": {
+        "impact_helping": 4.67,
+        "independence_value": 5.33,
+        "recognition_status": 5.67
+      }
+    },
+    "21-1021.00": {
+      "description": "Provide social services and assistance to improve the social and psychological functioning of children and their families and to maximize the family well-being and the academic functioning of children. May assist parents, arrange adoptions, and find foster homes for abandoned or abused children. In schools, they address such problems as teenage pregnancy, misbehavior, and truancy. May also advise teachers.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 2.9,
+        "C": 3.57,
+        "E": 2.94,
+        "I": 3.32,
+        "R": 1.7,
+        "S": 6.85
+      },
+      "soc": "21-1021.00",
+      "title": "Child, Family, and School Social Workers",
+      "work_context": {
+        "collaboration_context": 4.77,
+        "customer_interaction_context": 4.27,
+        "physical_environment_standing": 2.43,
+        "physical_environment_walking": 2.12,
+        "schedule_predictability": 1.34,
+        "setting": 4.2
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.56,
+        "collaboration_cooperation": 3.0,
+        "collaboration_social": 2.38,
+        "initiative": 1.89,
+        "leadership": 1.0
+      },
+      "work_values_ex": {
+        "impact_helping": 6.67,
+        "independence_value": 5.33,
+        "recognition_status": 3.67
+      }
+    },
+    "25-2031.00": {
+      "description": "Teach one or more subjects to students at the secondary school level.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 3.77,
+        "C": 3.61,
+        "E": 2.9,
+        "I": 3.19,
+        "R": 2.73,
+        "S": 7.0
+      },
+      "soc": "25-2031.00",
+      "title": "Secondary School Teachers, Except Special and Career/Technical Education",
+      "work_context": {
+        "collaboration_context": 4.24,
+        "customer_interaction_context": 3.34,
+        "physical_environment_standing": 3.28,
+        "physical_environment_walking": 2.58,
+        "schedule_predictability": 1.16,
+        "setting": 4.56
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.56,
+        "collaboration_cooperation": 2.3,
+        "collaboration_social": 2.33,
+        "initiative": 1.53,
+        "leadership": 1.61
+      },
+      "work_values_ex": {
+        "impact_helping": 7.0,
+        "independence_value": 5.0,
+        "recognition_status": 4.0
+      }
+    },
+    "27-1024.00": {
+      "description": "Design or create graphics to meet specific commercial or promotional needs, such as packaging, displays, or logos. May use a variety of mediums to achieve artistic or decorative effects.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 7.0,
+        "C": 3.92,
+        "E": 3.43,
+        "I": 2.86,
+        "R": 3.38,
+        "S": 2.16
+      },
+      "soc": "27-1024.00",
+      "title": "Graphic Designers",
+      "work_context": {
+        "collaboration_context": 4.44,
+        "customer_interaction_context": 3.05,
+        "physical_environment_standing": 1.89,
+        "physical_environment_walking": 1.47,
+        "schedule_predictability": 1.35,
+        "setting": 4.32
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.33,
+        "collaboration_cooperation": 1.14,
+        "collaboration_social": 0.88,
+        "initiative": 1.18,
+        "leadership": 0.32
+      },
+      "work_values_ex": {
+        "impact_helping": 4.0,
+        "independence_value": 5.33,
+        "recognition_status": 4.67
+      }
+    },
+    "27-4032.00": {
+      "description": "Edit moving images on film, video, or other media. May work with a producer or director to organize images for final production. May edit or synchronize soundtracks with images.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 5.61,
+        "C": 3.75,
+        "E": 3.08,
+        "I": 1.91,
+        "R": 3.14,
+        "S": 1.96
+      },
+      "soc": "27-4032.00",
+      "title": "Film and Video Editors",
+      "work_context": {
+        "collaboration_context": 4.5,
+        "customer_interaction_context": 3.0,
+        "physical_environment_standing": 1.84,
+        "physical_environment_walking": 1.7,
+        "schedule_predictability": 1.03,
+        "setting": 4.98
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.49,
+        "collaboration_cooperation": 1.53,
+        "collaboration_social": 0.72,
+        "initiative": 1.18,
+        "leadership": 0.16
+      },
+      "work_values_ex": {
+        "impact_helping": 2.67,
+        "independence_value": 5.33,
+        "recognition_status": 5.0
+      }
+    },
+    "29-1051.00": {
+      "description": "Dispense drugs prescribed by physicians and other health practitioners and provide information to patients about medications and their use. May advise physicians and other health practitioners on the selection, dosage, interactions, and side effects of medications.",
+      "job_zone": 5,
+      "riasec_oi": {
+        "A": 1.48,
+        "C": 4.56,
+        "E": 2.62,
+        "I": 5.67,
+        "R": 2.82,
+        "S": 4.88
+      },
+      "soc": "29-1051.00",
+      "title": "Pharmacists",
+      "work_context": {
+        "collaboration_context": 4.39,
+        "customer_interaction_context": 4.14,
+        "physical_environment_standing": 3.25,
+        "physical_environment_walking": 2.32,
+        "schedule_predictability": 1.04,
+        "setting": 4.93
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 0.33,
+        "collaboration_cooperation": 2.3,
+        "collaboration_social": 1.58,
+        "initiative": 1.38,
+        "leadership": 1.08
+      },
+      "work_values_ex": {
+        "impact_helping": 5.0,
+        "independence_value": 4.67,
+        "recognition_status": 5.67
+      }
+    },
+    "29-1141.00": {
+      "description": "Assess patient health problems and needs, develop and implement nursing care plans, and maintain medical records. Administer nursing care to ill, injured, convalescent, or disabled patients. May advise patients on health maintenance and disease prevention or provide case management. Licensing or registration required.",
+      "job_zone": 4,
+      "riasec_oi": {
+        "A": 1.34,
+        "C": 4.75,
+        "E": 2.38,
+        "I": 4.71,
+        "R": 3.46,
+        "S": 5.57
+      },
+      "soc": "29-1141.00",
+      "title": "Registered Nurses",
+      "work_context": {
+        "collaboration_context": 4.9,
+        "customer_interaction_context": 4.52,
+        "physical_environment_standing": 3.01,
+        "physical_environment_walking": 3.17,
+        "schedule_predictability": 1.13,
+        "setting": 4.56
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 1.41,
+        "collaboration_cooperation": 2.64,
+        "collaboration_social": 2.24,
+        "initiative": 1.32,
+        "leadership": 1.48
+      },
+      "work_values_ex": {
+        "impact_helping": 6.33,
+        "independence_value": 5.33,
+        "recognition_status": 4.67
+      }
+    },
+    "41-2031.00": {
+      "description": "Sell merchandise, such as furniture, motor vehicles, appliances, or apparel to consumers.",
+      "job_zone": 2,
+      "riasec_oi": {
+        "A": 1.98,
+        "C": 5.17,
+        "E": 6.13,
+        "I": 1.0,
+        "R": 3.2,
+        "S": 2.96
+      },
+      "soc": "41-2031.00",
+      "title": "Retail Salespersons",
+      "work_context": {
+        "collaboration_context": 4.35,
+        "customer_interaction_context": 4.6,
+        "physical_environment_standing": 4.07,
+        "physical_environment_walking": 3.76,
+        "schedule_predictability": 1.15,
+        "setting": 4.16
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 0.64,
+        "collaboration_cooperation": 1.88,
+        "collaboration_social": 2.6,
+        "initiative": 1.53,
+        "leadership": 0.81
+      },
+      "work_values_ex": {
+        "impact_helping": 5.0,
+        "independence_value": 3.0,
+        "recognition_status": 2.67
+      }
+    },
+    "43-4051.00": {
+      "description": "Interact with customers to provide basic or scripted information in response to routine inquiries about products and services. May handle and resolve general complaints. Excludes individuals whose duties are primarily installation, sales, repair, and technical support.",
+      "job_zone": 2,
+      "riasec_oi": {
+        "A": 1.0,
+        "C": 6.32,
+        "E": 5.08,
+        "I": 1.63,
+        "R": 1.97,
+        "S": 3.77
+      },
+      "soc": "43-4051.00",
+      "title": "Customer Service Representatives",
+      "work_context": {
+        "collaboration_context": 4.03,
+        "customer_interaction_context": 4.79,
+        "physical_environment_standing": 3.23,
+        "physical_environment_walking": 1.94,
+        "schedule_predictability": 1.12,
+        "setting": 4.83
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 0.27,
+        "collaboration_cooperation": 2.34,
+        "collaboration_social": 2.26,
+        "initiative": 0.55,
+        "leadership": -0.38
+      },
+      "work_values_ex": {
+        "impact_helping": 6.0,
+        "independence_value": 3.67,
+        "recognition_status": 3.0
+      }
+    },
+    "47-2111.00": {
+      "description": "Install, maintain, and repair electrical wiring, equipment, and fixtures. Ensure that work is in accordance with relevant codes. May install or service street lights, intercom systems, or electrical control systems.",
+      "job_zone": 3,
+      "riasec_oi": {
+        "A": 1.24,
+        "C": 4.09,
+        "E": 1.81,
+        "I": 2.7,
+        "R": 7.0,
+        "S": 1.32
+      },
+      "soc": "47-2111.00",
+      "title": "Electricians",
+      "work_context": {
+        "collaboration_context": 4.54,
+        "customer_interaction_context": 3.84,
+        "physical_environment_standing": 4.55,
+        "physical_environment_walking": 4.23,
+        "schedule_predictability": 1.33,
+        "setting": 3.27
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 0.0,
+        "collaboration_cooperation": 1.0,
+        "collaboration_social": 0.38,
+        "initiative": 1.0,
+        "leadership": 0.83
+      },
+      "work_values_ex": {
+        "impact_helping": 3.67,
+        "independence_value": 5.33,
+        "recognition_status": 3.33
+      }
+    },
+    "47-2152.00": {
+      "description": "Assemble, install, alter, and repair pipelines or pipe systems that carry water, steam, air, or other liquids or gases. May install heating and cooling equipment and mechanical control systems. Includes sprinkler fitters.",
+      "job_zone": 3,
+      "riasec_oi": {
+        "A": 1.0,
+        "C": 3.72,
+        "E": 1.0,
+        "I": 2.2,
+        "R": 7.0,
+        "S": 1.16
+      },
+      "soc": "47-2152.00",
+      "title": "Plumbers, Pipefitters, and Steamfitters",
+      "work_context": {
+        "collaboration_context": 4.05,
+        "customer_interaction_context": 3.04,
+        "physical_environment_standing": 4.69,
+        "physical_environment_walking": 3.86,
+        "schedule_predictability": 1.39,
+        "setting": 3.11
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": -0.11,
+        "collaboration_cooperation": 0.82,
+        "collaboration_social": 0.25,
+        "initiative": 0.8,
+        "leadership": 0.36
+      },
+      "work_values_ex": {
+        "impact_helping": 4.67,
+        "independence_value": 4.67,
+        "recognition_status": 3.0
+      }
+    },
+    "53-3032.00": {
+      "description": "Drive a tractor-trailer combination or a truck with a capacity of at least 26,001 pounds Gross Vehicle Weight (GVW). May be required to unload truck. Requires commercial drivers' license. Includes tow truck drivers.",
+      "job_zone": 2,
+      "riasec_oi": {
+        "A": 1.0,
+        "C": 4.1,
+        "E": 1.3,
+        "I": 1.92,
+        "R": 7.0,
+        "S": 1.33
+      },
+      "soc": "53-3032.00",
+      "title": "Heavy and Tractor-Trailer Truck Drivers",
+      "work_context": {
+        "collaboration_context": 3.6,
+        "customer_interaction_context": 3.75,
+        "physical_environment_standing": 2.21,
+        "physical_environment_walking": 2.18,
+        "schedule_predictability": 1.63,
+        "setting": 1.96
+      },
+      "work_style_wi": {
+        "ambiguity_tolerance": 0.47,
+        "collaboration_cooperation": 0.71,
+        "collaboration_social": -0.14,
+        "initiative": 0.74,
+        "leadership": -0.28
+      },
+      "work_values_ex": {
+        "impact_helping": 3.0,
+        "independence_value": 4.33,
+        "recognition_status": 2.33
+      }
+    }
+  }
+}

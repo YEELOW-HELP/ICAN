@@ -1,0 +1,10 @@
+# Data-lab dependencies for scripts/onet_import/* only.
+# NOT part of the application runtime (requirements.txt) and NOT imported by
+# anything under app/. Install into a scratch venv when (re)building the
+# O*NET reference:  pip install -r requirements-datalab.txt
+#
+# Parsing itself uses only the Python standard library (csv, sqlite3, zipfile,
+# hashlib, urllib). `requests` is used solely for a friendlier download with
+# progress + retry; `python -m scripts.onet_import.download_onet --curl` falls
+# back to the system curl if requests is absent.
+requests==2.32.3

@@ -149,3 +149,13 @@ No new schema — Stage 3A's existing `CareerRequirement`/`CareerWorkContext`/`C
 ## 16. Future expansion path
 
 A real production import (M3.1+) would: (a) acquire the official O*NET database text files or Web Services API (not a page-by-page web fetch) for Work Styles/Work Values/Work Context numeric importance ratings across the full occupation set; (b) expand the Alpha 24 → the full curated Ukrainian catalog (~149, per `MNP_CAREER_KB_V1.md` §E) once the Work.ua licensing gate (`MNP_WORKUA_DATA_USE_DECISION_V0.1.md`) is separately resolved for UA-market context (not needed for the O*NET vector layer itself); (c) route crosswalk review through `CareerExternalMapping.reviewed_by`/`confidence` fields already present in this schema, requiring no further migration.
+
+> **Update (M4.6 / DATA-002, 2026-08-29):** step (a) is **done** —
+> `scripts/onet_import/` performs the real bulk-database import (O*NET
+> 31.0 for RIASEC/Work Style/Work Context + O*NET 30.2 for Work Values),
+> `app/services/career_kb/seed_v3.py` builds `career_vector_v0.3`, and the
+> M4.5 Work Style (1→23 careers) and Work Values (0→20) gaps are closed.
+> Step (c) tooling exists (`scripts/onet_import/suggest_crosswalk.py`).
+> Step (b) remains blocked on the Work.ua licensing gate. See
+> `docs/engineering/27_MATCHING_V1_M4_6_ONET_PRODUCTION_IMPORT.md` and
+> `docs/product/25_DATA-002_MNP_CAREER_DATA_FOUNDATION.md`.
