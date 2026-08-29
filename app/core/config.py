@@ -53,5 +53,12 @@ class Settings(BaseSettings):
     # nothing is lost. Never treated as evidence before this timeout.
     pending_answer_stale_after_seconds: int = 300
 
+    # MNP V1 (MNP_DEVELOPMENT_PACKAGE_V1) -- resume storage. Reuses the
+    # same `max_upload_size_mb` limit as CRM client files (MNP_SECURITY_
+    # PRIVACY_V1 "Controls": file type/size validation). Local disk today,
+    # same known ephemeral-hosting caveat as app/services/crm/storage.py;
+    # `storage_ref` is an opaque path, never raw bytes in the DB.
+    mnp_resume_storage_dir: str = "./data/mnp_resumes"
+
 
 settings = Settings()
