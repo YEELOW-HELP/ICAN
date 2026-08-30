@@ -24,8 +24,6 @@ from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile,
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin
-from app.db.models import AdminUser
 from app.db.models_career_card import (
     CareerGoalType,
     EntryMode,
@@ -34,15 +32,13 @@ from app.db.models_career_card import (
     WorkFormat,
     WorkObject,
 )
-from app.db.models_career_kb_mnp import CareerLifecycleStatus, MnpCareer, MnpCareerFamily
+from app.db.models_career_kb_mnp import MnpCareer
 from app.db.models_identity import IdentityUser
 from app.db.models_matching_mnp import MnpCareerMatch, MnpMatchRun
 from app.db.session import get_session
 from app.schemas.mnp import (
     CareerCapitalAnswersIn,
-    CareerCreateIn,
     CareerIntentAnswersIn,
-    CareerStatusChangeIn,
     MatchRunRequestIn,
 )
 from app.services.career_card_mnp.card import (
@@ -51,13 +47,8 @@ from app.services.career_card_mnp.card import (
     snapshot_career_card,
     start_assessment_session,
 )
-from app.services.career_kb_mnp.careers import create_career, get_or_create_career_family, transition_career_status
 from app.services.career_kb_mnp.detail import get_career_detail_by_id, list_active_careers
-from app.services.exceptions import (
-    CVFileTooLargeError,
-    MnpDuplicateCareerCodeError,
-    MnpInvalidLifecycleTransitionError,
-)
+from app.services.exceptions import CVFileTooLargeError
 from app.services.matching_mnp.engine import run_match
 from app.services.matching_mnp.queries import get_career_compatibility, get_match_run_results
 from app.services.questionnaire_mnp.missing import get_missing_fields
@@ -264,38 +255,6 @@ async def get_career_detail(career_id: uuid.UUID, session: AsyncSession = Depend
 
 
 # ---------------------------------------------------------------------------
-# Admin Career KB (reuses Stage 1's admin JWT auth)
-
-@router.post("/admin/careers", status_code=status.HTTP_201_CREATED)
-async def admin_create_career(
-    payload: CareerCreateIn, admin: AdminUser = Depends(get_current_admin), session: AsyncSession = Depends(get_session),
-):
-    family = await get_or_create_career_family(
-        session, code=payload.career_family_code, name_uk=payload.career_family_name_uk, name_en=payload.career_family_name_en,
-    )
-    try:
-        career = await create_career(
-            session, code=payload.code, canonical_name_uk=payload.canonical_name_uk, canonical_name_en=payload.canonical_name_en,
-            description_short_uk=payload.description_short_uk, career_family=family, actor_admin_id=admin.id,
-        )
-    except MnpDuplicateCareerCodeError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
-    await session.commit()
-    return {"id": str(career.id), "code": career.code, "status": career.status.value}
-
-
-@router.patch("/admin/careers/{career_id}/status")
-async def admin_change_career_status(
-    career_id: uuid.UUID, payload: CareerStatusChangeIn, admin: AdminUser = Depends(get_current_admin), session: AsyncSession = Depends(get_session),
-):
-    career = await session.get(MnpCareer, career_id)
-    if career is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Career not found")
-    try:
-        updated = await transition_career_status(
-            session, career, to_status=CareerLifecycleStatus(payload.to_status), actor_admin_id=admin.id, reason=payload.reason,
-        )
-    except MnpInvalidLifecycleTransitionError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
-    await session.commit()
-    return {"id": str(updated.id), "status": updated.status.value}
+# Admin Career KB: the full authoring API lives in app/api/mnp_admin.py
+# (Career KB Editor V1), mounted at /v1/mnp/admin. It supersedes the two
+# thin admin endpoints that used to live here.

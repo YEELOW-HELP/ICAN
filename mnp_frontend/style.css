@@ -257,6 +257,51 @@ p.lead { color: var(--muted); font-size: 1.05rem; }
   .kb-skill-table { font-size: 0.85rem; }
 }
 
+/* --- Career KB Editor (admin) -------------------------------------- */
+.admin-bar {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.5rem 0.75rem; margin-bottom: 1rem; border: 1px dashed var(--border);
+  border-radius: 8px; font-size: 0.88rem; background: var(--card-bg);
+}
+.admin-bar .btn { margin: 0; padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+.admin-bar.muted { color: var(--muted); }
+.admin-login-link, .admin-logout { color: var(--accent); text-decoration: none; }
+
+.adm-head h1 { margin-top: 0.5rem; }
+.adm-actions { margin: 0.75rem 0 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.adm-actions .btn { margin: 0; }
+
+.adm-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; border-bottom: 1px solid var(--border); margin: 1rem 0; }
+.adm-tab {
+  border: 1px solid var(--border); border-bottom: none; background: var(--card-bg);
+  padding: 0.45rem 0.8rem; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.85rem; font-family: inherit;
+}
+.adm-tab.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.adm-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.88rem; }
+.adm-table th, .adm-table td { text-align: left; padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.adm-table th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+.adm-row-actions { white-space: nowrap; }
+.mini {
+  border: 1px solid var(--border); background: #fff; border-radius: 5px; padding: 0.15rem 0.45rem;
+  font-size: 0.8rem; cursor: pointer; margin-left: 0.2rem; font-family: inherit;
+}
+.mini.danger { color: var(--low); border-color: var(--low); }
+.muted { color: var(--muted); }
+
+.src-block { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0.75rem 0; background: var(--card-bg); }
+.src-title { display: block; font-weight: 700; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+.adm-search-results { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+.adm-search-results .chip { cursor: pointer; }
+.hist-diff { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.75rem; color: var(--muted); word-break: break-all; }
+
+.admin-notify {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 50; max-width: 340px;
+  padding: 0.7rem 1rem; border-radius: 8px; font-size: 0.9rem; color: #fff; display: none;
+}
+.admin-notify.ok { background: var(--high); }
+.admin-notify.err { background: var(--low); }
+
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .chip {
   background: var(--card-bg);

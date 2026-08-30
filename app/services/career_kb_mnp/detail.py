@@ -307,7 +307,9 @@ async def get_career_detail_by_id(session: AsyncSession, career_id: uuid.UUID) -
             )
         )
     ).scalar_one_or_none()
-    if career is None or career.status == CareerLifecycleStatus.ARCHIVED:
+    # Public detail = ACTIVE only. DRAFT / VALIDATED / REVIEW_DUE / ARCHIVED
+    # are visible only through the admin editor (brief §22).
+    if career is None or career.status != CareerLifecycleStatus.ACTIVE:
         return None
     return await build_career_detail(session, career)
 

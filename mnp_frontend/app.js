@@ -298,7 +298,16 @@ const App = (() => {
       const detail = selectedId ? await MnpApi.getCareerDetail(selectedId) : null;
       const card = await MnpApi.getCareerCard();
 
+      const adminBar = MnpApi.isAdmin()
+        ? `<div class="admin-bar">
+             <span>Режим редактора</span>
+             <a href="#/admin/career/new" class="btn">+ Створити професію</a>
+             <a href="#" class="admin-logout">вийти</a>
+           </div>`
+        : `<div class="admin-bar muted"><a href="#/admin/login" class="admin-login-link">Вхід для редагування</a></div>`;
+
       root.innerHTML = `
+        ${adminBar}
         <div class="explorer">
           <aside class="explorer-catalog" data-open="${detail ? "false" : "true"}">
             <h1>Професії</h1>
@@ -310,6 +319,9 @@ const App = (() => {
           </section>
         </div>
       `;
+
+      const logout = root.querySelector(".admin-logout");
+      if (logout) logout.addEventListener("click", (e) => { e.preventDefault(); MnpApi.adminLogout(); render(); });
 
       const search = document.getElementById("career-search");
       if (search) {
@@ -378,9 +390,13 @@ const App = (() => {
 
     const reqOrder = ["education", "experience", "language", "credential", "legal", "other"];
 
+    const adminEdit = MnpApi.isAdmin()
+      ? `<a class="btn" href="#/admin/career/${d.id}" style="float:right">Редагувати</a>` : "";
+
     return `
       <div class="kb-detail">
         <a class="kb-back" href="#/catalog">← До списку професій</a>
+        ${adminEdit}
         <h1>${esc(d.identity.name_uk)}</h1>
         <p class="kb-cat">${esc(d.identity.category_uk || "")}</p>
         <p class="lead">${esc(d.overview.short_description_uk)}</p>
@@ -512,6 +528,8 @@ const App = (() => {
     if (path === "route") return screenRoute(param);
     if (path === "catalog") return screenCatalog(param || null);
     if (path === "career-card") return screenCareerCard();
+    if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
+    if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
     return screenLanding();
   }
 

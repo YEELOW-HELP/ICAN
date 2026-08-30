@@ -270,9 +270,11 @@ class MnpCareerTask(Base):
     description: Mapped[str | None] = mapped_column(Text)
     importance: Mapped[ImportanceLevel] = mapped_column(_str_enum(ImportanceLevel))
     frequency: Mapped[str | None] = mapped_column(String(32))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str | None] = mapped_column(String(64))
     source_version: Mapped[str | None] = mapped_column(String(32))
     confidence: Mapped[float | None] = mapped_column(Float)
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
 
     career: Mapped["MnpCareer"] = relationship(back_populates="tasks")
 
@@ -293,6 +295,7 @@ class MnpCareerSkillRequirement(Base):
     source: Mapped[str | None] = mapped_column(String(64))
     source_version: Mapped[str | None] = mapped_column(String(32))
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
     valid_from: Mapped[date | None] = mapped_column(Date)
     valid_to: Mapped[date | None] = mapped_column(Date)
 
@@ -313,7 +316,9 @@ class MnpCareerKnowledgeRequirement(Base):
     required_level: Mapped[str] = mapped_column(String(16))
     requirement_type: Mapped[RequirementType] = mapped_column(_str_enum(RequirementType))
     source: Mapped[str | None] = mapped_column(String(64))
+    source_version: Mapped[str | None] = mapped_column(String(32))
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
 
     career: Mapped["MnpCareer"] = relationship(back_populates="knowledge_requirements")
 
@@ -333,9 +338,11 @@ class MnpCareerRequirement(Base):
     value: Mapped[str | None] = mapped_column(String(255))  # e.g. min level/years/language code
     hardness: Mapped[RequirementHardness] = mapped_column(_str_enum(RequirementHardness))
     country: Mapped[str | None] = mapped_column(String(64))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str | None] = mapped_column(String(64))
     source_version: Mapped[str | None] = mapped_column(String(32))
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
     valid_from: Mapped[date | None] = mapped_column(Date)
     valid_to: Mapped[date | None] = mapped_column(Date)
 
@@ -378,6 +385,8 @@ class MnpCareerRelation(Base):
     relation_type: Mapped[CareerRelationType] = mapped_column(_str_enum(CareerRelationType))
     strength: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str | None] = mapped_column(String(64))
+    source_version: Mapped[str | None] = mapped_column(String(32))
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
 
     from_career: Mapped["MnpCareer"] = relationship(back_populates="relations_from", foreign_keys=[from_career_id])
     to_career: Mapped["MnpCareer"] = relationship(foreign_keys=[to_career_id])
@@ -403,6 +412,8 @@ class MnpExternalMapping(Base):
     mapping_type: Mapped[ExternalMappingType] = mapped_column(_str_enum(ExternalMappingType))
     confidence: Mapped[float | None] = mapped_column(Float)
     source_version: Mapped[str | None] = mapped_column(String(32))
+    review_status: Mapped[str] = mapped_column(String(24), default="candidate")
+    note: Mapped[str | None] = mapped_column(Text)
 
     career: Mapped["MnpCareer | None"] = relationship(
         "MnpCareer",

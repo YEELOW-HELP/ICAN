@@ -83,5 +83,45 @@ const MnpApi = (() => {
     getCareerMatchRoute: (careerMatchId) => request(`/career-matches/${careerMatchId}/route`),
     listCareers: () => request("/careers"),
     getCareerDetail: (careerId) => request(`/careers/${careerId}`),
+
+    // --- Career KB Editor (admin only) -------------------------------
+    getAdminToken: () => localStorage.getItem("mnp_admin_token"),
+    isAdmin: () => !!localStorage.getItem("mnp_admin_token"),
+    adminLogout: () => localStorage.removeItem("mnp_admin_token"),
+    async adminLogin(email, password) {
+      const res = await fetch("/admin/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        let d = "Невірний email або пароль";
+        try { d = (await res.json()).detail || d; } catch (e) {}
+        throw new Error(d);
+      }
+      const data = await res.json();
+      localStorage.setItem("mnp_admin_token", data.access_token);
+      return data;
+    },
+    async admin(path, { method = "GET", body } = {}) {
+      const token = localStorage.getItem("mnp_admin_token");
+      if (!token) throw new Error("Потрібен вхід адміністратора");
+      const headers = { Authorization: `Bearer ${token}` };
+      if (body) headers["Content-Type"] = "application/json";
+      const res = await fetch(`${BASE}${path}`, {
+        method, headers, body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) {
+        localStorage.removeItem("mnp_admin_token");
+        throw new Error("Сесію адміністратора завершено — увійдіть знову");
+      }
+      if (!res.ok) {
+        let d = res.statusText;
+        try { d = (await res.json()).detail || d; } catch (e) {}
+        const err = new Error(typeof d === "string" ? d : JSON.stringify(d));
+        err.status = res.status;
+        throw err;
+      }
+      return res.status === 204 ? null : res.json();
+    },
   };
 })();

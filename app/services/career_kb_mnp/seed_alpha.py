@@ -20,7 +20,13 @@ hard vs soft skills: derived from `MnpSkill.skill_type`
 (`SOFT_SKILL_TYPES` below) -- no separate flag, no duplicate entity
 (brief §4).
 
-Idempotent: safe to call repeatedly (every sub-step checks-then-creates).
+BOOTSTRAP ONLY. Once the Career KB Editor exists (`app/services/
+career_kb_mnp/editor.py`), the DB + editor are the operational source of
+truth. This seed only ever CREATES careers that do not yet exist; it
+never re-touches an existing career -- a manual admin edit to a
+description / skill / relation / status is never silently reverted by a
+re-run. Safe to call repeatedly (e.g. from `scripts/dev_seed.py` or a
+test fixture) but it is NOT an authoring mechanism.
 """
 
 from __future__ import annotations
@@ -717,7 +723,13 @@ async def seed_alpha_career_kb(session: AsyncSession) -> None:
             session, code=code, name_uk=name_uk, name_en=name_en
         )
 
+    # `seed_alpha_career_kb` is BOOTSTRAP-ONLY. Once a career exists in the
+    # DB it is owned by the Career KB Editor / admin -- the seed must never
+    # touch it again (no re-adding a deleted relation/skill, no restoring
+    # an edited description, no re-activating an archived career). Only
+    # careers this run actually creates get their child content wired up.
     careers_by_code: dict = {}
+    newly_created: set[str] = set()
     for code, spec in ALPHA_CAREERS.items():
         existing = (
             await session.execute(select(MnpCareer).where(MnpCareer.code == code))
@@ -725,6 +737,7 @@ async def seed_alpha_career_kb(session: AsyncSession) -> None:
         if existing is not None:
             careers_by_code[code] = existing
             continue
+        newly_created.add(code)
 
         career = await create_career(
             session, code=code, canonical_name_uk=spec["name_uk"], canonical_name_en=spec["name_en"],
@@ -794,8 +807,11 @@ async def seed_alpha_career_kb(session: AsyncSession) -> None:
                 source=SOURCE, confidence=0.5,
             )
 
-    # Career-to-career relations (both endpoints must exist first).
+    # Career-to-career relations -- only for careers this run created
+    # (an admin may have intentionally removed a seeded relation).
     for code, spec in ALPHA_CAREERS.items():
+        if code not in newly_created:
+            continue
         for to_code, rel_type in spec.get("relations", []):
             if to_code in careers_by_code:
                 await add_career_relation(
@@ -803,8 +819,10 @@ async def seed_alpha_career_kb(session: AsyncSession) -> None:
                     relation_type=rel_type, source=SOURCE,
                 )
 
-    # Lifecycle: DRAFT -> VALIDATED -> ACTIVE for anything not yet published.
-    for career in careers_by_code.values():
+    # Lifecycle: DRAFT -> VALIDATED -> ACTIVE, only for careers this run
+    # created (never re-activate something an admin archived).
+    for code in newly_created:
+        career = careers_by_code[code]
         if career.status == CareerLifecycleStatus.DRAFT:
             await transition_career_status(session, career, to_status=CareerLifecycleStatus.VALIDATED)
         if career.status == CareerLifecycleStatus.VALIDATED:

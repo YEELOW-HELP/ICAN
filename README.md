@@ -115,12 +115,21 @@ PAUSED / CLOSED. Доступна на `/dashboard` того же FastAPI-сер
 python -m scripts.dev_seed --serve
 ```
 
-Один раз создаёт `data/dev/mnp_dev.sqlite`, наполняет Career KB (5 профессий)
-и запускает API+фронтенд на `http://127.0.0.1:8099`. Открыть:
-`http://127.0.0.1:8099/mnp/#/catalog`.
+Один раз создаёт `data/dev/mnp_dev.sqlite`, наполняет Career KB (5 профессий),
+заводит dev-админа и запускает API+фронтенд на `http://127.0.0.1:8099`.
 
+- Публичный Career Explorer: `http://127.0.0.1:8099/mnp/#/catalog`
+- **Career KB Editor** (управление без кода): `http://127.0.0.1:8099/mnp/#/admin/login`,
+  логин `admin@mnp.local` / `mnp-dev-admin`. После входа на карточке профессии
+  появляется кнопка **«Редагувати»**, в каталоге — **«+ Створити професію»**.
 - `--reset` — пересоздать dev-БД с нуля (после изменения схемы).
 - `--serve --skip-seed` — только запустить сервер, БД не трогать.
+
+**Career KB — источник истины.** База `mnp_*` + Career KB Editor —
+единственный operational source of truth. `app/services/career_kb_mnp/seed_alpha.py`
+— это только bootstrap/тест-фикстура: создаёт профессии, которых ещё нет, и
+**никогда** не перезаписывает ручные правки админа (описания, навыки, связи,
+статус). API, Matching, публичный сайт и Excel-экспорт читают ту же БД.
 
 ## Тесты
 

@@ -34,6 +34,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = REPO_ROOT / "data" / "dev" / "mnp_dev.sqlite"
 DEV_PORT = 8099
+DEV_ADMIN_EMAIL = "admin@mnp.local"
+DEV_ADMIN_PASSWORD = "mnp-dev-admin"
 
 
 def _db_url(db_path: Path) -> str:
@@ -67,6 +69,23 @@ async def _build_and_seed(db_path: Path, *, reset: bool) -> None:
         await seed_alpha_career_kb(session)
     print(f"  seeded MNP Career KB: {len(ALPHA_CAREER_CODES)} ACTIVE careers")
 
+    # a dev admin login so the Career KB Editor is usable out of the box
+    from sqlalchemy import select
+
+    from app.core.security import hash_password
+    from app.db.models import AdminRole, AdminUser
+
+    async with async_session_factory() as session:
+        existing = (await session.execute(
+            select(AdminUser).where(AdminUser.email == DEV_ADMIN_EMAIL))).scalar_one_or_none()
+        if existing is None:
+            session.add(AdminUser(email=DEV_ADMIN_EMAIL, password_hash=hash_password(DEV_ADMIN_PASSWORD),
+                                  role=AdminRole.ADMIN, full_name="Dev Admin"))
+            await session.commit()
+            print(f"  created dev admin: {DEV_ADMIN_EMAIL} / {DEV_ADMIN_PASSWORD}")
+        else:
+            print(f"  dev admin already exists: {DEV_ADMIN_EMAIL}")
+
     await engine.dispose()
 
 
@@ -90,6 +109,7 @@ def _serve(db_path: Path) -> None:
     import uvicorn
 
     print(f"\n  MNP frontend:  http://127.0.0.1:{DEV_PORT}/mnp/#/catalog")
+    print(f"  Career KB Editor: log in at /mnp/#/admin/login  ({DEV_ADMIN_EMAIL} / {DEV_ADMIN_PASSWORD})")
     print(f"  API health:    http://127.0.0.1:{DEV_PORT}/health\n")
     uvicorn.run("app.api.main:app", host="127.0.0.1", port=DEV_PORT, log_level="info")
 

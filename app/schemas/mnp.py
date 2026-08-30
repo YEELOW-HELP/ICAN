@@ -61,16 +61,5 @@ class MatchRunRequestIn(BaseModel):
     ranking_mode: str = "best_for_me"
 
 
-class CareerCreateIn(BaseModel):
-    code: str
-    canonical_name_uk: str
-    canonical_name_en: str
-    description_short_uk: str
-    career_family_code: str
-    career_family_name_uk: str
-    career_family_name_en: str
-
-
-class CareerStatusChangeIn(BaseModel):
-    to_status: str
-    reason: str | None = None
+# Career KB writes now go through the Career KB Editor (app/api/mnp_admin.py),
+# which accepts free-form JSON bodies validated in the service layer.
