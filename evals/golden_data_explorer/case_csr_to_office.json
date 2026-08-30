@@ -1,0 +1,152 @@
+{
+  "acceptable_careers": [
+    "sales_manager"
+  ],
+  "career_kb_version": "seed_alpha_v1",
+  "case_id": "de_csr_to_office",
+  "created_at": "2026-08-30",
+  "created_by": "example (data_explorer)",
+  "dataset_version": "v1",
+  "expected_blockers": [],
+  "expected_feasibility": {
+    "accountant": "long_transition",
+    "customer_service_representative": "ready_now",
+    "logistics_coordinator": "reachable",
+    "sales_manager": "reachable",
+    "software_developer": "long_transition"
+  },
+  "expected_gaps": [
+    {
+      "action": "learn",
+      "classification": "must_have",
+      "gap_type": "skill",
+      "skill_or_knowledge": "Sales Negotiation"
+    },
+    {
+      "action": "practice",
+      "classification": "high_value",
+      "gap_type": "skill",
+      "skill_or_knowledge": "B2B Sales"
+    },
+    {
+      "action": "prove",
+      "classification": "differentiator",
+      "gap_type": "skill",
+      "skill_or_knowledge": "Team Leadership"
+    }
+  ],
+  "expected_top_careers": [
+    "customer_service_representative"
+  ],
+  "expected_transition_distance": {
+    "accountant": "d4_career_change",
+    "customer_service_representative": "d0_same_career",
+    "logistics_coordinator": "d2_adjacent",
+    "sales_manager": "d1_progression",
+    "software_developer": "d4_career_change"
+  },
+  "expected_unknowns": [
+    "Sales Negotiation — no evidence either way (not claimed, not contradicted)",
+    "B2B Sales — unknown"
+  ],
+  "methodology_version": "mnp_v1",
+  "person_profile_snapshot": {
+    "achievements": [
+      "CSAT 92% протягом останнього року"
+    ],
+    "constraints": [
+      {
+        "category": "language",
+        "description": "англійська лише B1 — обмежує міжнародні ролі",
+        "hardness": "soft",
+        "severity": "moderate"
+      }
+    ],
+    "credentials": [],
+    "education": [
+      "Молодший спеціаліст, менеджмент (коледж)"
+    ],
+    "goals": [
+      "increase_income"
+    ],
+    "knowledge": [],
+    "label": "Оператор підтримки клієнтів → хоче в офісну/продажну роль",
+    "languages": [
+      {
+        "language": "uk",
+        "level": "native"
+      },
+      {
+        "language": "en",
+        "level": "b1"
+      }
+    ],
+    "last_role": "Customer Support Operator (inbound)",
+    "learning_budget_uah": 4000,
+    "learning_hours_per_week": 6.0,
+    "note": "Example persona for the DATA EXPLORER Human Lab. With the current 5-career alpha KB, the realistic move is sales_manager (D1 progression from a service role) with a confirmed gap in sales skills.\n",
+    "persona_id": "csr_to_office",
+    "preferences": {
+      "environment": [
+        "team",
+        "predictable_schedule"
+      ],
+      "work_format": "hybrid",
+      "work_objects": [
+        "people",
+        "data"
+      ]
+    },
+    "responsibilities": [
+      "Обробка вхідних звернень клієнтів (телефон, чат)",
+      "Врегулювання скарг першого рівня",
+      "Ведення записів у CRM"
+    ],
+    "reviewer": "example (data_explorer)",
+    "segment": "career_changer",
+    "skills": [
+      {
+        "evidence": "verified",
+        "name": "Customer Support",
+        "note": "3 роки на позиції",
+        "proficiency": "strong"
+      },
+      {
+        "evidence": "inferred",
+        "name": "Active Listening",
+        "note": "",
+        "proficiency": "strong"
+      },
+      {
+        "evidence": "claimed",
+        "name": "Conflict Resolution",
+        "note": "",
+        "proficiency": "working"
+      },
+      {
+        "evidence": "verified",
+        "name": "CRM Software",
+        "note": "Bitrix24",
+        "proficiency": "working"
+      }
+    ],
+    "values_ranked": [
+      "income",
+      "growth",
+      "work_life_balance"
+    ],
+    "years_experience": 3.0
+  },
+  "persona_id": "csr_to_office",
+  "rationale": "The person has a strong, verified service/communication base and CRM familiarity — genuine career capital for sales_manager, which is one progression step away (service → sales). The two sales skills are MUST_HAVE / HIGH_VALUE gaps but learnable within the person's stated 6 h/week. customer_service_representative stays the D0 anchor. Roles with no transferable evidence (accountant, software_developer) must not appear in a \"best for me\" view and are long_transition at best. English B1 is a soft constraint (limits international employers), never a hard blocker.\n",
+  "source_data_versions": {
+    "crosswalk": "esco_onet_crosswalk_onetcenter",
+    "esco": "esco_v1.2.1",
+    "onet": "onet_31.0",
+    "onet_work_values": "onet_30.2"
+  },
+  "unacceptable_careers": [
+    "software_developer",
+    "accountant"
+  ]
+}

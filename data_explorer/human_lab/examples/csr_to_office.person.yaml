@@ -1,0 +1,51 @@
+# WORKED EXAMPLE — hand-authored Person Profile (brief §15).
+# Everything here is a human judgement. `UNKNOWN` is expressed by omission,
+# never by writing a fake value. Validated against the MNP enums by
+# `data_explorer.human_lab.schema.load_person`.
+persona_id: csr_to_office
+label: "Оператор підтримки клієнтів → хоче в офісну/продажну роль"
+segment: career_changer
+last_role: "Customer Support Operator (inbound)"
+years_experience: 3.0
+
+responsibilities:
+  - "Обробка вхідних звернень клієнтів (телефон, чат)"
+  - "Врегулювання скарг першого рівня"
+  - "Ведення записів у CRM"
+achievements:
+  - "CSAT 92% протягом останнього року"
+education:
+  - "Молодший спеціаліст, менеджмент (коледж)"
+credentials: []
+languages:
+  - {language: uk, level: native}
+  - {language: en, level: b1}
+
+skills:
+  - {name: "Customer Support", proficiency: strong, evidence: verified, note: "3 роки на позиції"}
+  - {name: "Active Listening", proficiency: strong, evidence: inferred}
+  - {name: "Conflict Resolution", proficiency: working, evidence: claimed}
+  - {name: "CRM Software", proficiency: working, evidence: verified, note: "Bitrix24"}
+  # Sales Negotiation / B2B Sales: UNKNOWN — deliberately omitted
+knowledge: []
+
+preferences:
+  work_format: hybrid
+  work_objects: [people, data]
+  environment: [team, predictable_schedule]
+values_ranked:
+  - income
+  - growth
+  - work_life_balance
+goals:
+  - increase_income
+constraints:
+  - {category: language, description: "англійська лише B1 — обмежує міжнародні ролі", hardness: soft, severity: moderate}
+learning_hours_per_week: 6.0
+learning_budget_uah: 4000
+
+reviewer: "example (data_explorer)"
+note: >
+  Example persona for the DATA EXPLORER Human Lab. With the current
+  5-career alpha KB, the realistic move is sales_manager (D1 progression
+  from a service role) with a confirmed gap in sales skills.
