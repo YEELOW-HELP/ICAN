@@ -105,6 +105,23 @@ PAUSED / CLOSED. Доступна на `/dashboard` того же FastAPI-сер
 4. После первого деплоя выполнить `python -m scripts.create_admin ...` через Railway Shell (или локально, указав продовый `DATABASE_URL`), чтобы завести логин.
 5. Dashboard будет доступен по `https://<project>.up.railway.app/dashboard/`.
 
+## Локальный просмотр MNP (без Postgres)
+
+Фронтенд «МОЖУ: Мій Напрям» (`mnp_frontend/`, роут `/mnp/`) можно поднять
+на локальной SQLite-БД без Postgres/Docker. Схема строится из моделей
+(как в тестах); прод-Postgres из `.env` при этом не трогается.
+
+```bash
+python -m scripts.dev_seed --serve
+```
+
+Один раз создаёт `data/dev/mnp_dev.sqlite`, наполняет Career KB (5 профессий)
+и запускает API+фронтенд на `http://127.0.0.1:8099`. Открыть:
+`http://127.0.0.1:8099/mnp/#/catalog`.
+
+- `--reset` — пересоздать dev-БД с нуля (после изменения схемы).
+- `--serve --skip-seed` — только запустить сервер, БД не трогать.
+
 ## Тесты
 
 ```bash
