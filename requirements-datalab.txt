@@ -1,0 +1,13 @@
+# Data-lab / DATA EXPLORER dependencies — scripts + data_explorer/ only.
+# NOT part of the application runtime (requirements.txt) and NOT imported by
+# anything under app/. Install into a scratch venv when (re)building the
+# reference DB or the Excel workbook:
+#     pip install -r requirements-datalab.txt
+#
+# Parsing itself uses only the Python standard library (csv, sqlite3,
+# zipfile, hashlib, urllib). The two extra deps:
+#   requests  — friendlier download with progress + retry (curl fallback if absent)
+#   openpyxl  — read the official ESCO<->O*NET crosswalk .xlsx AND write the
+#               MNP_ESCO_ONET_DATA_EXPLORER.xlsx workbook (no VBA, no macros)
+requests==2.32.3
+openpyxl==3.1.5
