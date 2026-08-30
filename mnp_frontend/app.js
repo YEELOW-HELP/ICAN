@@ -38,6 +38,35 @@ const App = (() => {
     root.innerHTML = `<div class="error-box">Сталася помилка: ${err.message || err}</div><a href="#/" class="btn">На головну</a>`;
   }
 
+  // Every button that fires an API call goes through this: disables the
+  // button while the request is in flight (no accidental double-submit),
+  // and -- the actual point of this helper -- guarantees a failure is
+  // always shown inline instead of the button just silently doing
+  // nothing, which is what every "click and nothing happens" report so
+  // far has actually been (an unhandled promise rejection with no
+  // visible error at all).
+  function onClickSafely(button, handler) {
+    button.addEventListener("click", async () => {
+      let errorBox = button.parentElement.querySelector(".btn-error-box");
+      if (errorBox) errorBox.remove();
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Зачекайте...";
+      try {
+        await handler();
+      } catch (e) {
+        errorBox = document.createElement("div");
+        errorBox.className = "error-box btn-error-box";
+        errorBox.style.marginTop = "0.75rem";
+        errorBox.textContent = `Не вдалося виконати дію: ${e.message || e}`;
+        button.insertAdjacentElement("afterend", errorBox);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
+  }
+
   // --- Screens ---------------------------------------------------------
 
   function screenLanding() {
@@ -87,14 +116,20 @@ const App = (() => {
           statusEl.innerHTML = `<div class="error-box">Не вдалося розпізнати файл (${result.extraction_status}). Спробуйте пройти анкету без резюме.</div><a href="#/questionnaire/capital" class="btn">Заповнити анкету</a>`;
         }
       } catch (e) {
-        statusEl.innerHTML = `<div class="error-box">${e.message}</div>`;
+        statusEl.innerHTML = `<div class="error-box">Не вдалося завантажити файл: ${e.message}</div>`;
       }
     });
   }
 
   async function screenQuestionnaireCapital() {
     setLoading();
-    const missing = await MnpApi.getMissingFields();
+    let missing;
+    try {
+      missing = await MnpApi.getMissingFields();
+    } catch (e) {
+      showError(e);
+      return;
+    }
     root.innerHTML = `
       <h1>Ваш досвід</h1>
       <p class="lead">Заповнюємо лише те, чого ще не знаємо.</p>
@@ -108,7 +143,7 @@ const App = (() => {
       </div>
       <button class="btn" id="capital-next">Далі: цілі</button>
     `;
-    document.getElementById("capital-next").addEventListener("click", async () => {
+    onClickSafely(document.getElementById("capital-next"), async () => {
       const skills = document.getElementById("q-skills").value.split(",").map((s) => s.trim()).filter(Boolean);
       const roleInput = document.getElementById("q-role");
       const yearsInput = document.getElementById("q-years");
@@ -140,7 +175,7 @@ const App = (() => {
       </div>
       <button class="btn" id="intent-submit">Отримати результат</button>
     `;
-    document.getElementById("intent-submit").addEventListener("click", async () => {
+    onClickSafely(document.getElementById("intent-submit"), async () => {
       await MnpApi.submitCareerIntent({
         goal_type: document.getElementById("q-goal").value,
         target_income: document.getElementById("q-income").value ? parseFloat(document.getElementById("q-income").value) : null,
@@ -295,6 +330,14 @@ const App = (() => {
 
   window.addEventListener("hashchange", render);
   window.addEventListener("DOMContentLoaded", render);
+
+  // Last-resort safety net: every screen/handler above already catches
+  // its own errors and shows them inline, but this guarantees that if
+  // something is ever missed, the user sees a message instead of a
+  // button that silently does nothing.
+  window.addEventListener("unhandledrejection", (event) => {
+    if (!root.querySelector(".error-box")) showError(event.reason || new Error("Невідома помилка"));
+  });
 
   return { render };
 })();

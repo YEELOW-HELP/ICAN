@@ -14,21 +14,45 @@ const MnpApi = (() => {
 
   async function ensureSession() {
     if (getUserId()) return getUserId();
+    return createNewSession();
+  }
+
+  async function createNewSession() {
     const res = await fetch(`${BASE}/session`, { method: "POST" });
     const data = await res.json();
     setUserId(data.user_id);
     return data.user_id;
   }
 
+  async function doFetch(path, userId, method, headers, payload) {
+    return fetch(`${BASE}${path}`, { method, headers: { ...headers, "X-Mnp-User-Id": userId }, body: payload });
+  }
+
   async function request(path, { method = "GET", body, isForm = false } = {}) {
     const userId = await ensureSession();
-    const headers = { "X-Mnp-User-Id": userId };
+    const headers = {};
     let payload = body;
     if (body && !isForm) {
       headers["Content-Type"] = "application/json";
       payload = JSON.stringify(body);
     }
-    const res = await fetch(`${BASE}${path}`, { method, headers, body: payload });
+    let res = await doFetch(path, userId, method, headers, payload);
+
+    if (res.status === 404) {
+      // Distinguish "this session id no longer exists on the server"
+      // (e.g. a local test DB was reset, or storage was carried over
+      // from a different environment) from a normal, expected 404 like
+      // "no Career Card yet" -- only the former should silently start a
+      // fresh session; the latter must still reach the caller as-is so
+      // e.g. getCareerCard()'s own 404 handling keeps working.
+      let detail = "";
+      try { detail = (await res.clone().json()).detail || ""; } catch (e) {}
+      if (detail.includes("Unknown session")) {
+        const freshUserId = await createNewSession();
+        res = await doFetch(path, freshUserId, method, headers, payload);
+      }
+    }
+
     if (!res.ok) {
       let detail = res.statusText;
       try { detail = (await res.json()).detail || detail; } catch (e) {}

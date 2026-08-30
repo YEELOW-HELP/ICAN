@@ -27,6 +27,22 @@ if _MNP_FRONTEND_DIR.is_dir():
     app.mount("/mnp", StaticFiles(directory=_MNP_FRONTEND_DIR, html=True), name="mnp")
 
 
+@app.middleware("http")
+async def _no_cache_for_mnp_frontend(request, call_next):
+    """MNP V1's frontend has no build step and ships straight from disk
+    -- during active development a browser silently serving a stale
+    cached copy of index.html/api.js/app.js after a real fix has already
+    shipped is a genuine, repeatedly-observed failure mode (caught during
+    Founder Acceptance Testing), not a hypothetical one. Forces
+    revalidation on every request for this one static mount; every other
+    route is untouched."""
+
+    response = await call_next(request)
+    if request.url.path.startswith("/mnp/") or request.url.path == "/mnp":
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
