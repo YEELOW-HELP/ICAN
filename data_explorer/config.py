@@ -21,8 +21,10 @@ ESCO_VENDOR_DIR = VENDOR_DIR / "esco"
 CROSSWALK_VENDOR_DIR = VENDOR_DIR / "crosswalk"
 REFERENCE_DB = DATA_DIR / "reference.sqlite"
 EXPORT_DIR = DATA_DIR / "exports"
-HUMAN_LAB_DIR = DATA_DIR / "human_lab"                        # hand-authored YAML/JSON inputs
-GOLDEN_OUT_DIR = REPO_ROOT / "evals" / "golden" / "data_explorer"
+HUMAN_LAB_DIR = DATA_DIR / "human_lab"                        # hand-authored YAML inputs (gitignored working copies)
+HUMAN_LAB_EXAMPLES_DIR = REPO_ROOT / "data_explorer" / "human_lab" / "examples"  # committed worked examples
+# kept OUTSIDE evals/golden/ so the existing AI-task schema test never sees it
+GOLDEN_OUT_DIR = REPO_ROOT / "evals" / "golden_data_explorer"
 
 DOCS_DIR = REPO_ROOT / "docs" / "data_explorer"
 

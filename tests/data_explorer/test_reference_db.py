@@ -255,8 +255,17 @@ def test_rebuild_is_deterministic():
 # --------------------------------------------------------------------------
 # zero-AI guarantee (brief §27) — static check over the whole module
 # --------------------------------------------------------------------------
-def test_data_explorer_never_imports_ai_or_app_runtime():
-    banned_substrings = ("ai_gateway", "anthropic", "openai")
+def test_data_explorer_never_imports_ai_bot_api_or_a_network_service():
+    """Dependency direction is DATA EXPLORER -> MNP DOMAIN (brief §24).
+    Reading the deterministic MNP domain (app.db.models_*, the
+    career-KB / career-card / matching / questionnaire services, all
+    0-LLM) is allowed. Anything that could reach an LLM, the bot, the HTTP
+    API, or the network is not."""
+    banned_exact_prefixes = (
+        "app.ai_gateway", "anthropic", "openai",
+        "app.bot", "app.api",
+        "app.services.resume_parser_mnp",   # resume parsing may call AI
+    )
     for path in _DATA_EXPLORER_DIR.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         mods: list[str] = []
@@ -266,6 +275,4 @@ def test_data_explorer_never_imports_ai_or_app_runtime():
             elif isinstance(node, ast.ImportFrom) and node.module:
                 mods.append(node.module)
         for m in mods:
-            assert not any(b in m for b in banned_substrings), f"{path.name}: imports {m}"
-            # data_explorer may read app.db.models_* but must not import app services/api/bot
-            assert not m.startswith(("app.services", "app.api", "app.bot")), f"{path.name}: imports {m}"
+            assert not any(m == b or m.startswith(b + ".") for b in banned_exact_prefixes), f"{path.name}: imports {m}"

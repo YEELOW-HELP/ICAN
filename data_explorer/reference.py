@@ -85,9 +85,12 @@ def build() -> None:
         onet_load.load(conn)
         log("[4/5] ESCO classification (en + uk)")
         esco_load.load(conn)
-        log("[5/5] official ESCO<->O*NET crosswalk")
+        log("[5/6] official ESCO<->O*NET crosswalk")
         crosswalk_load.load(conn)
         conn.commit()
+        log("[6/6] MNP <-> external mapping candidates")
+        from data_explorer.explorer import mapping_review
+        mapping_review.build(conn)
         _summary(conn)
     finally:
         conn.close()

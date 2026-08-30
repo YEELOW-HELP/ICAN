@@ -11,3 +11,4 @@
 #               MNP_ESCO_ONET_DATA_EXPLORER.xlsx workbook (no VBA, no macros)
 requests==2.32.3
 openpyxl==3.1.5
+pyyaml==6.0.2

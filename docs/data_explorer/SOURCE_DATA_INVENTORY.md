@@ -35,6 +35,7 @@ Every external dataset loaded into `data/data_explorer/reference.sqlite`. All da
 | `esco_skill_hierarchy` | 640 | — | — | — |
 | `esco_skill_label` | 87,785 | — | — | — |
 | `esco_skill_skill` | 5,818 | — | — | — |
+| `mapping_review` | 47 | — | — | — |
 | `onet_category` | 341 | — | — | — |
 | `onet_content_model` | 3,006 | O*NET 31.0 | self-describing taxonomy | n/a (metadata) |
 | `onet_dwa` | 2,087 | O*NET 31.0 | detailed work-activity vocabulary | no |

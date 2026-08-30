@@ -4,9 +4,9 @@
     python -m data_explorer.cli build         # (re)build data/data_explorer/reference.sqlite
     python -m data_explorer.cli dictionary    # regenerate docs/data_explorer/{ONET,ESCO}_DATA_DICTIONARY.md
     python -m data_explorer.cli inventory     # regenerate docs/data_explorer/SOURCE_DATA_INVENTORY.md
-    python -m data_explorer.cli analysis      # dimension analysis + data-quality report (BLOCK 2)
-    python -m data_explorer.cli excel         # write MNP_ESCO_ONET_DATA_EXPLORER.xlsx        (BLOCK 3)
-    python -m data_explorer.cli golden        # export human expected results -> golden fixtures (BLOCK 2)
+    python -m data_explorer.cli analysis      # dimension analysis + data-quality report
+    python -m data_explorer.cli golden        # export hand-authored human expected results -> golden fixtures
+    python -m data_explorer.cli excel         # write MNP_ESCO_ONET_DATA_EXPLORER.xlsx
 """
 
 from __future__ import annotations
