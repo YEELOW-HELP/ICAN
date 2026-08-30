@@ -73,11 +73,12 @@ def test_skills_export_matches_the_db_and_uses_human_names(wb, careers):
     db_pairs = sorted((c.code, s["skill_en"]) for c in careers for s in c.skill_requirements)
     xls_pairs = sorted((r["career_code"], r["skill_name_en"]) for r in rows)
     assert xls_pairs == db_pairs
-    # no UUID anywhere in the skill-name columns
+    # Ukrainian-first: the Ukrainian skill column carries a real name, no UUID.
     import re
     uuid_re = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
     for r in rows:
-        assert not uuid_re.search(str(r["skill_name_uk"]) + str(r["skill_name_en"]))
+        assert r["Навичка (укр)"] and not uuid_re.search(str(r["Навичка (укр)"]) + str(r["skill_name_en"]))
+        assert r["Тип навички"] in ("Тверда", "М'яка")
 
 
 def test_requirements_export_matches_the_db(wb, careers):
@@ -97,9 +98,18 @@ def test_responsibilities_export_matches_the_db(wb, careers):
     assert xls_titles == db_titles
 
 
-def test_career_paths_reflect_db_relations(wb, careers):
+def test_career_paths_reflect_db_path_steps(wb, careers):
     rows = _table_rows(wb["50_CAREER_PATHS"])
-    assert len(rows) == sum(len(c.relations) for c in careers)  # 0 for the alpha KB
+    assert len(rows) == sum(len(c.path_steps) for c in careers) > 0
+    db = sorted((c.code, s["step_order"], s["step_name_uk"])
+                for c in careers for s in c.path_steps)
+    xls = sorted((r["career_code"], r["Крок №"], r["Назва кроку (укр)"]) for r in rows)
+    assert xls == db
+    # every career has an ordered, Ukrainian path and exactly one "current" rung
+    for c in careers:
+        assert [s["step_order"] for s in sorted(c.path_steps, key=lambda s: s["step_order"])] == \
+            list(range(1, len(c.path_steps) + 1))
+        assert sum(1 for s in c.path_steps if s["is_current_career_step"]) == 1
 
 
 def test_market_data_is_blank_never_fabricated(wb, careers):
@@ -111,10 +121,17 @@ def test_market_data_is_blank_never_fabricated(wb, careers):
         assert r["data_quality"] == "MARKET_DATA_LIMITED"
 
 
-def test_pros_cons_is_empty_by_design(wb):
-    assert _table_rows(wb["60_PROS_CONS"]) == []
-    note = " ".join(str(c.value) for row in wb["60_PROS_CONS"].iter_rows() for c in row if c.value)
-    assert "EMPTY BY DESIGN" in note
+def test_pros_cons_export_matches_the_db(wb, careers):
+    rows = _table_rows(wb["60_PROS_CONS"])
+    db = sorted((c.code, p["type"], p["text_uk"]) for c in careers for p in c.pros_cons)
+    xls = sorted((r["career_code"], r["type"], r["Твердження (укр)"]) for r in rows)
+    assert xls == db and len(rows) > 0
+    for c in careers:
+        assert sum(1 for p in c.pros_cons if p["type"] == "advantage") >= 4
+        assert sum(1 for p in c.pros_cons if p["type"] == "disadvantage") >= 4
+    for r in rows:
+        assert r["Тип (укр)"] in ("Перевага", "Недолік")
+        assert r["source_type"] == "MNP_EDITORIAL"
 
 
 def test_provenance_present_for_every_editorial_value(wb, careers):

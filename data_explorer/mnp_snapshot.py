@@ -21,16 +21,18 @@ The MNP Career KB entities this reads (production source of truth, brief
     mnp_career_knowledge_requirements
     mnp_career_requirements        -> education/experience/language/credential/legal
     mnp_career_attributes          -> work context/style/ability/interest (secondary signal)
-    mnp_career_relations           -> Career<->Career prior  (used for CareerPath rows)
+    mnp_career_relations           -> Career<->Career prior  (not the career path)
+    mnp_career_path_steps          -> ordered typical career path  (Founder Decision §6)
+    mnp_career_pros_cons           -> MNP editorial advantages/disadvantages  (Founder Decision §5)
     mnp_external_mappings          -> ESCO/O*NET/ISCO/UA_CLASSIFIER references
     mnp_market_snapshots / mnp_salary_snapshots  -> market layer (snapshots, never a Career field)
+
+Career entry characteristics (`difficulty_level`, `entry_without_experience`,
+`typical_entry_route_uk`) are columns on `mnp_careers`.
 
 Provenance is NOT a separate table: every row above carries its own
 `source` / `source_version` / `confidence`. The exporter flattens those
 into the 90_PROVENANCE sheet.
-
-There is deliberately **no** MnpCareerProsCons entity in the approved
-model — see docs/data_explorer/findings/CAREER_KB_ENTITY_COVERAGE_FINDING_V1.md.
 """
 
 from __future__ import annotations
@@ -52,8 +54,8 @@ from app.db import (  # noqa: F401
 from app.db.models_career_card import MnpKnowledge, MnpSkill
 from app.db.models_career_kb_mnp import (
     MnpCareer, MnpCareerAlias, MnpCareerAttribute, MnpCareerFamily, MnpCareerKnowledgeRequirement,
-    MnpCareerRelation, MnpCareerRequirement, MnpCareerSkillRequirement, MnpExternalMapping,
-    MnpCareerTask, MnpMarketSnapshot, MnpSalarySnapshot,
+    MnpCareerPathStep, MnpCareerProCon, MnpCareerRelation, MnpCareerRequirement,
+    MnpCareerSkillRequirement, MnpExternalMapping, MnpCareerTask, MnpMarketSnapshot, MnpSalarySnapshot,
 )
 
 
@@ -77,13 +79,18 @@ class MnpCareerSnapshot:
     family_name_uk: str | None
     family_name_en: str | None
     updated_at: str | None
+    difficulty_level: str | None = None
+    entry_without_experience: str | None = None
+    typical_entry_route_uk: str | None = None
     aliases: list[dict] = field(default_factory=list)
     tasks: list[dict] = field(default_factory=list)                 # -> 40_RESPONSIBILITIES
     skill_requirements: list[dict] = field(default_factory=list)    # -> 20_SKILLS
     knowledge_requirements: list[dict] = field(default_factory=list)
     requirements: list[dict] = field(default_factory=list)          # -> 30_REQUIREMENTS
     attributes: list[dict] = field(default_factory=list)
-    relations: list[dict] = field(default_factory=list)             # -> 50_CAREER_PATHS
+    relations: list[dict] = field(default_factory=list)             # career<->career prior
+    path_steps: list[dict] = field(default_factory=list)            # -> 50_CAREER_PATHS
+    pros_cons: list[dict] = field(default_factory=list)             # -> 60_PROS_CONS
     external_mappings: list[dict] = field(default_factory=list)     # -> 80_EXTERNAL_REFS (entity_type=career)
     skill_external_mappings: list[dict] = field(default_factory=list)
     market_snapshots: list[dict] = field(default_factory=list)      # -> 70_MARKET_DATA
@@ -118,6 +125,9 @@ async def _read(session) -> list[MnpCareerSnapshot]:
             family_code=fam.code if fam else None,
             family_name_uk=fam.name_uk if fam else None, family_name_en=fam.name_en if fam else None,
             updated_at=c.updated_at.isoformat() if c.updated_at else None,
+            difficulty_level=_v(c.difficulty_level) if c.difficulty_level else None,
+            entry_without_experience=_v(c.entry_without_experience),
+            typical_entry_route_uk=c.typical_entry_route_uk,
         )
         for a in (await session.execute(select(MnpCareerAlias).where(MnpCareerAlias.career_id == c.id))).scalars():
             snap.aliases.append({"alias": a.alias, "language": a.language, "type": _v(a.alias_type),
@@ -188,6 +198,25 @@ async def _read(session) -> list[MnpCareerSnapshot]:
                 "to_career_name_uk": tgt.canonical_name_uk if tgt else None,
                 "relation_type": _v(rel.relation_type), "strength": rel.strength,
                 "source": rel.source, "entity_id": str(rel.id),
+            })
+
+        for ps in (await session.execute(select(MnpCareerPathStep).where(MnpCareerPathStep.career_id == c.id))).scalars():
+            snap.path_steps.append({
+                "path_code": ps.path_code, "step_order": ps.step_order,
+                "step_name_uk": ps.step_name_uk, "step_name_en": ps.step_name_en,
+                "step_type": _v(ps.step_type), "description_uk": ps.description_uk,
+                "description_en": ps.description_en,
+                "typical_experience_text_uk": ps.typical_experience_text_uk,
+                "is_current_career_step": ps.is_current_career_step,
+                "source": ps.source, "source_version": ps.source_version,
+                "review_status": ps.review_status, "entity_id": str(ps.id),
+            })
+
+        for pc in (await session.execute(select(MnpCareerProCon).where(MnpCareerProCon.career_id == c.id))).scalars():
+            snap.pros_cons.append({
+                "type": _v(pc.type), "text_uk": pc.text_uk, "text_en": pc.text_en,
+                "sort_order": pc.sort_order, "source": pc.source, "source_version": pc.source_version,
+                "confidence": pc.confidence, "review_status": pc.review_status, "entity_id": str(pc.id),
             })
 
         for em in (await session.execute(select(MnpExternalMapping).where(MnpExternalMapping.mnp_entity_id == c.id))).scalars():

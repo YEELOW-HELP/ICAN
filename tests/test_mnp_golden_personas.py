@@ -75,8 +75,18 @@ async def _find_match(session, match_run_id, career_code) -> MnpCareerMatch:
 async def test_persona_experienced_professional(session):
     await seed_alpha_career_kb(session)
     card = await _blank_card(session)
+    # A "strong, unambiguous sales background" (8 years) realistically
+    # carries the core sales skill set -- Career KB V1 fills each career
+    # with 5-15 skills, so the persona's declared skills must be as
+    # complete as a genuine senior professional's, not a 3-item shorthand
+    # calibrated to the old thin seed (brief: personas are updated
+    # deliberately when the enriched KB shifts them, never silently).
     await submit_career_capital(session, card, CareerCapitalAnswers(
-        current_role="Менеджер з продажу", years_of_experience=8, skill_phrases=["Переговори", "CRM", "Управління командою"],
+        current_role="Менеджер з продажу", years_of_experience=8,
+        skill_phrases=[
+            "Переговори", "Робота з запереченнями", "Продажі B2B", "Управління воронкою продажів",
+            "CRM", "Активне слухання", "Прогнозування продажів", "Управління командою",
+        ],
     ))
     await session.commit()
 

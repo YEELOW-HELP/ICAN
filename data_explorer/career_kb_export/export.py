@@ -44,6 +44,24 @@ def _review(raw: str | None) -> str:
     return "editorial" if (raw and "editorial" in raw.lower()) else "unknown"
 
 
+_DIFFICULTY_UK = {"easy": "Низька", "moderate": "Середня", "challenging": "Висока", "hard": "Дуже висока"}
+_ENTRY_WO_EXP_UK = {
+    "yes": "Так", "limited": "Частково", "no": "Ні", "unknown": "Немає підтверджених даних",
+}
+_IMPORTANCE_UK = {"low": "Низька", "medium": "Середня", "high": "Висока", "critical": "Критична"}
+_REQ_TYPE_UK = {
+    "must_have": "Обов'язкова", "high_value": "Дуже бажана",
+    "differentiator": "Перевага", "optional": "Додатково",
+}
+_LEVEL_UK = {"basic": "Базовий", "working": "Впевнений", "strong": "Високий"}
+_PROCON_UK = {"advantage": "Перевага", "disadvantage": "Недолік"}
+_PATH_TYPE_UK = {
+    "entry": "Старт", "junior": "Початковий", "core": "Основний",
+    "senior": "Досвідчений", "lead": "Керівний", "executive": "Топ-рівень",
+}
+_HARDNESS_UK = {"soft": "Бажана", "hard": "Обов'язкова (підтверджено)"}
+
+
 def build(dest=None, careers=None) -> None:
     from pathlib import Path
     dest = Path(dest) if dest else OUT
@@ -81,17 +99,18 @@ def _readme(wb, careers, generated_at) -> None:
         ("Rebuild: python -m data_explorer.cli export-careers-excel", False),
         ("", False),
         ("Sheets", True),
-        ("10_CAREERS         one row per MNP Career (mnp_careers + mnp_career_families)", False),
-        ("20_SKILLS          one row per Career<->Skill (mnp_career_skill_requirements + mnp_skills)", False),
-        ("30_REQUIREMENTS    education/experience/language/certification/license/other (mnp_career_requirements)", False),
-        ("40_RESPONSIBILITIES  (mnp_career_tasks — MNP_CAREER_PROFILE_SCHEMA_V1 §7)", False),
-        ("50_CAREER_PATHS    career<->career prior (mnp_career_relations) — NOT a guaranteed route", False),
-        ("60_PROS_CONS       (no dedicated entity in the model yet — see the finding; empty by design)", False),
-        ("70_MARKET_DATA     (mnp_market_snapshots + mnp_salary_snapshots) — blank/UNKNOWN until a licensed source; NO fabricated numbers", False),
-        ("80_EXTERNAL_REFS   ESCO/O*NET/ISCO/UA_CLASSIFIER references (mnp_external_mappings, entity_type=career)", False),
-        ("90_PROVENANCE      why every value is in the KB — flattened source/source_version/confidence per field", False),
+        ("10_CAREERS         одна професія на рядок (mnp_careers + mnp_career_families) + складність/вхід", False),
+        ("20_SKILLS          Career<->Skill (mnp_career_skill_requirements + mnp_skills), Тверді/М'які", False),
+        ("30_REQUIREMENTS    освіта/досвід/мова/сертифікація/ліцензія/інші (mnp_career_requirements)", False),
+        ("40_RESPONSIBILITIES  обов'язки (mnp_career_tasks — MNP_CAREER_PROFILE_SCHEMA_V1 §7)", False),
+        ("50_CAREER_PATHS    типовий кар'єрний шлях (mnp_career_path_steps) — НЕ гарантований маршрут", False),
+        ("60_PROS_CONS       переваги/недоліки (mnp_career_pros_cons) — РЕДАКЦІЙНИЙ шар MNP, не статистика", False),
+        ("70_MARKET_DATA     (mnp_market_snapshots + mnp_salary_snapshots) — порожньо/UNKNOWN; ЖОДНИХ вигаданих цифр", False),
+        ("80_EXTERNAL_REFS   ESCO/O*NET/ISCO/UA_CLASSIFIER (mnp_external_mappings, entity_type=career)", False),
+        ("90_PROVENANCE      чому кожне значення в KB — source/source_version/confidence по кожному полю", False),
         ("", False),
-        ("RULES: UNKNOWN != 0 (missing = blank cell). No AI. Skill names are human-readable (never a UUID).", False),
+        ("ПРАВИЛА: Ukrainian-first (українські колонки — перші). UNKNOWN != 0 (порожня клітинка). Без AI. "
+         "Назви навичок — людські (ніколи не UUID).", False),
     ]
     for i, (text, bold) in enumerate(lines, start=1):
         c = ws.cell(row=i, column=1, value=text)
@@ -102,37 +121,57 @@ def _readme(wb, careers, generated_at) -> None:
 
 def _careers(wb, careers) -> None:
     rows = [[
-        c.code, c.canonical_name_uk, c.canonical_name_en,
-        c.family_name_uk or c.family_code, c.description_short_uk, c.description_long_uk,
-        c.catalog_priority, c.status, c.career_profile_version, c.updated_at,
+        c.canonical_name_uk, c.family_name_uk or c.family_code, c.description_short_uk,
+        c.description_long_uk,
+        _DIFFICULTY_UK.get(c.difficulty_level, "Немає підтверджених даних") if c.difficulty_level
+        else "Немає підтверджених даних",
+        _ENTRY_WO_EXP_UK.get(c.entry_without_experience, "Немає підтверджених даних"),
+        c.typical_entry_route_uk,
+        "Так" if c.market_data_limited else "Ні",
+        c.code, c.canonical_name_en, c.status, c.career_profile_version, c.updated_at,
     ] for c in careers]
     add_table(wb, "10_CAREERS",
-              ["career_code", "name_uk", "name_en", "category", "short_description", "long_description",
-               "difficulty_level", "status", "profile_version", "updated_at"],
-              rows, title="MNP Careers (source: mnp_careers / mnp_career_families)",
-              note="`difficulty_level` shows catalog_priority — the model has no dedicated difficulty field yet. "
-                   "long_description is blank where the KB has none.",
-              widths={"short_description": 55, "long_description": 55, "name_uk": 30, "name_en": 28})
+              ["Назва (укр)", "Категорія", "Короткий опис", "Повний опис",
+               "Складність входу", "Старт без досвіду", "Типовий вхід (укр)", "Ринок обмежено",
+               "career_code", "name_en", "status", "profile_version", "updated_at"],
+              rows, title="Професії MNP (джерело: mnp_careers / mnp_career_families)",
+              note="Ukrainian-first: усі кар'єрні картки читаються українською без англійських колонок. "
+                   "«Складність входу» / «Старт без досвіду» — з mnp_careers. «Ринок обмежено»=Так -> ринкові "
+                   "показники недоступні (жодних вигаданих цифр).",
+              widths={"Короткий опис": 55, "Повний опис": 60, "Назва (укр)": 30, "Типовий вхід (укр)": 60,
+                      "name_en": 28})
 
 
 def _skills(wb, careers) -> None:
+    SOFT = {"communication", "management"}
     rows = []
     for c in careers:
         for s in c.skill_requirements:
+            group_uk = "М'яка" if (s["skill_type"] or "").lower() in SOFT else "Тверда"
             rows.append([
-                c.code, s.get("skill_code"), s["skill_uk"], s["skill_en"], s["skill_type"],
-                s["requirement_level"], s["importance"], s["proficiency_level"],
-                _src_type(s["source_type"]), s.get("source_reference"), _review(s["source_type"]),
+                c.canonical_name_uk, s["skill_uk"], group_uk,
+                _REQ_TYPE_UK.get(s["requirement_type"], s["requirement_type"]),
+                _LEVEL_UK.get(s["proficiency_level"], s["proficiency_level"]),
+                _IMPORTANCE_UK.get(s["importance"], s["importance"]),
+                c.code, s["skill_en"], s["skill_type"], s["requirement_type"], s["proficiency_level"],
+                _src_type(s["source_type"]), _review(s["source_type"]),
             ])
     ws = add_table(wb, "20_SKILLS",
-              ["career_code", "skill_code", "skill_name_uk", "skill_name_en", "skill_type",
-               "requirement_level", "importance", "proficiency_level",
-               "source_type", "source_reference", "review_status"],
-              rows, title="Career <-> Skill (source: mnp_career_skill_requirements + mnp_skills)",
-              note="skill names are human-readable. skill_code = first external reference for that skill, if any "
-                   "(the alpha KB has none). UNKNOWN is never 0.",
-              widths={"skill_name_uk": 34, "skill_name_en": 30})
-    add_dropdown(ws, "K", _REVIEW_STATES, first_row=4)
+              ["Професія (укр)", "Навичка (укр)", "Тип навички", "Потрібність (укр)", "Рівень (укр)",
+               "Важливість (укр)",
+               "career_code", "skill_name_en", "skill_type", "requirement_type", "proficiency_level",
+               "source_type", "review_status"],
+              rows, title="Навички професій (джерело: mnp_career_skill_requirements + mnp_skills)",
+              note="Ukrainian-first. «Тип навички» Тверда/М'яка виводиться з skill_type "
+                   "(communication|management -> М'яка). Назви навичок — людські, не UUID. UNKNOWN != 0.",
+              widths={"Навичка (укр)": 34, "Професія (укр)": 30, "skill_name_en": 30})
+    add_dropdown(ws, "M", _REVIEW_STATES, first_row=4)
+
+
+_REQ_CATEGORY_UK = {
+    "education": "Освіта", "experience": "Досвід", "language": "Мова",
+    "credential": "Сертифікація", "legal": "Ліцензія та дозволи", "other": "Інші вимоги",
+}
 
 
 def _requirements(wb, careers) -> None:
@@ -140,58 +179,84 @@ def _requirements(wb, careers) -> None:
     for c in careers:
         for r in c.requirements:
             rows.append([
-                c.code, r["requirement_type"], r["requirement_name"], "yes" if r["required"] else "",
-                r["level"], r["description"], "yes" if r["hard_blocker"] else "",
-                _src_type(r["source_type"]), r.get("source_reference"), _review(r["source_type"]),
-                r.get("country"),
+                c.canonical_name_uk,
+                _REQ_CATEGORY_UK.get(r["category"], r["category"]),
+                r["description"],
+                _HARDNESS_UK.get(r["hardness"], r["hardness"]),
+                "так" if r["hard_blocker"] else "ні",
+                c.code, r["category"], r["requirement_name"], "yes" if r["hard_blocker"] else "",
+                r["value"], _src_type(r["source_type"]), _review(r["source_type"]), r.get("country"),
             ])
     ws = add_table(wb, "30_REQUIREMENTS",
-              ["career_code", "requirement_type", "requirement_name", "required", "level", "description",
-               "hard_blocker", "source_type", "source_reference", "review_status", "country"],
-              rows, title="Requirements (source: mnp_career_requirements)",
-              note="requirement_type in {education, experience, language, certification, license, other} "
-                   "(the model's RequirementCategory: education|experience|credential|language|legal|other — "
-                   "credential covers certification+license). hard_blocker=yes only from hardness=HARD.",
-              widths={"requirement_name": 45, "description": 45})
-    add_dropdown(ws, "J", _REVIEW_STATES, first_row=4)
+              ["Професія (укр)", "Категорія (укр)", "Вимога (укр)", "Обов'язковість (укр)",
+               "Жорсткий блокер",
+               "career_code", "category", "requirement_name", "hard_blocker", "value",
+               "source_type", "review_status", "country"],
+              rows, title="Вимоги професій (джерело: mnp_career_requirements)",
+              note="Ukrainian-first. Категорія: Освіта|Досвід|Мова|Сертифікація|Ліцензія та дозволи|Інші "
+                   "(RequirementCategory education|experience|language|credential|legal|other). «Жорсткий блокер»=так "
+                   "лише коли hardness=HARD. UNKNOWN != «немає вимоги».",
+              widths={"Вимога (укр)": 50, "Професія (укр)": 26})
+    add_dropdown(ws, "L", _REVIEW_STATES, first_row=4)
 
 
 def _responsibilities(wb, careers) -> None:
     rows = []
     for c in careers:
         for t in c.tasks:
-            rows.append([c.code, t["responsibility_id"], t["title_uk"] or t["title_en"],
-                         t["importance"], _src_type(t["source"]), _review(t["source"])])
+            rows.append([
+                c.canonical_name_uk, t["title_uk"] or t["title_en"], t.get("description") or "",
+                _IMPORTANCE_UK.get(t["importance"], t["importance"]),
+                c.code, t["responsibility_id"], t["importance"],
+                _src_type(t["source"]), _review(t["source"]),
+            ])
     ws = add_table(wb, "40_RESPONSIBILITIES",
-              ["career_code", "responsibility_id", "responsibility", "importance", "source_type", "review_status"],
-              rows, title="Responsibilities (source: mnp_career_tasks — MNP_CAREER_PROFILE_SCHEMA_V1 §7)",
-              widths={"responsibility": 60})
-    add_dropdown(ws, "F", _REVIEW_STATES, first_row=4)
+              ["Професія (укр)", "responsibility", "Опис (укр)", "Важливість (укр)",
+               "career_code", "responsibility_id", "importance", "source_type", "review_status"],
+              rows, title="Обов'язки професій (джерело: mnp_career_tasks — MNP_CAREER_PROFILE_SCHEMA_V1 §7)",
+              note="Ukrainian-first. «responsibility» — це title_uk (українська назва обов'язку).",
+              widths={"responsibility": 44, "Опис (укр)": 55, "Професія (укр)": 26})
+    add_dropdown(ws, "I", _REVIEW_STATES, first_row=4)
 
 
 def _career_paths(wb, careers) -> None:
     rows = []
     for c in careers:
-        for i, rel in enumerate(sorted(c.relations, key=lambda r: (r["relation_type"], r["to_career_code"] or "")), start=1):
-            rows.append([c.code, i, rel["to_career_name_uk"], rel["relation_type"],
-                         "", "", _src_type(rel["source"]), _review(rel["source"])])
+        for s in sorted(c.path_steps, key=lambda s: (s["path_code"], s["step_order"])):
+            rows.append([
+                c.canonical_name_uk, s["step_order"], s["step_name_uk"],
+                _PATH_TYPE_UK.get(s["step_type"], s["step_type"]),
+                s.get("typical_experience_text_uk") or "", s.get("description_uk") or "",
+                "так" if s["is_current_career_step"] else "",
+                c.code, s["path_code"], s["step_type"], _src_type(s["source"]), _review(s["source"]),
+            ])
     add_table(wb, "50_CAREER_PATHS",
-              ["career_code", "step_order", "step_name", "step_type", "typical_experience", "description",
-               "source_type", "review_status"],
-              rows, title="Career paths (source: mnp_career_relations)",
-              note="career<->career prior, NOT a guaranteed route. The model stores relations, not an ordered "
-                   "step sequence with typical_experience — those columns are present for a future entity and are "
-                   f"blank now. {'(no relations in the current KB)' if not rows else ''}",
-              widths={"step_name": 35, "description": 40})
+              ["Професія (укр)", "Крок №", "Назва кроку (укр)", "Рівень (укр)",
+               "Типовий досвід (укр)", "Опис (укр)", "Поточний крок",
+               "career_code", "path_code", "step_type", "source_type", "review_status"],
+              rows, title="Типовий кар'єрний шлях (джерело: mnp_career_path_steps — Founder Decision §6)",
+              note="Ukrainian-first. Впорядкований типовий маршрут, НЕ гарантований шлях просування. Крок "
+                   "кар'єрного шляху ніколи не створює окрему професію MNP. «Поточний крок»=так позначає рівень, "
+                   "що відповідає самій професії.",
+              widths={"Назва кроку (укр)": 34, "Опис (укр)": 50, "Професія (укр)": 26})
 
 
 def _pros_cons(wb, careers) -> None:
-    add_table(wb, "60_PROS_CONS",
-              ["career_code", "type", "statement", "source_type", "review_status"],
-              [], title="Pros / Cons (ADVANTAGE | DISADVANTAGE)",
-              note="EMPTY BY DESIGN — the approved MNP model has no MnpCareerProsCons entity. Creating a "
-                   "production table is out of scope (brief §2: do not duplicate/invent). See "
-                   "docs/data_explorer/findings/CAREER_KB_ENTITY_COVERAGE_FINDING_V1.md.")
+    rows = []
+    for c in careers:
+        for p in sorted(c.pros_cons, key=lambda p: (p["type"], p["sort_order"])):
+            rows.append([
+                c.canonical_name_uk, _PROCON_UK.get(p["type"], p["type"]), p["sort_order"],
+                p["text_uk"], c.code, p["type"], _src_type(p["source"]), p["review_status"],
+            ])
+    ws = add_table(wb, "60_PROS_CONS",
+              ["Професія (укр)", "Тип (укр)", "№", "Твердження (укр)",
+               "career_code", "type", "source_type", "review_status"],
+              rows, title="Переваги та недоліки (джерело: mnp_career_pros_cons — Founder Decision §5)",
+              note="Ukrainian-first. РЕДАКЦІЙНИЙ шар MNP (source=mnp_editorial_v1), а не об'єктивна статистика. "
+                   "type: advantage (Перевага) | disadvantage (Недолік).",
+              widths={"Твердження (укр)": 70, "Професія (укр)": 26})
+    add_dropdown(ws, "H", _REVIEW_STATES, first_row=4)
 
 
 def _market_data(wb, careers) -> None:
@@ -246,8 +311,16 @@ def _provenance(wb, careers) -> None:
 
     for c in careers:
         add(c.code, "career", c.id,
-            {"short_description": 1, "long_description": 1, "category": 1},
+            {"short_description": 1, "long_description": 1, "category": 1,
+             "difficulty_level": 1, "entry_without_experience": 1, "typical_entry_route_uk": 1},
             "mnp_editorial_v1", None, "editorial")
+        for ps in c.path_steps:
+            add(c.code, "career_path_step", ps["entity_id"],
+                {"step_name_uk": 1, "description_uk": 1, "typical_experience_text_uk": 1},
+                ps["source"], ps["source_version"], _review(ps["source"]))
+        for pc in c.pros_cons:
+            add(c.code, "career_procon", pc["entity_id"], {"text_uk": 1},
+                pc["source"], pc["source_version"], _review(pc["source"]))
         for s in c.skill_requirements:
             add(c.code, "career_skill", s["entity_id"],
                 {"importance": 1, "required_level": 1, "requirement_type": 1},

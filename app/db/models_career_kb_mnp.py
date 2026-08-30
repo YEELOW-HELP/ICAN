@@ -127,6 +127,44 @@ class ExternalMappingType(str, enum.Enum):
     NARROW = "narrow"
 
 
+class CareerDifficulty(str, enum.Enum):
+    """MNP_CAREER_PROFILE_SCHEMA_V1 "Entry" / moat doc §5 "Entry: transition
+    difficulty". User-facing Ukrainian labels are resolved in the API, not
+    stored here (internal schema = English-first, Founder Language Policy)."""
+
+    EASY = "easy"
+    MODERATE = "moderate"
+    CHALLENGING = "challenging"
+    HARD = "hard"
+
+
+class EntryWithoutExperience(str, enum.Enum):
+    """Can someone enter this career with no prior professional experience?
+    `UNKNOWN` is first-class (Founder Decision #27) -- never silently 'no'."""
+
+    YES = "yes"
+    LIMITED = "limited"        # possible for a subset of roles / with training
+    NO = "no"
+    UNKNOWN = "unknown"
+
+
+class ProConType(str, enum.Enum):
+    ADVANTAGE = "advantage"
+    DISADVANTAGE = "disadvantage"
+
+
+class CareerPathStepType(str, enum.Enum):
+    """A typical progression rung. Not a guaranteed route
+    (MNP_CAREER_PROFILE_SCHEMA_V1 / Founder Decision §6)."""
+
+    ENTRY = "entry"
+    JUNIOR = "junior"
+    CORE = "core"
+    SENIOR = "senior"
+    LEAD = "lead"
+    EXECUTIVE = "executive"
+
+
 class MnpCareerFamily(Base):
     """MNP_CAREER_PROFILE_SCHEMA_V1 §5."""
 
@@ -164,6 +202,13 @@ class MnpCareer(Base):
     catalog_priority: Mapped[int] = mapped_column(Integer, default=0)
     career_profile_version: Mapped[int] = mapped_column(Integer, default=1)
     market_data_limited: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Entry characteristics (moat doc §5 "Entry"). All nullable / UNKNOWN
+    # by default -- an unpopulated career must not imply "easy" or "no".
+    difficulty_level: Mapped[CareerDifficulty | None] = mapped_column(_str_enum(CareerDifficulty))
+    entry_without_experience: Mapped[EntryWithoutExperience] = mapped_column(
+        _str_enum(EntryWithoutExperience), default=EntryWithoutExperience.UNKNOWN
+    )
+    typical_entry_route_uk: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -189,6 +234,8 @@ class MnpCareer(Base):
     relations_from: Mapped[list["MnpCareerRelation"]] = relationship(
         back_populates="from_career", foreign_keys="MnpCareerRelation.from_career_id", cascade="all, delete-orphan"
     )
+    pros_cons: Mapped[list["MnpCareerProCon"]] = relationship(back_populates="career", cascade="all, delete-orphan")
+    path_steps: Mapped[list["MnpCareerPathStep"]] = relationship(back_populates="career", cascade="all, delete-orphan")
 
 
 class MnpCareerAlias(Base):
@@ -402,3 +449,59 @@ class MnpSalarySnapshot(Base):
     percentile_75: Mapped[float | None] = mapped_column(Float)
 
     market_snapshot: Mapped["MnpMarketSnapshot"] = relationship(back_populates="salary_snapshots")
+
+
+class MnpCareerProCon(Base):
+    """MNP editorial advantages / disadvantages of a career (Founder
+    Decision §5). This is an EDITORIAL layer -- never presented as
+    objective statistics. Ukrainian-first (`text_uk` required, `text_en`
+    optional reference)."""
+
+    __tablename__ = "mnp_career_pros_cons"
+    __table_args__ = (UniqueConstraint("career_id", "type", "sort_order", name="uq_career_procon_order"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    career_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("mnp_careers.id"), index=True)
+    type: Mapped[ProConType] = mapped_column(_str_enum(ProConType), index=True)
+    text_uk: Mapped[str] = mapped_column(Text)
+    text_en: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(64), default="mnp_editorial_v1")
+    source_version: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    career: Mapped["MnpCareer"] = relationship(back_populates="pros_cons")
+
+
+class MnpCareerPathStep(Base):
+    """One rung of a typical career path (Founder Decision §6).
+    `MnpCareerRelation` (career<->career prior) is a DIFFERENT thing --
+    this is an ordered, informational, editorial progression. A path step
+    NEVER auto-creates a separate MnpCareer. Ukrainian-first."""
+
+    __tablename__ = "mnp_career_path_steps"
+    __table_args__ = (
+        UniqueConstraint("career_id", "path_code", "step_order", name="uq_career_path_step_order"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    career_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("mnp_careers.id"), index=True)
+    path_code: Mapped[str] = mapped_column(String(64), default="typical")
+    step_order: Mapped[int] = mapped_column(Integer)
+    step_name_uk: Mapped[str] = mapped_column(String(255))
+    step_name_en: Mapped[str | None] = mapped_column(String(255))
+    step_type: Mapped[CareerPathStepType] = mapped_column(_str_enum(CareerPathStepType))
+    description_uk: Mapped[str | None] = mapped_column(Text)
+    description_en: Mapped[str | None] = mapped_column(Text)
+    typical_experience_text_uk: Mapped[str | None] = mapped_column(String(128))
+    is_current_career_step: Mapped[bool] = mapped_column(Boolean, default=False)
+    source: Mapped[str] = mapped_column(String(64), default="mnp_editorial_v1")
+    source_version: Mapped[str | None] = mapped_column(String(32))
+    review_status: Mapped[str] = mapped_column(String(24), default="editorial")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    career: Mapped["MnpCareer"] = relationship(back_populates="path_steps")

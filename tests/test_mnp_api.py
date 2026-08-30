@@ -48,7 +48,10 @@ async def test_full_no_cv_flow_end_to_end(client):
 
     capital_resp = await client.post(
         "/v1/mnp/questionnaire/career-capital",
-        json={"current_role": "Менеджер з продажу", "years_of_experience": 3, "skill_phrases": ["Переговори", "CRM"]},
+        json={
+            "current_role": "Менеджер з продажу", "years_of_experience": 3,
+            "skill_phrases": ["Переговори", "Робота з запереченнями", "Продажі B2B", "CRM", "Активне слухання"],
+        },
         headers=headers,
     )
     assert capital_resp.status_code == 200

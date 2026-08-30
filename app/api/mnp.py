@@ -52,6 +52,7 @@ from app.services.career_card_mnp.card import (
     start_assessment_session,
 )
 from app.services.career_kb_mnp.careers import create_career, get_or_create_career_family, transition_career_status
+from app.services.career_kb_mnp.detail import get_career_detail_by_id, list_active_careers
 from app.services.exceptions import (
     CVFileTooLargeError,
     MnpDuplicateCareerCodeError,
@@ -246,23 +247,20 @@ async def get_career_match_route(career_match_id: uuid.UUID, user: IdentityUser 
 
 @router.get("/careers")
 async def list_careers(session: AsyncSession = Depends(get_session)):
-    rows = (await session.execute(select(MnpCareer).where(MnpCareer.status == CareerLifecycleStatus.ACTIVE))).scalars().all()
-    return [
-        {"id": str(c.id), "code": c.code, "name_uk": c.canonical_name_uk, "description_short_uk": c.description_short_uk}
-        for c in rows
-    ]
+    """Public Career Catalog -- Ukrainian-first, ACTIVE careers only."""
+    return await list_active_careers(session)
 
 
 @router.get("/careers/{career_id}")
 async def get_career_detail(career_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    career = await session.get(MnpCareer, career_id)
-    if career is None or career.status == CareerLifecycleStatus.ARCHIVED:
+    """Full structured Career Detail (`MNP_CAREER_PROFILE_SCHEMA_V1`):
+    identity, overview, responsibilities, skills (hard/soft), knowledge,
+    requirements, entry, pros/cons, career path, related careers, market
+    (data-limited), external references, provenance. Ukrainian-first."""
+    detail = await get_career_detail_by_id(session, career_id)
+    if detail is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Career not found")
-    return {
-        "id": str(career.id), "code": career.code, "name_uk": career.canonical_name_uk,
-        "name_en": career.canonical_name_en, "description_short_uk": career.description_short_uk,
-        "status": career.status.value, "market_data_limited": career.market_data_limited,
-    }
+    return detail
 
 
 # ---------------------------------------------------------------------------
