@@ -42,6 +42,7 @@ data_explorer/
   analysis/            dimension analysis + data-quality report          (BLOCK 2)
   human_lab/           Person Profile, Career Comparison, Expected Result, Golden export  (BLOCK 2)
   excel/               MNP_ESCO_ONET_DATA_EXPLORER.xlsx generator        (BLOCK 3)
+  career_kb_export/    MNP_CAREER_KB_V1.xlsx generator (from the MNP Career KB — addendum)
   cli.py               python -m data_explorer.cli <command>
 
 docs/data_explorer/    this folder — README, dictionaries, mapping spec, findings
@@ -56,7 +57,12 @@ python -m data_explorer.cli download      # O*NET 31.0 + 30.2, ESCO v1.2.1 (en+u
 python -m data_explorer.cli build         # -> data/data_explorer/reference.sqlite
 python -m data_explorer.cli dictionary    # regenerate ONET/ESCO_DATA_DICTIONARY.md from the DB
 python -m data_explorer.cli inventory     # regenerate SOURCE_DATA_INVENTORY.md
+python -m data_explorer.cli excel         # -> data/data_explorer/exports/MNP_ESCO_ONET_DATA_EXPLORER.xlsx
+python -m data_explorer.cli export-careers-excel   # -> data/data_explorer/exports/MNP_CAREER_KB_V1.xlsx (from the MNP Career KB)
 ```
+
+See `CAREER_KB_EXPORT_GUIDE.md` for the Career KB export (the Career
+Dataset deliverable — DB → Excel, never Excel → DB).
 
 ## Datasets (see `SOURCE_DATA_INVENTORY.md` for the full table)
 

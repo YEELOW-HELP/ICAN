@@ -11,12 +11,13 @@ pytestmark = pytest.mark.skipif(not config.REFERENCE_DB.exists(), reason="refere
 
 
 @pytest.fixture(scope="module")
-def wb():
+def wb(tmp_path_factory):
     from openpyxl import load_workbook
     from data_explorer.excel import workbook
 
-    workbook.build()
-    return load_workbook(workbook.OUT)
+    out = tmp_path_factory.mktemp("xlsx") / "MNP_ESCO_ONET_DATA_EXPLORER.xlsx"
+    workbook.build(dest=out)
+    return load_workbook(out)
 
 
 def test_workbook_has_the_expected_sheets(wb):
