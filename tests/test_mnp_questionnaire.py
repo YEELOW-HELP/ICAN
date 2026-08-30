@@ -142,3 +142,32 @@ async def test_missing_fields_shrinks_after_cv_upload(session):
     assert "education" not in missing.career_capital
     assert "languages" in missing.career_capital  # CV had none -- still needed
     assert "goal" in missing.career_intent  # CV never answers Career Intent
+
+
+async def test_missing_fields_does_not_crash_on_multiple_rows(session):
+    """Regression: a CV with two jobs and two degrees (both entirely
+    normal -- a person can have more than one of either) must not raise
+    sqlalchemy.exc.MultipleResultsFound. Caught during Founder Acceptance
+    Testing -- get_missing_fields previously used scalar_one_or_none()
+    (which requires 0 or 1 rows) on tables with no such uniqueness
+    constraint."""
+
+    await seed_alpha_career_kb(session)
+    from app.services.resume_parser_mnp.parser import upload_and_parse_resume
+
+    user = IdentityUser(locale="uk")
+    session.add(user)
+    await session.flush()
+    text = (
+        "Досвід роботи\n"
+        "2018 - 2020\nМенеджер А\nробота\n"
+        "2020 - теперішній час\nМенеджер Б\nробота\n\n"
+        "Освіта\n"
+        "Університет 1, бакалавр, 2015\n"
+        "Університет 2, магістр, 2018\n"
+    ).encode("utf-8")
+    card, _ = await upload_and_parse_resume(session, user_id=user.id, filename="cv.txt", content_bytes=text)
+
+    missing = await get_missing_fields(session, card.id)  # must not raise
+    assert "current_role" not in missing.career_capital
+    assert "education" not in missing.career_capital
