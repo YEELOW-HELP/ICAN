@@ -28,6 +28,7 @@ Build one excellent closed loop first. Do not implement the full vision in paral
 14. `docs/engineering/13_FOUNDER_ARCHITECTURE_REVIEW.md` — target-architecture hardening (AuthIdentity, Consent, versioned taxonomy, ClientAssignment, InterviewMessage, AuditLog, AiTrace) ahead of Issue #1.
 15. **`docs/product/14_MIY_NAPRYAM_V1_PRODUCT_DEFINITION.md` — source of truth for the first commercial product, «МОЖУ: Мій Напрям» V1.**
 16. **`docs/product/15_MIY_NAPRYAM_V1_IMPLEMENTATION_ROADMAP.md` — V1's staged implementation sequence and the Issue #1–#10 scope reconciliation.**
+17. **`docs/product/25_MNP_PRODUCT_MOAT_AND_POSITIONING_V1.md` — Founder / Product Source of Truth for MNP positioning, competitive moat, strategic product boundaries, Person KB → Career KB → Market KB sequence, and long-term Career Decision/Transition strategy.**
 
 ## Platform architecture vs. V1 implementation scope
 
@@ -42,6 +43,13 @@ product built as a subset of this same architecture. If a capability is in
 `docs/architecture/*` but not listed in doc 14's scope, **do not build it
 yet** — see doc 14 §23 ("Explicitly NOT in V1") and
 `docs/product/06_R0_R1_BACKLOG.md`'s V1 scope notes.
+
+`docs/product/25_MNP_PRODUCT_MOAT_AND_POSITIONING_V1.md` governs **why the
+product exists, where its competitive boundary sits, what should become the
+data/product moat, and the Founder-approved sequence Career KB → Person KB →
+Matching/Transition validation → Market KB Ukraine → Opportunities**. It does
+not override the approved matching methodology or canonical engineering
+contracts.
 
 ## Sprint 0 baseline (as of exit — see `docs/engineering/12_SPRINT_0_EXIT_REPORT.md` for full detail)
 
@@ -74,6 +82,12 @@ Intelligence (TOP 3 + Alternative 3, not necessarily Safe/Growth/Bold),
 360" ships as the Consultant Review Workspace only, "Career seed graph"
 ships as a curated Knowledge Base, not a full graph.
 
+**Founder-approved data/product build order for the current MNP workstream:**
+
+`Career KB V1 (5 careers) → Founder Acceptance → Person KB V1 → Founder Acceptance → Matching/Transition Validation → Market KB Ukraine → Opportunity/Action Layer → Scale.`
+
+Do not skip forward to Market KB or Opportunities before the preceding layer is validated, except for separate research/data due-diligence work that does not change production scope.
+
 ### P0 (platform, long-term)
 - Identity + consent
 - Adaptive assessment engine
@@ -105,4 +119,8 @@ Every feature must answer at least one of these questions:
 3. Does it make a Guide materially more productive?
 4. Does it create a reusable data/network moat?
 
-If the answer is **no to all four**, it does not enter the current roadmap.
+For the MNP career-navigation workstream, additionally ask:
+5. Does it materially improve the Person, Career, Market or Transition model?
+6. Does it help the user make a better career decision or execute the next step?
+
+If the answer is **no to all applicable questions**, it does not enter the current roadmap.
