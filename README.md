@@ -115,21 +115,34 @@ PAUSED / CLOSED. Доступна на `/dashboard` того же FastAPI-сер
 python -m scripts.dev_seed --serve
 ```
 
-Один раз создаёт `data/dev/mnp_dev.sqlite`, наполняет Career KB (5 профессий),
-заводит dev-админа и запускает API+фронтенд на `http://127.0.0.1:8099`.
+Один раз создаёт `data/dev/mnp_dev.sqlite`, наполняет Career KB (5 ACTIVE
+профессий + импорт стартового каталога Work.ua = ~145 DRAFT), заводит
+dev-админа и запускает API+фронтенд на `http://127.0.0.1:8099`.
 
-- Публичный Career Explorer: `http://127.0.0.1:8099/mnp/#/catalog`
+- Публичный Career Explorer: `http://127.0.0.1:8099/mnp/#/catalog` (только ACTIVE)
 - **Career KB Editor** (управление без кода): `http://127.0.0.1:8099/mnp/#/admin/login`,
-  логин `admin@mnp.local` / `mnp-dev-admin`. После входа на карточке профессии
-  появляется кнопка **«Редагувати»**, в каталоге — **«+ Створити професію»**.
+  логин `admin@mnp.local` / `mnp-dev-admin`. После входа: `#/admin/catalog` —
+  все профессии со статусами; «Редагувати» на карточке; «+ Створити професію».
 - `--reset` — пересоздать dev-БД с нуля (после изменения схемы).
 - `--serve --skip-seed` — только запустить сервер, БД не трогать.
 
 **Career KB — источник истины.** База `mnp_*` + Career KB Editor —
-единственный operational source of truth. `app/services/career_kb_mnp/seed_alpha.py`
-— это только bootstrap/тест-фикстура: создаёт профессии, которых ещё нет, и
-**никогда** не перезаписывает ручные правки админа (описания, навыки, связи,
-статус). API, Matching, публичный сайт и Excel-экспорт читают ту же БД.
+единственный operational source of truth. `seed_alpha.py` и `seed_catalog.py`
+— это только bootstrap: создают профессии, которых ещё нет, и **никогда** не
+перезаписывают ручные правки админа. API, Matching, публичный сайт и
+Excel-экспорт читают ту же БД.
+
+**Work.ua Career Guide = discovery source only** (не источник контента).
+Инвентарь профессий: `data_explorer/workua/inventory/` (снапшот 2026-08-31,
+149 профессий). Пере-краул и diff (БД не трогает):
+```bash
+python -m data_explorer.cli refresh-workua-career-inventory
+```
+
+**Excel со всем KB** (150 профессий) — против dev-БД:
+```bash
+MNP_DATABASE_URL="sqlite+aiosqlite:///./data/dev/mnp_dev.sqlite" python -m data_explorer.cli export-careers-excel
+```
 
 ## Тесты
 

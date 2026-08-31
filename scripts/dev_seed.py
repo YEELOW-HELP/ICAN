@@ -60,6 +60,7 @@ async def _build_and_seed(db_path: Path, *, reset: bool) -> None:
     )
     from app.db.session import async_session_factory, engine
     from app.services.career_kb_mnp.seed_alpha import ALPHA_CAREER_CODES, seed_alpha_career_kb
+    from app.services.career_kb_mnp.seed_catalog import seed_starter_catalog
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -68,6 +69,11 @@ async def _build_and_seed(db_path: Path, *, reset: bool) -> None:
     async with async_session_factory() as session:
         await seed_alpha_career_kb(session)
     print(f"  seeded MNP Career KB: {len(ALPHA_CAREER_CODES)} ACTIVE careers")
+
+    async with async_session_factory() as session:
+        summ = await seed_starter_catalog(session)
+    print(f"  imported Work.ua starter catalog: {summ['created']} DRAFT careers, "
+          f"{summ['skipped_existing']} skipped, {summ['skills_created']} new canonical skills")
 
     # a dev admin login so the Career KB Editor is usable out of the box
     from sqlalchemy import select

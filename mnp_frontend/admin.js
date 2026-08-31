@@ -99,12 +99,60 @@ const MnpAdmin = (() => {
   }
 
   // ===================================================================
+  // ADMIN CATALOG  (all careers, every status)
+  // ===================================================================
+  let _admCache = null;
+
+  async function screenAdminCatalog() {
+    if (!MnpApi.isAdmin()) { location.hash = "#/admin/login"; return; }
+    root().innerHTML = `<div class="loading">Завантаження каталогу…</div>`;
+    _admCache = await MnpApi.admin("/admin/careers");
+    const counts = _admCache.reduce((a, c) => (a[c.status] = (a[c.status] || 0) + 1, a), {});
+    root().innerHTML = `
+      <div class="admin-bar">
+        <span>Режим редактора</span>
+        <a href="#/admin/career/new" class="btn">+ Створити професію</a>
+        <a href="#/catalog" class="admin-logout" style="color:var(--muted)">публічний сайт</a>
+        <a href="#" class="admin-logout">вийти</a>
+      </div>
+      <h1>Career KB — усі професії (${_admCache.length})</h1>
+      <p class="lead">Опубліковано: ${counts.active || 0} · Чернетки: ${counts.draft || 0} · В архіві: ${counts.archived || 0}.
+         Публічно показуються лише опубліковані.</p>
+      <input id="adm-cat-search" class="career-search" type="text" placeholder="Пошук професії або категорії...">
+      <div id="adm-cat-list">${renderAdmCatalog(_admCache)}</div>
+    `;
+    root().querySelector(".admin-logout:last-child").addEventListener("click", (e) => {
+      e.preventDefault(); MnpApi.adminLogout(); location.hash = "#/catalog";
+    });
+    const s = document.getElementById("adm-cat-search");
+    s.addEventListener("input", () => {
+      const q = s.value.trim().toLowerCase();
+      const f = _admCache.filter((c) => c.name_uk.toLowerCase().includes(q) ||
+        (c.category_uk || "").toLowerCase().includes(q) || c.code.includes(q) || c.status.includes(q));
+      document.getElementById("adm-cat-list").innerHTML = renderAdmCatalog(f);
+    });
+  }
+
+  function renderAdmCatalog(rows) {
+    const badge = { active: "high", draft: "insufficient", archived: "low",
+                    validated: "medium", review_due: "medium" };
+    return `<table class="adm-table"><thead><tr><th>Професія</th><th>Категорія</th><th>Статус</th><th>Версія</th><th></th></tr></thead>
+      <tbody>${rows.map((c) => `<tr>
+        <td><strong>${esc(c.name_uk)}</strong><br><span class="muted">${esc(c.code)}</span></td>
+        <td>${esc(c.category_uk || "—")}</td>
+        <td><span class="badge ${badge[c.status] || "insufficient"}">${esc(lbl("status", c.status))}</span></td>
+        <td>${c.profile_version}</td>
+        <td><a class="mini" href="#/admin/career/${c.id}">Відкрити</a></td>
+      </tr>`).join("")}</tbody></table>`;
+  }
+
+  // ===================================================================
   // CREATE
   // ===================================================================
   function screenCreate() {
     if (!MnpApi.isAdmin()) { location.hash = "#/admin/login"; return; }
     root().innerHTML = `
-      <a class="kb-back" href="#/catalog" style="display:inline-block">← До каталогу</a>
+      <a class="kb-back" href="#/admin/catalog" style="display:inline-block">← До каталогу професій</a>
       <h1>Нова професія</h1>
       <p class="lead">Створюється у статусі <strong>Чернетка</strong>. Опублікувати можна після заповнення мінімуму.</p>
       ${field("nc-code", "Код професії (career_code, латиниця, знак підкреслення)", "", "placeholder=\"напр. data_analyst\"")}
@@ -157,7 +205,7 @@ const MnpAdmin = (() => {
     const c = ev.core;
     root().innerHTML = `
       <div class="adm-head">
-        <a class="kb-back" href="#/catalog" style="display:inline-block">← До каталогу</a>
+        <a class="kb-back" href="#/admin/catalog" style="display:inline-block">← До каталогу професій</a>
         <h1>${esc(c.name_uk)} <span class="badge ${c.status === "active" ? "high" : "insufficient"}">${esc(lbl("status", c.status))}</span></h1>
         <p class="kb-cat">${esc(c.career_code)} · версія профілю ${c.profile_version}</p>
         <div class="adm-actions">
@@ -712,5 +760,5 @@ const MnpAdmin = (() => {
       </tr>`).join("") || `<tr><td colspan="5" class="muted">Історія порожня</td></tr>`}</tbody></table>`;
   }
 
-  return { screenLogin, screenEditor, screenCreate };
+  return { screenLogin, screenEditor, screenCreate, screenAdminCatalog };
 })();

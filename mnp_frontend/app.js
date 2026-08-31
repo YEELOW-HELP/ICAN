@@ -301,6 +301,7 @@ const App = (() => {
       const adminBar = MnpApi.isAdmin()
         ? `<div class="admin-bar">
              <span>Режим редактора</span>
+             <a href="#/admin/catalog" class="btn secondary">Усі професії (Career KB)</a>
              <a href="#/admin/career/new" class="btn">+ Створити професію</a>
              <a href="#" class="admin-logout">вийти</a>
            </div>`
@@ -529,6 +530,7 @@ const App = (() => {
     if (path === "catalog") return screenCatalog(param || null);
     if (path === "career-card") return screenCareerCard();
     if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
+    if (path === "admin" && (param === "catalog" || !param)) return MnpAdmin.screenAdminCatalog();
     if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
     return screenLanding();
   }
