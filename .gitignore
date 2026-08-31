@@ -12,3 +12,6 @@ venv/
 dist/
 build/
 data/
+*.sqlite
+*.sqlite3
+mnp_dev.db

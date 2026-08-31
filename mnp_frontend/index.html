@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>МОЖУ: Мій Напрям</title>
+<link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand" onclick="location.hash='#/'">МОЖУ: Мій Напрям</div>
+  <nav>
+    <a href="#/">Головна</a>
+    <a href="#/catalog">Кар'єри</a>
+    <a href="#/results">Мої рекомендації</a>
+    <a href="#/career-card">Кар'єрна карта</a>
+  </nav>
+</header>
+<main id="app"></main>
+<footer class="footer">MNP V1 -- deterministic, explainable career navigation. No AI, no fabricated numbers.</footer>
+<!-- ?v= is bumped by hand on every edit to api.js/app.js/style.css --
+     StaticFiles doesn't send strong cache-revalidation headers, so a
+     browser can otherwise keep serving a stale cached copy of these
+     files indefinitely after a fix ships (this exact thing happened
+     during Founder Acceptance Testing: a real server-side fix was live,
+     but the browser kept running the old script). -->
+<script src="api.js?v=5"></script>
+<script src="admin.js?v=5"></script>
+<script src="app.js?v=5"></script>
+</body>
+</html>

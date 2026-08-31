@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MNP DATA EXPLORER Golden case (deterministic Person\u2194Career expected result)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "dataset_version",
+    "persona_id",
+    "person_profile_snapshot",
+    "expected_top_careers",
+    "acceptable_careers",
+    "unacceptable_careers",
+    "expected_feasibility",
+    "expected_transition_distance",
+    "expected_gaps",
+    "expected_unknowns",
+    "expected_blockers",
+    "methodology_version",
+    "career_kb_version",
+    "source_data_versions",
+    "created_by",
+    "created_at"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "dataset_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "persona_id": {
+      "type": "string"
+    },
+    "person_profile_snapshot": {
+      "type": "object"
+    },
+    "expected_top_careers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptable_careers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unacceptable_careers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_feasibility": {
+      "type": "object"
+    },
+    "expected_transition_distance": {
+      "type": "object"
+    },
+    "expected_gaps": {
+      "type": "array"
+    },
+    "expected_unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expected_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "methodology_version": {
+      "type": "string"
+    },
+    "career_kb_version": {
+      "type": "string"
+    },
+    "source_data_versions": {
+      "type": "object"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  }
+}

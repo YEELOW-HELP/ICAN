@@ -1,0 +1,52 @@
+# WORKED EXAMPLE — Human Expected Result (brief §18). Hand-authored.
+# This is the HUMAN REFERENCE against which the MNP engine is checked —
+# never an engine output, never LLM-generated.
+persona_id: csr_to_office
+methodology_version: mnp_v1
+career_kb_version: seed_alpha_v1
+
+# Against the 5 ACTIVE alpha careers only.
+expected_top_careers:
+  - customer_service_representative     # D0 — the person's current occupation
+acceptable_careers:
+  - sales_manager                       # D1 — realistic progression from a service role
+unacceptable_careers:
+  - software_developer                  # D4/D5 — no transferable evidence, would need full retraining
+  - accountant                          # D4 — unrelated domain, no accounting evidence
+
+expected_feasibility:
+  customer_service_representative: ready_now
+  sales_manager: reachable               # confirmed sales-skill gap, closeable with training
+  logistics_coordinator: reachable
+  accountant: long_transition
+  software_developer: long_transition
+
+expected_transition_distance:
+  customer_service_representative: d0_same_career
+  sales_manager: d1_progression
+  logistics_coordinator: d2_adjacent
+  accountant: d4_career_change
+  software_developer: d4_career_change
+
+expected_gaps:
+  - {skill_or_knowledge: "Sales Negotiation", gap_type: skill, classification: must_have, action: learn}
+  - {skill_or_knowledge: "B2B Sales", gap_type: skill, classification: high_value, action: practice}
+  - {skill_or_knowledge: "Team Leadership", gap_type: skill, classification: differentiator, action: prove}
+
+expected_unknowns:
+  - "Sales Negotiation — no evidence either way (not claimed, not contradicted)"
+  - "B2B Sales — unknown"
+
+expected_blockers: []   # nothing hard-blocks; B1 English is a soft constraint only
+
+rationale: >
+  The person has a strong, verified service/communication base and CRM
+  familiarity — genuine career capital for sales_manager, which is one
+  progression step away (service → sales). The two sales skills are
+  MUST_HAVE / HIGH_VALUE gaps but learnable within the person's stated
+  6 h/week. customer_service_representative stays the D0 anchor. Roles
+  with no transferable evidence (accountant, software_developer) must not
+  appear in a "best for me" view and are long_transition at best.
+  English B1 is a soft constraint (limits international employers), never
+  a hard blocker.
+reviewer: "example (data_explorer)"

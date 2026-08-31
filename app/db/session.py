@@ -9,7 +9,10 @@ engine = create_async_engine(
     echo=False,
     # Neon's pooled endpoint runs PgBouncer in transaction mode, which is
     # incompatible with asyncpg's server-side prepared statement cache.
-    connect_args={"statement_cache_size": 0},
+    # asyncpg-only: sqlite3 (used for local dev/manual smoke testing --
+    # migrations/env.py already has this exact same conditional) rejects
+    # this kwarg outright.
+    connect_args={"statement_cache_size": 0} if "asyncpg" in settings.database_url else {},
 )
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
