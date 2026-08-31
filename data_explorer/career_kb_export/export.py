@@ -74,11 +74,13 @@ def build(dest=None, careers=None) -> None:
     _readme(wb, careers, generated_at)
     _careers(wb, careers)
     _skills(wb, careers)
+    _knowledge(wb, careers)
     _requirements(wb, careers)
     _responsibilities(wb, careers)
     _career_paths(wb, careers)
     _pros_cons(wb, careers)
     _market_data(wb, careers)
+    _aliases(wb, careers)
     _external_refs(wb, careers)
     _provenance(wb, careers)
 
@@ -101,12 +103,14 @@ def _readme(wb, careers, generated_at) -> None:
         ("Sheets", True),
         ("10_CAREERS         одна професія на рядок (mnp_careers + mnp_career_families) + складність/вхід", False),
         ("20_SKILLS          Career<->Skill (mnp_career_skill_requirements + mnp_skills), Тверді/М'які", False),
+        ("25_KNOWLEDGE       предметні знання (mnp_career_knowledge_requirements) — розріджено навмисно, §9", False),
         ("30_REQUIREMENTS    освіта/досвід/мова/сертифікація/ліцензія/інші (mnp_career_requirements)", False),
         ("40_RESPONSIBILITIES  обов'язки (mnp_career_tasks — MNP_CAREER_PROFILE_SCHEMA_V1 §7)", False),
         ("50_CAREER_PATHS    типовий кар'єрний шлях (mnp_career_path_steps) — НЕ гарантований маршрут", False),
         ("60_PROS_CONS       переваги/недоліки (mnp_career_pros_cons) — РЕДАКЦІЙНИЙ шар MNP, не статистика", False),
         ("70_MARKET_DATA     (mnp_market_snapshots + mnp_salary_snapshots) — порожньо/UNKNOWN; ЖОДНИХ вигаданих цифр", False),
-        ("80_EXTERNAL_REFS   ESCO/O*NET/ISCO/UA_CLASSIFIER (mnp_external_mappings, entity_type=career)", False),
+        ("80_ALIASES         інші ринкові назви професії (mnp_career_aliases — §4)", False),
+        ("85_EXTERNAL_REFS   ESCO/O*NET/ISCO/UA_CLASSIFIER (mnp_external_mappings, entity_type=career)", False),
         ("90_PROVENANCE      чому кожне значення в KB — source/source_version/confidence по кожному полю", False),
         ("", False),
         ("ПРАВИЛА: Ukrainian-first (українські колонки — перші). UNKNOWN != 0 (порожня клітинка). Без AI. "
@@ -166,6 +170,58 @@ def _skills(wb, careers) -> None:
                    "(communication|management -> М'яка). Назви навичок — людські, не UUID. UNKNOWN != 0.",
               widths={"Навичка (укр)": 34, "Професія (укр)": 30, "skill_name_en": 30})
     add_dropdown(ws, "M", _REVIEW_STATES, first_row=4)
+
+
+def _knowledge(wb, careers) -> None:
+    """Career knowledge requirements (mnp_career_knowledge_requirements).
+    Sparse by design in V1 -- only careers where a specific body of
+    knowledge is genuinely gating (e.g. Ukrainian tax law for an
+    accountant). Not padded for a completeness score."""
+    rows = []
+    for c in careers:
+        for k in c.knowledge_requirements:
+            rows.append([
+                c.canonical_name_uk, k["knowledge_uk"] or k["knowledge_en"],
+                _REQ_TYPE_UK.get(k["requirement_type"], k["requirement_type"]),
+                _LEVEL_UK.get(k["required_level"], k["required_level"]),
+                _IMPORTANCE_UK.get(k["importance"], k["importance"]),
+                c.code, k["knowledge_en"], k["requirement_type"], k["required_level"],
+                _src_type(k["source"]), _review(k["source"]),
+            ])
+    ws = add_table(wb, "25_KNOWLEDGE",
+              ["Професія (укр)", "Знання (укр)", "Потрібність (укр)", "Рівень (укр)", "Важливість (укр)",
+               "career_code", "knowledge_name_en", "requirement_type", "required_level",
+               "source_type", "review_status"],
+              rows, title="Знання професій (джерело: mnp_career_knowledge_requirements — §9)",
+              note="Ukrainian-first. У V1 навмисно розріджено: додаємо знання лише там, де конкретний "
+                   "предметний блок реально є умовою входу (напр. податкове законодавство України для "
+                   "бухгалтера). НЕ заповнюємо штучно заради completeness. Порожньо -> знання не є "
+                   "визначальним для цієї професії у V1.",
+              widths={"Знання (укр)": 44, "Професія (укр)": 26, "knowledge_name_en": 34})
+    add_dropdown(ws, "K", _REVIEW_STATES, first_row=4)
+
+
+_ALIAS_TYPE_UK = {
+    "market_title": "Ринкова назва", "abbreviation": "Скорочення",
+    "transliteration": "Транслітерація", "misspelling": "Поширена помилка", "translation": "Переклад",
+}
+
+
+def _aliases(wb, careers) -> None:
+    rows = []
+    for c in careers:
+        for a in c.aliases:
+            rows.append([
+                c.canonical_name_uk, a["alias"], _ALIAS_TYPE_UK.get(a["type"], a["type"]),
+                a["language"], c.code, a["type"], _src_type(a["source"]),
+            ])
+    add_table(wb, "80_ALIASES",
+              ["Професія (укр)", "Аліас / інша назва (укр)", "Тип (укр)", "Мова",
+               "career_code", "alias_type", "source_type"],
+              rows, title="Аліаси професій (джерело: mnp_career_aliases — §4)",
+              note="Ukrainian-first. Інші назви, під якими професію знають на ринку. Аліас НІКОЛИ не "
+                   "створює нову професію. Використовується для пошуку та розпізнавання назв.",
+              widths={"Аліас / інша назва (укр)": 40, "Професія (укр)": 26})
 
 
 _REQ_CATEGORY_UK = {
@@ -289,7 +345,7 @@ def _external_refs(wb, careers) -> None:
         for em in c.external_mappings:
             rows.append([c.code, em["source_system"], em["external_id"], em["external_label"],
                          em["mapping_type"], "candidate", em["confidence"], "", ""])
-    add_table(wb, "80_EXTERNAL_REFS",
+    add_table(wb, "85_EXTERNAL_REFS",
               ["career_code", "external_system", "external_id", "external_label", "mapping_type",
                "mapping_status", "confidence", "reviewed_by", "reviewed_at"],
               rows, title="External references (source: mnp_external_mappings, entity_type=career)",

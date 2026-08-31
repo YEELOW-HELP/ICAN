@@ -14,8 +14,9 @@ from data_explorer.career_kb_export import export
 from data_explorer.mnp_snapshot import load_mnp_careers
 
 REQUIRED_SHEETS = [
-    "00_README", "10_CAREERS", "20_SKILLS", "30_REQUIREMENTS", "40_RESPONSIBILITIES",
-    "50_CAREER_PATHS", "60_PROS_CONS", "70_MARKET_DATA", "80_EXTERNAL_REFS", "90_PROVENANCE",
+    "00_README", "10_CAREERS", "20_SKILLS", "25_KNOWLEDGE", "30_REQUIREMENTS",
+    "40_RESPONSIBILITIES", "50_CAREER_PATHS", "60_PROS_CONS", "70_MARKET_DATA",
+    "80_ALIASES", "85_EXTERNAL_REFS", "90_PROVENANCE",
 ]
 
 
@@ -79,6 +80,24 @@ def test_skills_export_matches_the_db_and_uses_human_names(wb, careers):
     for r in rows:
         assert r["Навичка (укр)"] and not uuid_re.search(str(r["Навичка (укр)"]) + str(r["skill_name_en"]))
         assert r["Тип навички"] in ("Тверда", "М'яка")
+
+
+def test_knowledge_export_matches_the_db(wb, careers):
+    rows = _table_rows(wb["25_KNOWLEDGE"])
+    db = sorted((c.code, k["knowledge_en"]) for c in careers for k in c.knowledge_requirements)
+    xls = sorted((r["career_code"], r["knowledge_name_en"]) for r in rows)
+    assert xls == db
+    # sparse by design -- do not require a row per career
+    for r in rows:
+        assert r["Знання (укр)"]
+        assert r["Важливість (укр)"] in ("Низька", "Середня", "Висока", "Критична")
+
+
+def test_aliases_export_matches_the_db(wb, careers):
+    rows = _table_rows(wb["80_ALIASES"])
+    db = sorted((c.code, a["alias"]) for c in careers for a in c.aliases)
+    xls = sorted((r["career_code"], r["Аліас / інша назва (укр)"]) for r in rows)
+    assert xls == db and len(rows) > 0
 
 
 def test_requirements_export_matches_the_db(wb, careers):
