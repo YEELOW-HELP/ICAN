@@ -27,7 +27,8 @@ numbers, no black-box AI scoring in the core.
 | `master` | stable legacy / release baseline (ICAN 1.1 era) |
 | `product-system-v3.1` | **single canonical development / integration branch** for MNP |
 | feature branches | short-lived, branched from `product-system-v3.1`, merged back via PR |
-| research / archive | `matching-v1-deterministic-core`, `data-foundation-v1`, `stage-3b-direction-intelligence-v1`, `stage-1-hotfix-anthropic-key-validation` — retained for history/research, **never merged to production** |
+| research / archive | `matching-v1-deterministic-core`, `data-foundation-v1`, `stage-3b-direction-intelligence-v1` — retained for history/research, **never merged to production** |
+| temporary / superseded | `stage-1-hotfix-anthropic-key-validation` — its useful behaviour is already ported into `repo-cleanup-v1`. **Safe to delete after PR #24 merges.** Not a permanent research/archive branch. |
 
 Consolidated and deleted: `mnp-v1-implementation`, `career-kb-v1-final`,
 `mnp-career-kb-v1`, `mnp-data-explorer-v1`, `founder-architecture-review-v3.1`,

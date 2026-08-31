@@ -15,7 +15,8 @@
 | `master` | стабильный legacy / release baseline (ICAN era) |
 | `product-system-v3.1` | **единственная** каноническая ветка разработки/интеграции текущего продукта МОЖУ / MNP |
 | feature-ветки | короткоживущие, от `product-system-v3.1`, вливаются обратно через PR |
-| research / archive | `matching-v1-deterministic-core`, `data-foundation-v1`, `stage-3b-direction-intelligence-v1`, `stage-1-hotfix-anthropic-key-validation` — история и исследования, **не** вливаются в прод |
+| research / archive | `matching-v1-deterministic-core`, `data-foundation-v1`, `stage-3b-direction-intelligence-v1` — история и исследования, **не** вливаются в прод |
+| temporary / superseded | `stage-1-hotfix-anthropic-key-validation` — старый хотфикс; его полезное поведение уже перенесено в `repo-cleanup-v1`. Удаляется после merge PR #24; **не** постоянная research/archive-ветка |
 
 `mnp-v1-implementation`, `career-kb-v1-final`, `mnp-career-kb-v1`, `mnp-data-explorer-v1` — уже консолидированы в `product-system-v3.1` и удалены.
 
