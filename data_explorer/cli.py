@@ -7,6 +7,8 @@
     python -m data_explorer.cli analysis      # dimension analysis + data-quality report
     python -m data_explorer.cli golden        # export hand-authored human expected results -> golden fixtures
     python -m data_explorer.cli excel         # write MNP_ESCO_ONET_DATA_EXPLORER.xlsx
+    python -m data_explorer.cli export-careers-excel   # write MNP_CAREER_KB_V1.xlsx (from the MNP Career KB)
+    python -m data_explorer.cli refresh-workua-career-inventory   # re-crawl Work.ua Career Guide, diff, report (never touches the Career KB)
 """
 
 from __future__ import annotations
@@ -43,6 +45,12 @@ def main(argv: list[str]) -> int:
     elif cmd == "excel":
         from data_explorer.excel import workbook
         workbook.build()
+    elif cmd == "export-careers-excel":
+        from data_explorer.career_kb_export import export
+        export.build()
+    elif cmd == "refresh-workua-career-inventory":
+        from data_explorer.workua import refresh
+        print(refresh.run().as_report())
     elif cmd == "golden":
         from data_explorer.human_lab import golden_export
         golden_export.run()

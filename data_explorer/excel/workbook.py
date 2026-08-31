@@ -40,9 +40,11 @@ def _inlist(items: list[str]) -> str:
     return "(" + ",".join("?" * len(items)) + ")"
 
 
-def build() -> None:
+def build(dest=None) -> None:
+    from pathlib import Path
     if not config.REFERENCE_DB.exists():
         raise SystemExit("reference.sqlite not built — run: python -m data_explorer.cli build")
+    dest = Path(dest) if dest else OUT
     conn = sqlite3.connect(config.REFERENCE_DB)
     wb = Workbook()
     wb.remove(wb.active)
@@ -64,9 +66,9 @@ def build() -> None:
     _golden_export(wb)
 
     conn.close()
-    config.EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    wb.save(OUT)
-    log(f"  wrote {OUT}  ({len(wb.sheetnames)} sheets)")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(dest)
+    log(f"  wrote {dest}  ({len(wb.sheetnames)} sheets)")
 
 
 # --------------------------------------------------------------------------

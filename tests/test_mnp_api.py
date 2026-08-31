@@ -48,7 +48,10 @@ async def test_full_no_cv_flow_end_to_end(client):
 
     capital_resp = await client.post(
         "/v1/mnp/questionnaire/career-capital",
-        json={"current_role": "Менеджер з продажу", "years_of_experience": 3, "skill_phrases": ["Переговори", "CRM"]},
+        json={
+            "current_role": "Менеджер з продажу", "years_of_experience": 3,
+            "skill_phrases": ["Переговори", "Робота з запереченнями", "Продажі B2B", "CRM", "Активне слухання"],
+        },
         headers=headers,
     )
     assert capital_resp.status_code == 200
@@ -184,35 +187,32 @@ async def test_upload_rate_limit_enforced(client):
     assert 429 in responses
 
 
-async def test_admin_can_create_and_activate_career(client, session_factory):
+async def test_admin_can_create_career_draft(client, session_factory):
+    """Smoke test of the Career KB Editor create endpoint (full CRUD /
+    publish / archive coverage lives in test_mnp_career_kb_editor.py)."""
     headers = await _admin_headers(session_factory)
     create_resp = await client.post(
         "/v1/mnp/admin/careers",
         json={
-            "code": "test_new_career", "canonical_name_uk": "Тест", "canonical_name_en": "Test",
-            "description_short_uk": "desc", "career_family_code": "sales", "career_family_name_uk": "Продажі",
-            "career_family_name_en": "Sales",
+            "career_code": "test_new_career", "name_uk": "Тест", "name_en": "Test",
+            "category_uk": "Продажі", "short_description_uk": "desc",
         },
         headers=headers,
     )
     assert create_resp.status_code == 201
-    career_id = create_resp.json()["id"]
-    assert create_resp.json()["status"] == "draft"
+    body = create_resp.json()
+    assert body["core"]["status"] == "draft" and body["core"]["career_code"] == "test_new_career"
 
-    validate_resp = await client.patch(f"/v1/mnp/admin/careers/{career_id}/status", json={"to_status": "validated"}, headers=headers)
-    assert validate_resp.status_code == 200
-    assert validate_resp.json()["status"] == "validated"
-
-    invalid_resp = await client.patch(f"/v1/mnp/admin/careers/{career_id}/status", json={"to_status": "archived"}, headers=headers)
-    assert invalid_resp.status_code == 400  # VALIDATED -> ARCHIVED is not an allowed transition
+    # a fresh DRAFT is not publishable yet and is not in the public catalog
+    ready = await client.get(f"/v1/mnp/admin/careers/{body['id']}/publish-readiness", headers=headers)
+    assert ready.json()["ready"] is False
+    assert "test_new_career" not in {c["code"] for c in (await client.get("/v1/mnp/careers")).json()}
 
 
 async def test_admin_endpoint_requires_admin_auth(client):
     resp = await client.post(
         "/v1/mnp/admin/careers",
-        json={
-            "code": "x", "canonical_name_uk": "x", "canonical_name_en": "x", "description_short_uk": "x",
-            "career_family_code": "x", "career_family_name_uk": "x", "career_family_name_en": "x",
-        },
+        json={"career_code": "x", "name_uk": "x", "category_uk": "x"},
     )
     assert resp.status_code == 401
+    assert (await client.get("/v1/mnp/admin/careers")).status_code == 401

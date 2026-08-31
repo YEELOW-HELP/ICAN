@@ -34,6 +34,12 @@ const App = (() => {
     root.innerHTML = `<div class="loading">Завантаження...</div>`;
   }
 
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+  }
+
   function showError(err) {
     root.innerHTML = `<div class="error-box">Сталася помилка: ${err.message || err}</div><a href="#/" class="btn">На головну</a>`;
   }
@@ -270,17 +276,215 @@ const App = (() => {
     }
   }
 
-  async function screenCatalog() {
+  // --- Career Explorer (Career KB V1) ---------------------------------
+  // Left: searchable catalog of the 5 ACTIVE careers. Right: the full
+  // Career Card for the selected profession, all from GET /careers +
+  // GET /careers/{id} (the production Career KB -- no hardcoded content).
+
+  let _catalogCache = null;
+
+  async function screenCatalog(selectedId) {
     setLoading();
     try {
-      const careers = await MnpApi.listCareers();
+      if (!_catalogCache) _catalogCache = await MnpApi.listCareers();
+      const careers = _catalogCache;
+      const isDesktop = window.matchMedia("(min-width: 761px)").matches;
+      if (!selectedId && careers.length && isDesktop) {
+        // Desktop shows a two-pane layout, so open the first career by
+        // default. On mobile the catalog list comes first (brief §14).
+        location.hash = `#/catalog/${careers[0].id}`;
+        return;
+      }
+      const detail = selectedId ? await MnpApi.getCareerDetail(selectedId) : null;
+      const card = await MnpApi.getCareerCard();
+
+      const adminBar = MnpApi.isAdmin()
+        ? `<div class="admin-bar">
+             <span>Режим редактора</span>
+             <a href="#/admin/catalog" class="btn secondary">Усі професії (Career KB)</a>
+             <a href="#/admin/career/new" class="btn">+ Створити професію</a>
+             <a href="#" class="admin-logout">вийти</a>
+           </div>`
+        : `<div class="admin-bar muted"><a href="#/admin/login" class="admin-login-link">Вхід для редагування</a></div>`;
+
       root.innerHTML = `
-        <h1>Каталог професій</h1>
-        ${careers.map((c) => `<div class="career-row" style="cursor:default"><div><strong>${c.name_uk}</strong><div class="limitation-label" style="margin-top:0.3rem">${c.description_short_uk}</div></div></div>`).join("")}
+        ${adminBar}
+        <div class="explorer">
+          <aside class="explorer-catalog" data-open="${detail ? "false" : "true"}">
+            <h1>Професії</h1>
+            <input id="career-search" class="career-search" type="text" placeholder="Пошук професії..." autocomplete="off">
+            <div id="career-list">${renderCatalogList(careers, selectedId)}</div>
+          </aside>
+          <section class="explorer-detail">
+            ${detail ? renderCareerKbDetail(detail, card) : `<p class="lead">Оберіть професію зі списку.</p>`}
+          </section>
+        </div>
       `;
+
+      const logout = root.querySelector(".admin-logout");
+      if (logout) logout.addEventListener("click", (e) => { e.preventDefault(); MnpApi.adminLogout(); render(); });
+
+      const search = document.getElementById("career-search");
+      if (search) {
+        search.addEventListener("input", () => {
+          const q = search.value.trim().toLowerCase();
+          const filtered = careers.filter((c) =>
+            c.name_uk.toLowerCase().includes(q) ||
+            (c.category_uk || "").toLowerCase().includes(q) ||
+            (c.description_short_uk || "").toLowerCase().includes(q));
+          document.getElementById("career-list").innerHTML =
+            filtered.length ? renderCatalogList(filtered, selectedId)
+                            : `<p class="limitation-label">Нічого не знайдено</p>`;
+        });
+      }
     } catch (e) {
       showError(e);
     }
+  }
+
+  function renderCatalogList(careers, selectedId) {
+    return careers.map((c) => `
+      <a class="catalog-item ${c.id === selectedId ? "is-selected" : ""}" href="#/catalog/${c.id}">
+        <strong>${esc(c.name_uk)}</strong>
+        <span class="catalog-item-cat">${esc(c.category_uk || "")}</span>
+      </a>
+    `).join("");
+  }
+
+  function renderReqSection(section) {
+    if (!section) return "";
+    const body = section.items.length
+      ? `<ul class="kb-list">${section.items.map((it) => `
+          <li>
+            <span>${esc(it.title_uk)}</span>
+            <span class="badge ${it.confirmed ? "high" : "insufficient"}">${esc(it.hardness_uk)}</span>
+          </li>`).join("")}</ul>`
+      : `<p class="limitation-label">${esc(section.empty_label_uk || "Немає підтверджених даних")}</p>`;
+    return `<div class="kb-req-block"><h3>${esc(section.title_uk)}</h3>${body}</div>`;
+  }
+
+  function renderSkillTable(title, skills) {
+    if (!skills || !skills.length) return "";
+    return `
+      <h3>${esc(title)}</h3>
+      <table class="kb-skill-table">
+        <thead><tr><th>Навичка</th><th>Потрібність</th><th>Рівень</th></tr></thead>
+        <tbody>
+          ${skills.map((s) => `
+            <tr>
+              <td>${esc(s.name_uk)}</td>
+              <td><span class="badge ${skillReqClass(s.requirement_code)}">${esc(s.requirement_uk)}</span></td>
+              <td>${esc(s.level_uk)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  function skillReqClass(code) {
+    return { must_have: "high", high_value: "medium", differentiator: "insufficient", optional: "insufficient" }[code] || "insufficient";
+  }
+
+  function renderCareerKbDetail(d, card) {
+    const cta = card
+      ? `<a href="#/results" class="btn">Подивитися мої рекомендації</a>`
+      : `<a href="#/start" class="btn">Дізнатися, чи підходить мені ця професія</a>`;
+
+    const reqOrder = ["education", "experience", "language", "credential", "legal", "other"];
+
+    const adminEdit = MnpApi.isAdmin()
+      ? `<a class="btn" href="#/admin/career/${d.id}" style="float:right">Редагувати</a>` : "";
+
+    return `
+      <div class="kb-detail">
+        <a class="kb-back" href="#/catalog">← До списку професій</a>
+        ${adminEdit}
+        <h1>${esc(d.identity.name_uk)}</h1>
+        <p class="kb-cat">${esc(d.identity.category_uk || "")}</p>
+        <p class="lead">${esc(d.overview.short_description_uk)}</p>
+
+        <div class="kb-kpis">
+          <div class="kb-kpi">
+            <span class="kb-kpi-label">Складність входу</span>
+            <span class="kb-kpi-value">${esc(d.entry.difficulty_uk)}</span>
+          </div>
+          <div class="kb-kpi">
+            <span class="kb-kpi-label">Старт без досвіду</span>
+            <span class="kb-kpi-value">${esc(d.entry.without_experience_uk)}</span>
+          </div>
+          <div class="kb-kpi">
+            <span class="kb-kpi-label">Ринок праці</span>
+            <span class="kb-kpi-value kb-kpi-muted">${esc(d.market.status_uk)}</span>
+          </div>
+        </div>
+
+        <h2>${esc(d.overview.title_uk)}</h2>
+        ${d.overview.long_description_uk ? `<p>${esc(d.overview.long_description_uk)}</p>` : `<p class="limitation-label">Розгорнутий опис готується</p>`}
+
+        <h2>Основні обов'язки</h2>
+        <ul class="kb-list">
+          ${d.responsibilities.map((r) => `<li><span><strong>${esc(r.title_uk)}</strong>${r.description_uk ? ` — ${esc(r.description_uk)}` : ""}</span></li>`).join("")}
+        </ul>
+
+        <h2>Навички</h2>
+        ${renderSkillTable("Тверді навички", d.skills.hard)}
+        ${renderSkillTable("М'які навички", d.skills.soft)}
+        ${(!d.skills.hard.length && !d.skills.soft.length) ? `<p class="limitation-label">Навички готуються</p>` : ""}
+
+        ${d.knowledge.length ? `<h2>Знання</h2><div class="chips">${d.knowledge.map((k) => `<span class="chip">${esc(k.name_uk)}</span>`).join("")}</div>` : ""}
+
+        <h2>Вимоги та освіта</h2>
+        ${reqOrder.map((k) => renderReqSection(d.requirements[k])).join("")}
+        <p class="limitation-label">«Бажана» — перевага, а не обов'язкова умова. Відсутність підтверджених даних не означає, що вимоги немає.</p>
+
+        <h2>Переваги та недоліки</h2>
+        <p class="limitation-label">Редакційна оцінка MNP, а не статистика.</p>
+        <div class="kb-proscons">
+          <div class="kb-pros">
+            <h3>Переваги</h3>
+            <ul class="kb-list">${d.pros_cons.advantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul>
+          </div>
+          <div class="kb-cons">
+            <h3>Недоліки</h3>
+            <ul class="kb-list">${d.pros_cons.disadvantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul>
+          </div>
+        </div>
+
+        <h2>${esc(d.career_path.label_uk)}</h2>
+        <p class="limitation-label">Типовий маршрут, а не гарантований шлях просування.</p>
+        <ol class="kb-path">
+          ${d.career_path.steps.map((s) => `
+            <li class="${s.is_current ? "is-current" : ""}">
+              <div class="kb-path-name">${esc(s.name_uk)}${s.is_current ? ` <span class="badge insufficient">ця професія</span>` : ""}</div>
+              ${s.typical_experience_uk ? `<div class="kb-path-exp">${esc(s.typical_experience_uk)}</div>` : ""}
+              ${s.description_uk ? `<div class="kb-path-desc">${esc(s.description_uk)}</div>` : ""}
+            </li>`).join("")}
+        </ol>
+
+        <h2>Попит і зарплата</h2>
+        <p class="limitation-label">${esc(d.market.status_uk)}. Ми не показуємо орієнтовних цифр, доки немає перевіреного джерела.</p>
+
+        ${d.related_careers.length ? `
+          <h2>Пов'язані професії</h2>
+          <div class="kb-related">
+            ${d.related_careers.map((r) => `
+              <a class="kb-related-item" href="#/catalog/${relatedId(r.code)}">
+                <strong>${esc(r.name_uk)}</strong>
+                <span class="catalog-item-cat">${esc(r.relation_uk)}</span>
+              </a>`).join("")}
+          </div>` : ""}
+
+        <div class="kb-cta">
+          <h2>Ваше співпадіння</h2>
+          <p>${card ? "Ваша кар'єрна карта вже створена — подивіться, як ця професія співвідноситься з вашим досвідом." : "Пройдіть коротку анкету, щоб побачити, наскільки ця професія підходить саме вам."}</p>
+          ${cta}
+        </div>
+      </div>
+    `;
+  }
+
+  function relatedId(code) {
+    const hit = (_catalogCache || []).find((c) => c.code === code);
+    return hit ? hit.id : "";
   }
 
   async function screenCareerCard() {
@@ -323,8 +527,11 @@ const App = (() => {
     if (path === "results") return screenResults(param || localStorage.getItem("mnp_last_match_run"));
     if (path === "career") return screenCareerDetail(param);
     if (path === "route") return screenRoute(param);
-    if (path === "catalog") return screenCatalog();
+    if (path === "catalog") return screenCatalog(param || null);
     if (path === "career-card") return screenCareerCard();
+    if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
+    if (path === "admin" && (param === "catalog" || !param)) return MnpAdmin.screenAdminCatalog();
+    if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
     return screenLanding();
   }
 

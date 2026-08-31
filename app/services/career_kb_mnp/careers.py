@@ -14,8 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models_career_kb_mnp import (
     CareerAliasType,
+    CareerDifficulty,
     CareerLifecycleStatus,
+    CareerPathStepType,
     CareerRelationType,
+    EntryWithoutExperience,
     ExternalMappingType,
     ExternalSourceSystem,
     ImportanceLevel,
@@ -24,11 +27,14 @@ from app.db.models_career_kb_mnp import (
     MnpCareerAttribute,
     MnpCareerFamily,
     MnpCareerKnowledgeRequirement,
+    MnpCareerPathStep,
+    MnpCareerProCon,
     MnpCareerRelation,
     MnpCareerRequirement,
     MnpCareerSkillRequirement,
     MnpCareerTask,
     MnpExternalMapping,
+    ProConType,
     RequirementCategory,
     RequirementHardness,
     RequirementType,
@@ -275,6 +281,79 @@ async def add_career_attribute(
     row = MnpCareerAttribute(
         career_id=career.id, attribute_group=attribute_group, attribute_key=attribute_key,
         value_numeric=value_numeric, value_text=value_text, source=source, confidence=confidence,
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def set_career_entry(
+    session: AsyncSession, career: MnpCareer, *,
+    difficulty_level: CareerDifficulty | None = None,
+    entry_without_experience: EntryWithoutExperience | None = None,
+    typical_entry_route_uk: str | None = None,
+) -> MnpCareer:
+    """Entry characteristics (moat doc §5). Only sets what is passed;
+    unset values stay UNKNOWN / NULL (Founder Decision #27)."""
+    if difficulty_level is not None:
+        career.difficulty_level = difficulty_level
+    if entry_without_experience is not None:
+        career.entry_without_experience = entry_without_experience
+    if typical_entry_route_uk is not None:
+        career.typical_entry_route_uk = typical_entry_route_uk
+    await session.flush()
+    return career
+
+
+async def add_career_procon(
+    session: AsyncSession, career: MnpCareer, *, type: ProConType, text_uk: str,
+    sort_order: int, text_en: str | None = None, source: str = "mnp_editorial_v1",
+    source_version: str | None = None, confidence: float | None = None,
+    review_status: str = "editorial",
+) -> MnpCareerProCon:
+    """MNP editorial advantage/disadvantage. Ukrainian-first."""
+    existing = await session.execute(
+        select(MnpCareerProCon).where(
+            MnpCareerProCon.career_id == career.id, MnpCareerProCon.type == type,
+            MnpCareerProCon.sort_order == sort_order,
+        )
+    )
+    found = existing.scalar_one_or_none()
+    if found is not None:
+        return found
+    row = MnpCareerProCon(
+        career_id=career.id, type=type, text_uk=text_uk, text_en=text_en, sort_order=sort_order,
+        source=source, source_version=source_version, confidence=confidence, review_status=review_status,
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def add_career_path_step(
+    session: AsyncSession, career: MnpCareer, *, step_order: int, step_name_uk: str,
+    step_type: CareerPathStepType, path_code: str = "typical", step_name_en: str | None = None,
+    description_uk: str | None = None, description_en: str | None = None,
+    typical_experience_text_uk: str | None = None, is_current_career_step: bool = False,
+    source: str = "mnp_editorial_v1", source_version: str | None = None, review_status: str = "editorial",
+) -> MnpCareerPathStep:
+    """One rung of a typical (not guaranteed) career path. Never
+    auto-creates a separate MnpCareer (Founder Decision §6)."""
+    existing = await session.execute(
+        select(MnpCareerPathStep).where(
+            MnpCareerPathStep.career_id == career.id, MnpCareerPathStep.path_code == path_code,
+            MnpCareerPathStep.step_order == step_order,
+        )
+    )
+    found = existing.scalar_one_or_none()
+    if found is not None:
+        return found
+    row = MnpCareerPathStep(
+        career_id=career.id, path_code=path_code, step_order=step_order, step_name_uk=step_name_uk,
+        step_name_en=step_name_en, step_type=step_type, description_uk=description_uk,
+        description_en=description_en, typical_experience_text_uk=typical_experience_text_uk,
+        is_current_career_step=is_current_career_step, source=source, source_version=source_version,
+        review_status=review_status,
     )
     session.add(row)
     await session.flush()
