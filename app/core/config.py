@@ -1,8 +1,12 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # hide_input_in_errors: a rejected value (e.g. a malformed
+    # ANTHROPIC_API_KEY / JWT secret / DB URL) must never be echoed back
+    # in the ValidationError text or logs.
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     telegram_bot_token: str = ""
     anthropic_api_key: str = ""
@@ -59,6 +63,26 @@ class Settings(BaseSettings):
     # same known ephemeral-hosting caveat as app/services/crm/storage.py;
     # `storage_ref` is an opaque path, never raw bytes in the DB.
     mnp_resume_storage_dir: str = "./data/mnp_resumes"
+
+    @field_validator("anthropic_api_key")
+    @classmethod
+    def _validate_anthropic_api_key(cls, value: str) -> str:
+        """Reject a malformed secret before the first provider request.
+
+        Anthropic sends the API key as an HTTP header, so it must be ASCII
+        with no surrounding whitespace. Without this, a pasted non-ASCII or
+        whitespace-padded value fails much later inside httpx with a
+        misleading UnicodeEncodeError / header error. An empty key stays
+        allowed (existing behaviour -- the default). The secret value is
+        never included in the exception message or logs.
+        """
+        if not value:
+            return value
+        if value != value.strip():
+            raise ValueError("ANTHROPIC_API_KEY must not contain leading or trailing whitespace")
+        if not value.isascii():
+            raise ValueError("ANTHROPIC_API_KEY must contain ASCII characters only")
+        return value
 
 
 settings = Settings()
