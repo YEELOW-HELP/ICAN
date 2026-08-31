@@ -65,6 +65,9 @@ const MnpApi = (() => {
 
   return {
     getUserId, ensureSession,
+    // generic user-scoped request (X-Mnp-User-Id auto-attached). Used by
+    // the Person KB user flows. `isForm: true` for multipart uploads.
+    request,
     uploadDocument: (file) => {
       const form = new FormData();
       form.append("file", file);

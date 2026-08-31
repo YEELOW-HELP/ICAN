@@ -48,6 +48,9 @@ def main(argv: list[str]) -> int:
     elif cmd == "export-careers-excel":
         from data_explorer.career_kb_export import export
         export.build()
+    elif cmd == "export-persons-excel":
+        from data_explorer.person_kb_export import export as person_export
+        print(f"  wrote {person_export.build()}")
     elif cmd == "refresh-workua-career-inventory":
         from data_explorer.workua import refresh
         print(refresh.run().as_report())

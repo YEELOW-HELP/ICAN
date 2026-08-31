@@ -310,3 +310,24 @@ p.lead { color: var(--muted); font-size: 1.05rem; }
   padding: 0.2rem 0.7rem;
   font-size: 0.85rem;
 }
+
+/* --- Person KB Base V1 --- */
+.pk-wrap { max-width: 720px; margin: 0 auto; }
+.pk-f { display:block; margin:10px 0; }
+.pk-f > span { display:block; font-size:.85rem; color:var(--muted); margin-bottom:3px; }
+.pk-f input, .pk-f select, .pk-f textarea { width:100%; padding:8px; border:1px solid var(--border,#ccc); border-radius:6px; background:var(--bg,#fff); color:inherit; }
+.pk-card { border:1px solid var(--border,#333); border-radius:10px; padding:14px; margin:12px 0; }
+.pk-choices { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; }
+.pk-choices .choice-card { flex:1 1 240px; cursor:pointer; border:1px solid var(--border,#333); border-radius:10px; padding:18px; }
+.pk-choices .choice-card:hover { border-color:var(--accent,#4a90d9); }
+.pk-steps { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; font-size:.8rem; }
+.pk-steps span { padding:4px 8px; border-radius:6px; background:var(--border,#eee); color:var(--muted); }
+.pk-steps span.on { background:var(--accent,#4a90d9); color:#fff; }
+.pk-steps span.done { background:#123d1e; color:#cfe9d6; cursor:pointer; }
+.pk-list { margin:10px 0; }
+.pk-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border,#333); }
+.pk-row span { flex:1; }
+.pk-row em { color:var(--muted); font-style:normal; font-size:.85rem; }
+.pk-nav { display:flex; gap:10px; margin-top:16px; }
+.pk-chk { display:block; padding:5px 0; }
+#sk-results, #ap-sk-res { margin:6px 0; display:flex; flex-wrap:wrap; gap:6px; }

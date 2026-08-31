@@ -112,6 +112,7 @@ const MnpAdmin = (() => {
       <div class="admin-bar">
         <span>Режим редактора</span>
         <a href="#/admin/career/new" class="btn">+ Створити професію</a>
+        <a href="#/admin/persons" class="btn secondary">Person KB / Люди</a>
         <a href="#/catalog" class="admin-logout" style="color:var(--muted)">публічний сайт</a>
         <a href="#" class="admin-logout">вийти</a>
       </div>

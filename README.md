@@ -38,9 +38,10 @@
 - **Career KB** — каноническая база профессий (`mnp_*` таблицы)
 - **Career KB Admin / Editor** — управление базой без кода (`/v1/mnp/admin/*`, `#/admin/*`)
 - **Career Explorer** — публичный каталог + карточка (`/mnp/#/catalog`)
+- **Person KB Base V1** — каноническая база людей (`mnp_persons` + факт-таблицы): факт-фёрст профиль (освіта / досвід / активності / навички / мови / мобільність / документи) с evidence-состоянием; три входа (ручной профиль `#/profile`, загрузка резюме, Admin `#/admin/persons`); общая skill-таксономия с Career KB. Docs: `docs/person_kb/PERSON_KB_BASE_V1.md`
 - **Questionnaire** — минимальный опросник
-- **Resume parser** — резюме → CareerCard
-- **Matching / Transition** — детерминированный движок (`app/services/matching/`), без AI
+- **Resume parser** — детерминированное извлечение фактов из CV (без AI); используется Person KB CV-flow
+- **Matching / Transition** — детерминированный движок (`app/services/matching/`), без AI. *Person KB пока не подключён к Matching — адаптер `MnpPerson → matching` следующий шаг.*
 - **MNP frontend** — `mnp_frontend/`, чистый JS, без сборки
 
 ### RESEARCH / TOOLING (не рантайм)

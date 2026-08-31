@@ -87,19 +87,33 @@ Acceptance record: `docs/mnp_v1/04_KNOWLEDGE_BASE/CAREER_KB_V1_FOUNDER_ACCEPTANC
 
 ## 5. Person domain
 
-**Person KB has NOT been implemented as a new canonical domain.**
+**PERSON KB BASE V1 is the canonical Person KB** (`MnpPerson` /
+`mnp_persons` + fact tables; branch `person-kb-base-v1`). Fact-first
+career profile — education / credentials / experience / activities /
+skills / languages / mobility / documents, with an evidence state on
+every fact. Fed by three flows into ONE root: user manual profile, user
+CV upload + review, admin manual. Docs:
+`docs/person_kb/PERSON_KB_BASE_V1.md`.
 
-Before any implementation, the existing domains must be reconciled / reused
-where appropriate:
+Explicitly **not** in Base V1: psychological portrait / RIASEC / Big Five
+/ Work Values / Work Styles / aptitude / AI personality inference /
+universal career-fit score.
 
-- Identity
-- Assessment
-- Evidence
-- Profile
-- Knowledge
+Reuse decisions (see `PERSON_KB_BASE_V1.md` §14):
 
-Do **not** create a parallel third Person model stack without explicit
-Founder architecture approval.
+- **Identity** — reused as-is (`IdentityUser`, auth).
+- **Skill taxonomy** — reused: `mnp_person_skills_v1 → mnp_skills` (the
+  same rows the Career KB uses). No parallel Person skill dictionary.
+- **Resume parser** — reused (`app/services/resume_parser_mnp` pure
+  functions).
+- The old `MnpCareerCard` person stack + `MnpEvidence` + Stage 3A
+  `Assessment` / `Profile` / `Knowledge` — **retained** for Matching /
+  questionnaire compatibility; superseded for new development. Person KB
+  is **not** wired into Matching in Base V1 (a `MnpPerson → matching
+  input` adapter is the next step).
+
+Do **not** create a further parallel Person model stack. New Person-side
+development targets `MnpPerson`.
 
 ---
 
@@ -151,8 +165,9 @@ superseded.
 ## 10. Next workstream
 
 ```
-Repository cleanup  (done)
-   → Person-domain reconciliation
-   → Person KB BASE V1
-   → later: Market KB Ukraine
+Repository cleanup        (done)
+Person KB BASE V1          (done -- branch person-kb-base-v1)
+   → Person KB → Matching adapter
+   → Resume Builder on Person KB
+   → later: preference / values layer, Market KB Ukraine
 ```

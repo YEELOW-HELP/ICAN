@@ -532,6 +532,13 @@ const App = (() => {
     if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
     if (path === "admin" && (param === "catalog" || !param)) return MnpAdmin.screenAdminCatalog();
     if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
+    if (path === "admin" && param === "persons") return MnpPersonKB.admScreenList();
+    if (path === "admin" && param === "persons/new") return MnpPersonKB.admScreenCreate();
+    if (path === "admin" && param && param.startsWith("persons/")) return MnpPersonKB.admScreenCard(param.slice("persons/".length));
+    if (path === "profile" && !param) return MnpPersonKB.screenLanding();
+    if (path === "profile" && param === "build") return MnpPersonKB.screenBuild();
+    if (path === "profile" && param === "edit") return MnpPersonKB.screenEdit();
+    if (path === "profile" && param === "cv") return MnpPersonKB.screenCv();
     return screenLanding();
   }
 
