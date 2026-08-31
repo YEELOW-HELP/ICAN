@@ -153,7 +153,10 @@ async def test_unauthenticated_request_rejected():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         resp = await c.get("/v1/mnp/career-card")
-        assert resp.status_code == 422  # missing required X-Mnp-User-Id header
+        # no session token and no X-Mnp-User-Id -> 401 (get_current_mnp_user
+        # now accepts a Bearer session token, with X-Mnp-User-Id as the
+        # legacy fallback; neither present here)
+        assert resp.status_code == 401
 
 
 async def test_cannot_access_another_users_match_run(client):

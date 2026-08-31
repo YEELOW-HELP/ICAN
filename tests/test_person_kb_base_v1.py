@@ -237,32 +237,102 @@ async def _admin_headers(session_factory) -> dict:
         return {"Authorization": f"Bearer {create_access_token(a.id, a.role.value)}"}
 
 
-async def test_anonymous_cannot_touch_person_kb(client):
-    assert (await client.get("/v1/mnp/admin/persons")).status_code == 401
-    assert (await client.get("/v1/mnp/me/person")).status_code == 422  # missing X-Mnp-User-Id header
+async def _new_session(client) -> dict:
+    r = (await client.post("/v1/mnp/session")).json()
+    return {"user_id": r["user_id"], "token": r["session_token"],
+            "h": {"Authorization": f"Bearer {r['session_token']}"}}
 
 
-async def test_user_a_cannot_access_user_b_profile(client):
-    ua = (await client.post("/v1/mnp/session")).json()["user_id"]
-    ub = (await client.post("/v1/mnp/session")).json()["user_id"]
-    ha, hb = {"X-Mnp-User-Id": ua}, {"X-Mnp-User-Id": ub}
+# --- §6.A session mints a cryptographically random token --------------
+async def test_session_mints_random_bearer_token(client):
+    a = (await client.post("/v1/mnp/session")).json()
+    b = (await client.post("/v1/mnp/session")).json()
+    assert a["session_token"] != b["session_token"]
+    tok = a["session_token"]
+    assert len(tok) >= 32                       # 256-bit token_urlsafe -> ~43 chars
+    assert tok != a["user_id"]                  # NOT derivable from user_id
+    assert a["user_id"] not in tok
 
-    await client.post("/v1/mnp/me/person", json={"first_name": "Аліса", "city": "Київ"}, headers=ha)
-    await client.post("/v1/mnp/me/person/educations", json={"institution_name": "КНУ"}, headers=ha)
 
-    # user B sees their OWN (empty) profile, never user A's
-    rb = await client.get("/v1/mnp/me/person", headers=hb)
+async def test_session_token_is_only_stored_hashed(client, session_factory):
+    tok = (await client.post("/v1/mnp/session")).json()["session_token"]
+    from app.db.models_person_kb import MnpWebSession
+    from sqlalchemy import select
+    async with session_factory() as s:
+        rows = (await s.execute(select(MnpWebSession))).scalars().all()
+    assert rows and all(r.token_hash != tok for r in rows)   # raw token never in DB
+    assert all(len(r.token_hash) == 64 for r in rows)        # sha256 hex
+
+
+# --- §6.B token resolves the right user ----------------------------
+async def test_token_resolves_correct_user(client):
+    a = await _new_session(client)
+    await client.post("/v1/mnp/me/person", json={"first_name": "Аліса"}, headers=a["h"])
+    got = await client.get("/v1/mnp/me/person", headers=a["h"])
+    assert got.status_code == 200 and got.json()["core"]["first_name"] == "Аліса"
+
+
+# --- §6.C / §6.D missing / invalid token -------------------------
+async def test_missing_token_cannot_access_private_person_routes(client):
+    for m, p in [("GET", "/v1/mnp/me/person"), ("POST", "/v1/mnp/me/person")]:
+        r = await client.request(m, p, json={} if m == "POST" else None)
+        assert r.status_code == 401
+    # a bare (unauthenticated) X-Mnp-User-Id is NOT accepted for Person routes
+    r = await client.get("/v1/mnp/me/person", headers={"X-Mnp-User-Id": str(__import__("uuid").uuid4())})
+    assert r.status_code == 401
+
+
+async def test_invalid_token_cannot_access_private_person_routes(client):
+    for bad in ("Bearer not-a-real-token", "Bearer ", "Token abc", "garbage"):
+        r = await client.get("/v1/mnp/me/person", headers={"Authorization": bad})
+        assert r.status_code == 401
+
+
+# --- §6.E / §6.F isolation + impersonation ----------------------
+async def test_user_a_cannot_access_or_impersonate_user_b(client):
+    a = await _new_session(client)
+    b = await _new_session(client)
+
+    await client.post("/v1/mnp/me/person", json={"first_name": "Аліса", "city": "Київ"}, headers=a["h"])
+    await client.post("/v1/mnp/me/person/educations", json={"institution_name": "КНУ"}, headers=a["h"])
+
+    # B's token -> B's own (empty) profile, never A's
+    rb = await client.get("/v1/mnp/me/person", headers=b["h"])
     assert rb.status_code == 200
     assert rb.json().get("person") is None or rb.json().get("core", {}).get("first_name") != "Аліса"
 
-    # user B, given user A's row ids, still cannot edit them (routes are self-scoped)
-    ra = await client.get("/v1/mnp/me/person", headers=ha)
+    # B cannot impersonate A by ALSO sending A's user id / A's token-less headers
+    r_imp = await client.get("/v1/mnp/me/person",
+                             headers={**b["h"], "X-Mnp-User-Id": a["user_id"]})
+    assert r_imp.status_code == 200
+    assert r_imp.json().get("person") is None or r_imp.json()["core"]["first_name"] != "Аліса"
+
+    # B, given A's education row id, still cannot edit it
+    ra = await client.get("/v1/mnp/me/person", headers=a["h"])
     edu_id = ra.json()["educations"][0]["id"]
     rbad = await client.patch(f"/v1/mnp/me/person/educations/{edu_id}",
-                              json={"institution_name": "ЗЛАМАНО"}, headers=hb)
+                              json={"institution_name": "ЗЛАМАНО"}, headers=b["h"])
     assert rbad.status_code in (403, 404)
-    ra2 = await client.get("/v1/mnp/me/person", headers=ha)
+    ra2 = await client.get("/v1/mnp/me/person", headers=a["h"])
     assert ra2.json()["educations"][0]["institution_name"] == "КНУ"
+
+
+# --- §6.G admin auth unchanged --------------------------------
+async def test_admin_auth_still_bearer_admin_token(client, session_factory):
+    h = await _admin_headers(session_factory)
+    assert (await client.get("/v1/mnp/admin/persons", headers=h)).status_code == 200
+    assert (await client.get("/v1/mnp/admin/persons")).status_code == 401   # no admin token
+    # a Person session token must NOT unlock admin routes
+    a = await _new_session(client)
+    assert (await client.get("/v1/mnp/admin/persons", headers=a["h"])).status_code == 401
+
+
+# --- §6.H token not echoed in error responses ------------------
+async def test_token_not_echoed_in_error_response(client):
+    tok = "Bearer super-secret-value-xyz"
+    r = await client.get("/v1/mnp/me/person", headers={"Authorization": tok})
+    assert r.status_code == 401
+    assert "super-secret-value-xyz" not in r.text
 
 
 async def test_admin_can_list_create_edit_archive(client, session_factory):
@@ -285,8 +355,7 @@ async def test_admin_can_list_create_edit_archive(client, session_factory):
 
 
 async def test_cv_flow_over_http(client):
-    uid = (await client.post("/v1/mnp/session")).json()["user_id"]
-    h = {"X-Mnp-User-Id": uid}
+    h = (await _new_session(client))["h"]
     files = {"file": ("cv.txt", CV_TEXT.read_bytes(), "text/plain")}
     up = await client.post("/v1/mnp/me/person/cv", files=files, headers=h)
     assert up.status_code == 200 and up.json()["parsed"] is True

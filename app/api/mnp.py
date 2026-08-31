@@ -82,8 +82,30 @@ def _check_upload_rate_limit(user_id: str) -> None:
 
 
 async def get_current_mnp_user(
-    x_mnp_user_id: str = Header(...), session: AsyncSession = Depends(get_session),
+    x_mnp_user_id: str | None = Header(default=None),
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
 ) -> IdentityUser:
+    """Legacy MNP resolver for the non-Person endpoints (career-card,
+    questionnaire, matching).
+
+    A secure `Authorization: Bearer <session-token>` is honoured first
+    (same tokens as `POST /v1/mnp/session`); the historical
+    `X-Mnp-User-Id` fallback is kept so existing clients keep working, but
+    the **Person KB** routes never accept it -- they use
+    `person_kb.get_mnp_session_user` (bearer only)."""
+    from app.services.person_kb.sessions import bearer_from_header, resolve_web_session
+
+    token = bearer_from_header(authorization)
+    if token:
+        user = await resolve_web_session(session, token)
+        if user is not None:
+            return user
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired session token")
+
+    if not x_mnp_user_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Missing session -- call POST /v1/mnp/session first")
     try:
         user_uuid = uuid.UUID(x_mnp_user_id)
     except ValueError:
@@ -127,10 +149,18 @@ async def _owned_career_match(session: AsyncSession, career_match_id: uuid.UUID,
 
 @router.post("/session")
 async def create_session(session: AsyncSession = Depends(get_session)):
+    """Anonymous web session bootstrap. Returns `user_id` (informational)
+    plus a `session_token` -- a 256-bit random bearer token that
+    authenticates private user routes. Only the token's hash is stored;
+    the raw value is shown here once and never logged."""
+    from app.services.person_kb.sessions import create_web_session
+
     user = IdentityUser(locale="uk")
     session.add(user)
+    await session.flush()
+    token = await create_web_session(session, user)
     await session.commit()
-    return {"user_id": str(user.id)}
+    return {"user_id": str(user.id), "session_token": token}
 
 
 @router.post("/documents")

@@ -1,9 +1,11 @@
 """PERSON KB BASE V1 -- API.
 
 Admin routes (`/v1/mnp/admin/persons/...`, admin bearer) + user routes
-(`/v1/mnp/me/person/...`, `X-Mnp-User-Id`) + CV intake. All write through
+(`/v1/mnp/me/person/...`, `Authorization: Bearer <session-token>` from
+`POST /v1/mnp/session`) + CV intake. All write through
 `app.services.person_kb`. A user can only ever touch their OWN Person KB
-(resolved from the authenticated identity, never a path id).
+-- the identity is resolved server-side from the session token, never
+from a client-supplied UUID or path id.
 """
 
 from __future__ import annotations
@@ -14,16 +16,36 @@ from fastapi import APIRouter, Body, Depends, File, Header, HTTPException, Uploa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin
-from app.api.mnp import _check_upload_rate_limit, get_current_mnp_user
+from app.api.mnp import _check_upload_rate_limit
 from app.db.models import AdminUser
 from app.db.models_identity import IdentityUser
 from app.db.models_person_kb import PersonSource
 from app.db.session import get_session
 from app.services.person_kb import cv_intake, service
 from app.services.person_kb.service import PersonKbError, PersonNotFoundError
+from app.services.person_kb.sessions import bearer_from_header, resolve_web_session
 from app.services.person_kb.views import person_list_row, serialize_person
 
 router = APIRouter(prefix="/v1/mnp", tags=["person-kb"])
+
+
+async def get_mnp_session_user(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> IdentityUser:
+    """Person KB private-route auth. `Authorization: Bearer <session-token>`
+    ONLY -- a client-supplied `X-Mnp-User-Id` is never trusted here. The
+    token is minted by `POST /v1/mnp/session`, is not derivable from the
+    user id, and resolves the `IdentityUser` server-side."""
+    token = bearer_from_header(authorization)
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Потрібна сесія -- викличте POST /v1/mnp/session")
+    user = await resolve_web_session(session, token)
+    if user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Недійсна або завершена сесія")
+    return user
+
 
 _COLLECTIONS = ("educations", "credentials", "experiences", "activities", "languages")
 
@@ -204,14 +226,14 @@ async def _my_person(session: AsyncSession, user: IdentityUser, *, create: bool 
 
 
 @router.get("/me/person")
-async def me_get(user: IdentityUser = Depends(get_current_mnp_user),
+async def me_get(user: IdentityUser = Depends(get_mnp_session_user),
                  session: AsyncSession = Depends(get_session)):
     person = await service.get_person_by_identity(session, user.id)
     return serialize_person(person) if person else {"person": None}
 
 
 @router.post("/me/person")
-async def me_upsert_core(payload: dict = Body(...), user: IdentityUser = Depends(get_current_mnp_user),
+async def me_upsert_core(payload: dict = Body(...), user: IdentityUser = Depends(get_mnp_session_user),
                          session: AsyncSession = Depends(get_session)):
     try:
         person = await service.get_person_by_identity(session, user.id)
@@ -225,7 +247,7 @@ async def me_upsert_core(payload: dict = Body(...), user: IdentityUser = Depends
 
 
 @router.get("/me/person/skills/search")
-async def me_skill_search(q: str = "", user: IdentityUser = Depends(get_current_mnp_user),
+async def me_skill_search(q: str = "", user: IdentityUser = Depends(get_mnp_session_user),
                           session: AsyncSession = Depends(get_session)):
     rows = await service.search_canonical_skills(session, q)
     return [{"id": str(s.id), "name_uk": s.canonical_name_uk, "name_en": s.canonical_name_en} for s in rows]
@@ -233,7 +255,7 @@ async def me_skill_search(q: str = "", user: IdentityUser = Depends(get_current_
 
 def _mount_user_collection(name: str) -> None:
     @router.post(f"/me/person/{name}", name=f"me_add_{name}")
-    async def _add(payload: dict = Body(...), user: IdentityUser = Depends(get_current_mnp_user),
+    async def _add(payload: dict = Body(...), user: IdentityUser = Depends(get_mnp_session_user),
                    session: AsyncSession = Depends(get_session)):
         try:
             person = await _my_person(session, user, create=True)
@@ -244,7 +266,7 @@ def _mount_user_collection(name: str) -> None:
 
     @router.patch(f"/me/person/{name}/{{row_id}}", name=f"me_update_{name}")
     async def _upd(row_id: uuid.UUID, payload: dict = Body(...),
-                   user: IdentityUser = Depends(get_current_mnp_user),
+                   user: IdentityUser = Depends(get_mnp_session_user),
                    session: AsyncSession = Depends(get_session)):
         try:
             person = await _my_person(session, user)
@@ -254,7 +276,7 @@ def _mount_user_collection(name: str) -> None:
             _err(exc)
 
     @router.delete(f"/me/person/{name}/{{row_id}}", name=f"me_delete_{name}")
-    async def _del(row_id: uuid.UUID, user: IdentityUser = Depends(get_current_mnp_user),
+    async def _del(row_id: uuid.UUID, user: IdentityUser = Depends(get_mnp_session_user),
                    session: AsyncSession = Depends(get_session)):
         try:
             person = await _my_person(session, user)
@@ -268,7 +290,7 @@ for _c in _COLLECTIONS:
 
 
 @router.post("/me/person/skills")
-async def me_add_skill(payload: dict = Body(...), user: IdentityUser = Depends(get_current_mnp_user),
+async def me_add_skill(payload: dict = Body(...), user: IdentityUser = Depends(get_mnp_session_user),
                        session: AsyncSession = Depends(get_session)):
     try:
         person = await _my_person(session, user, create=True)
@@ -281,7 +303,7 @@ async def me_add_skill(payload: dict = Body(...), user: IdentityUser = Depends(g
 
 
 @router.delete("/me/person/skills/{row_id}")
-async def me_delete_skill(row_id: uuid.UUID, user: IdentityUser = Depends(get_current_mnp_user),
+async def me_delete_skill(row_id: uuid.UUID, user: IdentityUser = Depends(get_mnp_session_user),
                           session: AsyncSession = Depends(get_session)):
     try:
         person = await _my_person(session, user)
@@ -291,7 +313,7 @@ async def me_delete_skill(row_id: uuid.UUID, user: IdentityUser = Depends(get_cu
 
 
 @router.post("/me/person/activate")
-async def me_activate(user: IdentityUser = Depends(get_current_mnp_user),
+async def me_activate(user: IdentityUser = Depends(get_mnp_session_user),
                       session: AsyncSession = Depends(get_session)):
     try:
         person = await _my_person(session, user)
@@ -304,7 +326,7 @@ async def me_activate(user: IdentityUser = Depends(get_current_mnp_user),
 # CV INTAKE (own profile)
 # ===========================================================================
 @router.post("/me/person/cv")
-async def me_cv_upload(file: UploadFile = File(...), user: IdentityUser = Depends(get_current_mnp_user),
+async def me_cv_upload(file: UploadFile = File(...), user: IdentityUser = Depends(get_mnp_session_user),
                        session: AsyncSession = Depends(get_session)):
     _check_upload_rate_limit(str(user.id))
     content = await file.read()
@@ -323,7 +345,7 @@ async def me_cv_upload(file: UploadFile = File(...), user: IdentityUser = Depend
 
 
 @router.post("/me/person/cv/confirm")
-async def me_cv_confirm(payload: dict = Body(...), user: IdentityUser = Depends(get_current_mnp_user),
+async def me_cv_confirm(payload: dict = Body(...), user: IdentityUser = Depends(get_mnp_session_user),
                         session: AsyncSession = Depends(get_session)):
     person = await _my_person(session, user, create=True)
     try:

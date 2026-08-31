@@ -385,6 +385,26 @@ class MnpPersonLanguageV1(Base):
     person: Mapped["MnpPerson"] = relationship(back_populates="languages")
 
 
+class MnpWebSession(Base):
+    """A bearer-authenticated MNP web session for an `IdentityUser`.
+
+    `POST /v1/mnp/session` mints a 256-bit random token; only its SHA-256
+    hash is stored here (`token_hash`). Private user routes authenticate
+    with `Authorization: Bearer <token>` -- the token is NOT derivable
+    from `user_id`, so a client can never select an arbitrary identity by
+    guessing / learning another user's UUID.
+    """
+
+    __tablename__ = "mnp_web_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # sha256 hex
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class MnpPersonDocument(Base):
     """A supporting document. `storage_ref` is an opaque path/key -- raw
     bytes are never in the DB. Reuses the same on-disk storage dir as CRM

@@ -101,11 +101,18 @@ universal career-fit score.
 
 Reuse decisions (see `PERSON_KB_BASE_V1.md` §14):
 
-- **Identity** — reused as-is (`IdentityUser`, auth).
+- **Identity** — reused as-is (`IdentityUser`). Private user routes
+  authenticate with a **bearer session token** (`POST /v1/mnp/session` →
+  `session_token`; hash-only in `mnp_web_sessions`) — a client-supplied
+  `X-Mnp-User-Id` is never trusted on Person KB routes.
 - **Skill taxonomy** — reused: `mnp_person_skills_v1 → mnp_skills` (the
   same rows the Career KB uses). No parallel Person skill dictionary.
 - **Resume parser** — reused (`app/services/resume_parser_mnp` pure
   functions).
+- **Evidence** — the canonical Person KB evidence model is
+  `PersonEvidenceState` on `MnpPerson` fact rows. `MnpEvidence` /
+  `MnpCareerCard` evidence is retained for Matching compatibility only;
+  new Person code must not write to it.
 - The old `MnpCareerCard` person stack + `MnpEvidence` + Stage 3A
   `Assessment` / `Profile` / `Knowledge` — **retained** for Matching /
   questionnaire compatibility; superseded for new development. Person KB

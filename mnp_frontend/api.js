@@ -7,49 +7,51 @@ const MnpApi = (() => {
   function getUserId() {
     return localStorage.getItem("mnp_user_id");
   }
-
-  function setUserId(id) {
-    localStorage.setItem("mnp_user_id", id);
+  function getToken() {
+    return localStorage.getItem("mnp_session_token");
   }
 
   async function ensureSession() {
-    if (getUserId()) return getUserId();
+    if (getToken()) return getUserId();
     return createNewSession();
   }
 
   async function createNewSession() {
     const res = await fetch(`${BASE}/session`, { method: "POST" });
     const data = await res.json();
-    setUserId(data.user_id);
+    localStorage.setItem("mnp_user_id", data.user_id);
+    // secure bearer token -- authenticates private user routes; never
+    // derivable from user_id. Person KB routes accept ONLY this.
+    if (data.session_token) localStorage.setItem("mnp_session_token", data.session_token);
     return data.user_id;
   }
 
-  async function doFetch(path, userId, method, headers, payload) {
-    return fetch(`${BASE}${path}`, { method, headers: { ...headers, "X-Mnp-User-Id": userId }, body: payload });
+  async function doFetch(path, method, headers, payload) {
+    const token = getToken();
+    const auth = token ? { Authorization: `Bearer ${token}` } : {};
+    return fetch(`${BASE}${path}`, { method, headers: { ...headers, ...auth }, body: payload });
   }
 
   async function request(path, { method = "GET", body, isForm = false } = {}) {
-    const userId = await ensureSession();
+    await ensureSession();
     const headers = {};
     let payload = body;
     if (body && !isForm) {
       headers["Content-Type"] = "application/json";
       payload = JSON.stringify(body);
     }
-    let res = await doFetch(path, userId, method, headers, payload);
+    let res = await doFetch(path, method, headers, payload);
 
-    if (res.status === 404) {
-      // Distinguish "this session id no longer exists on the server"
-      // (e.g. a local test DB was reset, or storage was carried over
-      // from a different environment) from a normal, expected 404 like
-      // "no Career Card yet" -- only the former should silently start a
-      // fresh session; the latter must still reach the caller as-is so
-      // e.g. getCareerCard()'s own 404 handling keeps working.
+    if (res.status === 401 || res.status === 404) {
+      // session token no longer valid on the server (e.g. a local dev DB
+      // was reset) -> start a fresh session and retry once. A normal 404
+      // like "no Career Card yet" is re-raised to the caller below.
       let detail = "";
       try { detail = (await res.clone().json()).detail || ""; } catch (e) {}
-      if (detail.includes("Unknown session")) {
-        const freshUserId = await createNewSession();
-        res = await doFetch(path, freshUserId, method, headers, payload);
+      if (res.status === 401 || detail.includes("Unknown session") || detail.includes("сесі")) {
+        localStorage.removeItem("mnp_session_token");
+        await createNewSession();
+        res = await doFetch(path, method, headers, payload);
       }
     }
 
@@ -65,7 +67,7 @@ const MnpApi = (() => {
 
   return {
     getUserId, ensureSession,
-    // generic user-scoped request (X-Mnp-User-Id auto-attached). Used by
+    // generic user-scoped request (Bearer session token auto-attached). Used by
     // the Person KB user flows. `isForm: true` for multipart uploads.
     request,
     uploadDocument: (file) => {

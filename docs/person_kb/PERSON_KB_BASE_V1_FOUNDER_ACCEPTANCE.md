@@ -24,6 +24,8 @@ Branch `person-kb-base-v1` off `product-system-v3.1`. Architecture:
 - [ ] Profile reloads with the same data
 - [ ] User can edit own profile (`#/profile/edit`)
 - [ ] User cannot access another user's profile
+- [ ] Private user routes need a **Bearer session token** (from `POST /v1/mnp/session`); a bare `X-Mnp-User-Id` is rejected (401)
+- [ ] User A cannot impersonate B by supplying B's UUID with A's token
 
 ### CV
 - [ ] CV uploads (.pdf / .docx / .txt)
@@ -51,6 +53,13 @@ Branch `person-kb-base-v1` off `product-system-v3.1`. Architecture:
 - [ ] DB values match Excel
 - [ ] Evidence state visible
 - [ ] UNKNOWN shown as "Немає даних", not "Ні"
+
+### SECURITY
+- [ ] `POST /v1/mnp/session` returns a cryptographically random `session_token` (not derivable from `user_id`)
+- [ ] Only the token hash is stored in `mnp_web_sessions`
+- [ ] Missing / invalid token → 401 on private Person routes
+- [ ] Token never echoed in error responses
+- [ ] Admin auth unchanged; a Person session token does not unlock admin routes
 
 ### ARCHITECTURE
 - [ ] One canonical Person KB (`MnpPerson`)

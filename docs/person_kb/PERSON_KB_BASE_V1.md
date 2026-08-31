@@ -49,10 +49,11 @@ architecture disposition — see §14.
 | `mnp_person_skills_v1` | 0..N — `canonical_skill_id` → **`mnp_skills`** (the SAME taxonomy the Career KB uses) OR `raw_input` + `custom_status = pending_review` |
 | `mnp_person_languages_v1` | 0..N — language + level (A1..C2 / native / unknown / other) |
 | `mnp_person_documents` | 0..N — CV / diploma / certificate / driver_license / recommendation / … ; `storage_ref` opaque path, bytes never in DB |
+| `mnp_web_sessions` | bearer session tokens for private user routes — `token_hash` (sha256) only, `user_id`, `revoked_at` |
 
-Migration: `c1d2e3f4a5b6` (additive; `down_revision = a7b8c9d0e1f2`).
-PostgreSQL-compatible. Nothing in the existing person-side schema is
-touched.
+Migrations: `c1d2e3f4a5b6` (Person KB) then `d2e3f4a5b6c7` (`mnp_web_sessions`).
+Additive; PostgreSQL-compatible. Nothing in the existing person-side
+schema is touched.
 
 ## 5. Mandatory / optional
 
@@ -79,8 +80,17 @@ sets `source = admin_edit` and does **not** silently claim
 `document_supported`.
 
 No separate polymorphic evidence table — the per-row state + optional
-`supporting_document_id` is the minimal safe model and does **not**
-compete with the Career-card-side `MnpEvidence`.
+`supporting_document_id` is the minimal safe model.
+
+**Which evidence system does new code use?** `PersonEvidenceState` on the
+canonical `MnpPerson` fact rows **is** the Base V1 canonical Person fact
+verification state — `SELF_REPORTED` / `DOCUMENT_SUPPORTED` /
+`SYSTEM_DETECTED` / `USER_CONFIRMED`. The old `MnpEvidence` /
+`MnpCareerCard` evidence tables remain **only** for Matching
+compatibility (they feed `app/services/matching_mnp`); they are **not**
+the canonical Person KB evidence model and **new Person-side development
+must not write to them**. No ambiguity: new code → `MnpPerson` +
+`PersonEvidenceState`.
 
 ## 7. UNKNOWN != NO
 
@@ -164,10 +174,23 @@ English codes + IDs alongside for traceability. **DB → Excel only** — no
 reverse path. Test: `test_person_kb_export.py` +
 `test_excel_reflects_db_after_edit`.
 
-## 13. Privacy
+## 13. Privacy & authentication
 
-* Admin routes → admin bearer (`get_current_admin`). User routes →
-  `X-Mnp-User-Id` identity. A user reaches **only** their own Person KB.
+* **`POST /v1/mnp/session`** mints `{user_id, session_token}` — a 256-bit
+  `secrets.token_urlsafe(32)` bearer token. Only `sha256(token)` is
+  stored (`mnp_web_sessions.token_hash`); the raw token is returned once
+  and never logged. The token is **not derivable from `user_id`**.
+* **Person KB user routes** authenticate with `Authorization: Bearer
+  <session-token>` **only** (`get_mnp_session_user`). A client-supplied
+  `X-Mnp-User-Id` is **never trusted** on Person routes — a user cannot
+  select an arbitrary identity by learning another UUID. The identity is
+  resolved server-side from the session.
+* The legacy non-Person MNP endpoints (`/career-card`, `/questionnaire/*`,
+  `/match-runs`) now also honour the bearer token, keeping the historical
+  `X-Mnp-User-Id` only as a backward-compat fallback (documented lower
+  assurance; not used for PII).
+* Admin routes → admin bearer (`get_current_admin`), unchanged. A Person
+  session token does **not** unlock admin routes.
 * Person KB is never on a public/anonymous route.
 * PII (phone / email / telegram / CV text / document contents / DOB /
   full payload) is not written to logs; `AuditLog` for a Person records
@@ -185,6 +208,8 @@ reverse path. Test: `test_person_kb_export.py` +
 | `MnpCareerCard` + children (`MnpExperience`, `MnpEducation`, `MnpCredential`, `MnpLanguage`, `MnpAchievement`, `MnpPersonSkill`, `MnpPersonKnowledge`, `MnpEvidence`, `MnpCareerCardVersion`) | **KEEP_INFRASTRUCTURE (superseded for new dev)** | still consumed by `app/services/matching_mnp` + the questionnaire flow + their tests. Not deleted — a Person KB → Matching adapter is a future step. **New development targets `MnpPerson`.** |
 | `MnpCareerGoal` / `MnpIncomeTarget` / `MnpPreferenceProfile` / `MnpWorkValue` / `MnpPersonWorkValue` / `MnpConstraint` / `MnpLearningCapacity` | **KEEP (out of Person KB Base V1 scope)** | preference/values layer — a later workstream, not fact-first |
 | DELETED | **none** | matching still needs the old stack; nothing is provably unused yet |
+
+`PersonEvidenceState` on `MnpPerson` fact rows is the **canonical Person KB evidence model** for new development. `MnpEvidence` / `MnpCareerCard` evidence is retained for Matching only — new Person code never writes to it.
 
 **Canonical Person Source of Truth going forward: `MnpPerson`.** No
 ambiguity — the old `MnpCareerCard` is a matching-compat artifact.
