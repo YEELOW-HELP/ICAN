@@ -237,8 +237,10 @@ into the **NAPRIAM** product shell (branch `person-kb-base-v1`, PR #25).
 sessions and the same Career KB power it.
 
 Full screen map + state (FUNCTIONAL / VISUAL-FUTURE / NOT IMPLEMENTED),
-the post-profile workspace shell, and the Career KB public/admin/internal
-scope rule: **`docs/product/NAPRIAM_PRODUCT_UI_V1.md`**.
+the post-profile workspace shell, the **Digital Career Profile
+(I CAN / I AM / I WANT — three projections over the one `MnpPerson`, no
+duplicate model)**, and the Career KB public/admin/internal scope rule:
+**`docs/product/NAPRIAM_PRODUCT_UI_V1.md`**.
 
 ### Implemented (functional, end-to-end)
 

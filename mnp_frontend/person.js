@@ -376,7 +376,7 @@ const MnpPersonKB = (() => {
           ])}
         </div>
         <div class="pk-nav">
-          <a class="btn btn-lg" href="#/app">Підтвердити профіль</a>
+          <a class="btn btn-lg" href="#/app/profile">Підтвердити профіль</a>
           <a class="btn secondary" href="#/profile/edit">Редагувати</a>
         </div>
         <p class="muted" style="margin-top:.6rem">Знайдено записів: досвід ${count("experiences")} · освіта ${count("educations")} · навички ${count("skills")} · мови ${count("languages")} · сертифікати ${count("credentials")}.</p>

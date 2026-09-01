@@ -25,6 +25,14 @@ Frontend: `mnp_frontend/` (plain JS, hash router, no build step).
 | **A — before profile** | public header (`#site-header`) | `#/`, `#/how`, `#/about`, `#/login`, `#/pricing`, `#/catalog`, `#/opportunities`, `#/profile…` |
 | **B — after profile** | workspace shell (left sidebar + slim top bar), no public header, no admin links | `#/app`, `#/app/<module>` |
 
+Workspace left navigation (grouped, no empty pages):
+
+```
+Головна · Профіль · Мої навички
+Цифровий профіль:  Сильні сторони · Інтереси та цінності · Цілі
+Розвиток кар'єри:  Сценарії · План дій · Прогрес · Вакансії для мене · Інсайти
+```
+
 Admin (`#/admin/*`) is a **separate** plain internal interface — never
 blended with the customer UI, never linked from customer navigation.
 
@@ -46,13 +54,34 @@ blended with the customer UI, never linked from customer navigation.
 | Manual profile (8-step) | `#/profile/build` | **FUNCTIONAL** |
 | Confirmation | `#/profile/confirmed` | **FUNCTIONAL** — «Ми проаналізували ваш досвід», friendly evidence labels |
 
-### PROFILE
+### PROFILE — Digital Career Profile (I CAN / I AM / I WANT)
+
+**One `MnpPerson`, three projections.** No new tables, no `MnpPerson`
+duplicate, no invented fields. Later these feed Matching (§ Future
+contract).
 
 | screen | route | state |
 |---|---|---|
-| My Profile (read-only) | `#/profile/me` · `#/app/profile` | **FUNCTIONAL** — human-readable canonical `MnpPerson` |
+| Digital Profile home | `#/app/profile` | **FUNCTIONAL** — three cards (Я можу / Я є / Я хочу) with deterministic completeness state, the `I CAN + I AM + I WANT → точніші сценарії` visual, future-state card for personal scenarios |
+| **I CAN** — My Profile (read-only) | `#/profile/me` | **FUNCTIONAL** — human-readable canonical `MnpPerson` (experience · education · skills · tools · languages · projects · credentials · evidence) |
 | Edit profile (tabbed) | `#/profile/edit` | **FUNCTIONAL** |
-| Мої навички | `#/app/skills` | **PARTIAL** — real confirmed skills list FUNCTIONAL; skill-gap block VISUAL / FUTURE |
+| **I CAN** — Мої навички | `#/app/skills` | **PARTIAL** — real confirmed skills FUNCTIONAL; skill-gap block VISUAL / FUTURE |
+| **I AM** — Сильні сторони / стиль роботи | `#/app/strengths` | **VISUAL / FUTURE** — result shell (сильні сторони · стиль роботи · мотивація · що виснажує · кар'єрні суперсили), all marked «Приклад результату»; nothing persisted |
+| **I AM** — Тест сильних сторін | `#/app/assessment` | **VISUAL / FUTURE** — frontend-only demo (3 A/B questions, ~7 хв promise), no scoring, `sessionStorage` only, never written to Person KB |
+| **I AM** — Інтереси та цінності | `#/app/values` | **VISUAL / FUTURE** — Інтереси / Цінності / Мотивація / Робочі уподобання chips |
+| **I WANT** — Цілі | `#/app/goals` | **PARTIAL** — FUNCTIONAL: work format · willing-to-relocate · work geography (saved to `MnpPerson` via `POST /me/person`, the existing endpoint). VISUAL / FUTURE: desired income (goal, not market), transition pace, career directions, priority ranking |
+
+**Completeness rule (deterministic, qualitative — no fabricated %):**
+
+| projection | «Заповнено» | «Частково» | «Не заповнено» |
+|---|---|---|---|
+| I CAN | ≥3 non-empty factual sections (experience/education/skills/languages/activities/credentials) | 1–2 | 0 |
+| I AM | (assessment layer not built) | — | always, for now |
+| I WANT | ≥2 of {work_format≠unknown, willing_to_relocate≠unknown, work_geography non-empty} | 1 | 0 |
+
+Combined = «Заповнено» iff all three are; «Частково» if any is non-empty;
+else «Не заповнено». `mnp_frontend/workspace.js` → `iCanState` /
+`iAmState` / `iWantState`.
 
 ### CAREERS
 
@@ -149,6 +178,26 @@ per screen, one primary CTA, 1–2 secondary, no long instructional
 paragraphs.
 
 ---
+
+## Future Matching contract (documented only — not implemented)
+
+The Digital Career Profile is the input side of Matching. When Matching is
+built (a separate Founder-approved task, not this PR):
+
+| dimension | source |
+|---|---|
+| **Capability Fit** | I CAN — factual Person KB (experience / skills / education / credentials) |
+| **Personal Fit** | I AM — assessment signal + Person evidence |
+| **Goal Fit** | I WANT — canonical want-fields + the future goal layer |
+| Transition Distance | (later) Person ↔ Career distance |
+| Market Opportunity | (later) Market KB — not built |
+
+Career "superpowers" (`#/app/strengths`) will later combine the assessment
+signal with real Person evidence (e.g. *«Переконувати та домовлятися»* ←
+assessment + sales experience + negotiation evidence). No inference logic
+exists yet.
+
+This PR does **not** implement or modify matching methodology.
 
 ## No fabricated data (§25)
 

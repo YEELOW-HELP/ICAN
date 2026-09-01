@@ -135,6 +135,18 @@ separate plain internal UI. Full screen map + Career KB
 public/admin/internal-Matching scope rule:
 `docs/product/NAPRIAM_PRODUCT_UI_V1.md`.
 
+**Digital Career Profile (I CAN / I AM / I WANT):** three projections over
+the **one** `MnpPerson` — no duplicate model, no new tables. **I CAN** =
+factual Person KB (FUNCTIONAL). **I AM** = strengths / work-style /
+interests assessment layer (VISUAL / FUTURE — a frontend-only demo test,
+nothing persisted, no scoring). **I WANT** = PARTIAL: work format /
+relocation / work geography are real `MnpPerson` fields saved via the
+existing `POST /me/person`; desired income (goal only, never market),
+transition pace, priorities are VISUAL / FUTURE. Completeness is
+deterministic + qualitative («Заповнено / Частково / Не заповнено»), no
+fabricated %. Future Matching dimensions (documented only): Capability Fit
+= I CAN, Personal Fit = I AM, Goal Fit = I WANT.
+
 **Career KB scope:** `status` is a publication flag. Public catalog/detail
 → ACTIVE only; Admin → all 150; internal Matching development → all 150
 (no implicit filter). Never auto-change status. Tests:
