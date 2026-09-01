@@ -69,7 +69,9 @@ const App = (() => {
 
   function renderHeader() {
     const hash = location.hash || "#/";
-    if (hash.startsWith("#/admin")) { header.innerHTML = ""; return; }
+    // Admin has its own (none) chrome; the post-profile workspace draws its
+    // own sidebar + top bar and clears this header itself.
+    if (hash.startsWith("#/admin") || hash.startsWith("#/app")) { header.innerHTML = ""; return; }
     const [, path] = hash.match(/^#\/([^/]*)/) || [null, ""];
     const hasSession = !!localStorage.getItem("mnp_session_token");
     header.innerHTML = `
@@ -79,7 +81,7 @@ const App = (() => {
       </nav>
       <div class="nv-actions">
         <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
-        ${hasSession ? `<a class="btn secondary" href="#/profile">Мій профіль</a>` : ""}
+        ${hasSession ? `<a class="btn secondary" href="#/app">Мій профіль</a>` : ""}
         <a class="btn" href="#/profile">Створити профіль</a>
       </div>`;
   }
@@ -206,6 +208,37 @@ const App = (() => {
         </div>
         <a class="btn" href="#/profile">Створити профіль без реєстрації</a>
       </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Pricing (visual shell only; prices are placeholders, no checkout)
+  // ===================================================================
+  function screenPricing() {
+    const plan = (name, chip, price, feats, future) => `
+      <div class="nv-card ${future ? "future" : ""}">
+        ${chip}
+        <h3 style="margin:.5rem 0 .2rem">${name}</h3>
+        <div style="font-size:1.4rem;font-weight:800">${price}</div>
+        <ul style="padding-left:1.1rem;color:var(--muted);font-size:.9rem;margin:.6rem 0 0">
+          ${feats.map((f) => `<li>${f}</li>`).join("")}
+        </ul>
+        <div style="margin-top:.8rem">
+          ${future
+            ? `<button class="btn secondary is-disabled" disabled>Обрати<span class="soon-tag">Незабаром</span></button>`
+            : `<a class="btn" href="#/profile">Почати безкоштовно</a>`}
+        </div>
+      </div>`;
+    root.innerHTML = `
+      <div class="nv-narrow">
+        <h1>Тарифи</h1>
+        <p class="lead">Ціни на цій сторінці — орієнтовний макет, а не остаточне рішення. Оплата й оформлення підписки ще не підключені.</p>
+      </div>
+      <div class="nv-cards">
+        ${plan("Free", `<span class="chip chip--green">Доступно</span>`, "0 ₴", ["Кар'єрний профіль (CV / вручну)", "Каталог професій", "Базовий огляд можливостей"], false)}
+        ${plan("Premium", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Персональний підбір професій", "Skill gap і маршрут переходу", "План дій і прогрес", "Щотижневі апдейти"], true)}
+        ${plan("Premium + Коуч", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Усе з Premium", "Персональний кар'єрний коуч", "Сесії та консультації"], true)}
+      </div>
+      <div class="nv-narrow"><p class="muted" style="font-size:.85rem">Оплата не реалізована. Значення цін — placeholder.</p></div>`;
   }
 
   // ===================================================================
@@ -554,8 +587,13 @@ const App = (() => {
     if (path === "how") return screenHowItWorks();
     if (path === "about") return screenAbout();
     if (path === "login") return screenLogin();
+    if (path === "pricing") return screenPricing();
     if (path === "opportunities") return screenOpportunities();
     if (path === "catalog") return screenCatalog(param || null);
+
+    // Post-profile career workspace (workspace.js) — visual product shell,
+    // future modules are clearly non-live.
+    if (path === "app") return MnpWorkspace.render(param || "");
 
     // Person KB customer flows (person.js)
     if (path === "profile" && !param) return MnpPersonKB.screenLanding();

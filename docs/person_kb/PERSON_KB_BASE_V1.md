@@ -236,6 +236,10 @@ into the **NAPRIAM** product shell (branch `person-kb-base-v1`, PR #25).
 **No backend architecture changed** — the same Person KB DB / API / bearer
 sessions and the same Career KB power it.
 
+Full screen map + state (FUNCTIONAL / VISUAL-FUTURE / NOT IMPLEMENTED),
+the post-profile workspace shell, and the Career KB public/admin/internal
+scope rule: **`docs/product/NAPRIAM_PRODUCT_UI_V1.md`**.
+
 ### Implemented (functional, end-to-end)
 
 | area | route | notes |

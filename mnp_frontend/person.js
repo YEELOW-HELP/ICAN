@@ -61,7 +61,8 @@ const MnpPersonKB = (() => {
         <h1>Створіть кар'єрний профіль</h1>
         <p class="lead">Почніть із будь-якого зручного способу. Ми зберемо факти про вашу освіту, досвід, навички та мови.</p>
         ${has ? `<div class="pk-card"><p>У вас уже є профіль (${esc(cur.core.status_uk)}).</p>
-           <a class="btn" href="#/profile/me">Відкрити мій профіль</a></div>` : ""}
+           <a class="btn" href="#/app">Відкрити робочий простір</a>
+           <a class="btn secondary" href="#/profile/me">Мій профіль</a></div>` : ""}
         <div class="pk-choices">
           <div class="choice-card" onclick="location.hash='#/profile/cv'"><h3>Завантажити CV</h3><p>Швидко імпортуйте дані з резюме у форматі PDF, DOCX або TXT. Ви перевірите й підтвердите кожен факт.</p></div>
           <div class="choice-card future"><h3>Підключити LinkedIn <span class="soon-tag">Незабаром</span></h3><p>Імпорт профілю LinkedIn з'явиться на наступному етапі.</p></div>
@@ -375,7 +376,7 @@ const MnpPersonKB = (() => {
           ])}
         </div>
         <div class="pk-nav">
-          <a class="btn btn-lg" href="#/profile/me">Підтвердити профіль</a>
+          <a class="btn btn-lg" href="#/app">Підтвердити профіль</a>
           <a class="btn secondary" href="#/profile/edit">Редагувати</a>
         </div>
         <p class="muted" style="margin-top:.6rem">Знайдено записів: досвід ${count("experiences")} · освіта ${count("educations")} · навички ${count("skills")} · мови ${count("languages")} · сертифікати ${count("credentials")}.</p>
@@ -394,7 +395,8 @@ const MnpPersonKB = (() => {
       <div class="pk-wrap">
         <h1>Мій профіль <span class="badge ${p.core.status === "active" ? "high" : "insufficient"}">${esc(p.core.status_uk)}</span></h1>
         <div class="pk-nav" style="margin-top:.4rem">
-          <a class="btn" href="#/profile/edit">Редагувати профіль</a>
+          <a class="btn" href="#/app">Робочий простір</a>
+          <a class="btn secondary" href="#/profile/edit">Редагувати профіль</a>
           <a class="btn secondary" href="#/profile/cv">Оновити з CV</a>
           <a class="btn secondary" href="#/catalog">Переглянути професії</a>
         </div>
@@ -592,7 +594,7 @@ const MnpPersonKB = (() => {
 
   return {
     screenLanding, screenBuild, screenEdit, screenCv,
-    screenMyProfile, screenConfirmed, stageCvFile,
+    screenMyProfile, screenConfirmed, stageCvFile, evChip,
     admScreenList, admScreenCreate, admScreenCard,
   };
 })();

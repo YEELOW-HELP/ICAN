@@ -123,15 +123,22 @@ Do **not** create a further parallel Person model stack. New Person-side
 development targets `MnpPerson`.
 
 **Customer UI:** the `mnp_frontend/` customer app was reworked into the
-**NAPRIAM** product shell (Phase 1, branch `person-kb-base-v1` / PR #25) —
-public Home / How it works / About / Login-visual / Opportunities-future,
-the Person KB flows (manual · CV · confirmation · My Profile), and the
-Career KB catalog + detail, in one visual system. Backend unchanged.
-Deferred features (production auth, Google/LinkedIn, personalized
-Matching, Market KB, Route Builder, What-if, Resources) appear only as
-disabled `«Незабаром»` controls or honest empty states — no fabricated
-user results, no fabricated market data. Admin stays a separate plain
-internal UI. See `docs/person_kb/PERSON_KB_BASE_V1.md` §17.
+**NAPRIAM** product shell (Phase 1, branch `person-kb-base-v1` / PR #25).
+The *whole* product is laid out visually — public site + Person KB flows +
+Career KB catalog (FUNCTIONAL), plus a post-profile career workspace
+(`#/app`, left-sidebar shell) whose development modules (Dashboard next
+action · Scenarios · What-if · Route · Action plan · Progress · Insights ·
+Vacancies · Resources · Coach · Consultation · Pricing) are **VISUAL /
+FUTURE** — disabled `«Незабаром»` controls or honest empty states, no
+fabricated numbers. Backend unchanged; Matching not touched. Admin stays a
+separate plain internal UI. Full screen map + Career KB
+public/admin/internal-Matching scope rule:
+`docs/product/NAPRIAM_PRODUCT_UI_V1.md`.
+
+**Career KB scope:** `status` is a publication flag. Public catalog/detail
+→ ACTIVE only; Admin → all 150; internal Matching development → all 150
+(no implicit filter). Never auto-change status. Tests:
+`tests/test_career_public_scope.py`.
 
 ---
 
