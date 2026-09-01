@@ -122,6 +122,17 @@ Reuse decisions (see `PERSON_KB_BASE_V1.md` §14):
 Do **not** create a further parallel Person model stack. New Person-side
 development targets `MnpPerson`.
 
+**Customer UI:** the `mnp_frontend/` customer app was reworked into the
+**NAPRIAM** product shell (Phase 1, branch `person-kb-base-v1` / PR #25) —
+public Home / How it works / About / Login-visual / Opportunities-future,
+the Person KB flows (manual · CV · confirmation · My Profile), and the
+Career KB catalog + detail, in one visual system. Backend unchanged.
+Deferred features (production auth, Google/LinkedIn, personalized
+Matching, Market KB, Route Builder, What-if, Resources) appear only as
+disabled `«Незабаром»` controls or honest empty states — no fabricated
+user results, no fabricated market data. Admin stays a separate plain
+internal UI. See `docs/person_kb/PERSON_KB_BASE_V1.md` §17.
+
 ---
 
 ## 6. Market KB

@@ -18,6 +18,25 @@ const MnpPersonKB = (() => {
   }
   async function act(fn) { try { await fn(); } catch (e) { toast(e.message || String(e), false); } }
 
+  // A file dropped on the public Home hero is stashed here and picked up
+  // by screenCv() after the route changes to #/profile/cv.
+  let _stagedCv = null;
+  function stageCvFile(file) { _stagedCv = file; }
+
+  // Customer-facing evidence labels — never the raw enum.
+  const EV_LABEL = {
+    system_detected: ["Витягнуто з CV", "cv"],
+    cv_import: ["Витягнуто з CV", "cv"],
+    user_confirmed: ["Підтверджено", "ok"],
+    document_supported: ["Підтверджено документом", "ok"],
+    self_reported: ["Зі слів", "check"],
+  };
+  function evChip(state) {
+    const hit = EV_LABEL[state];
+    if (!hit) return "";
+    return ` <span class="nv-ev ${hit[1]}">${hit[0]}</span>`;
+  }
+
   const TRI = [["unknown", "Немає даних"], ["yes", "Так"], ["no", "Ні"]];
   const EDU_LEVEL = [["unknown", "Немає даних"], ["secondary", "Середня"], ["vocational", "Професійно-технічна"], ["incomplete_higher", "Неповна вища"], ["bachelor", "Бакалавр"], ["specialist", "Спеціаліст"], ["master", "Магістр"], ["phd", "PhD"], ["other", "Інше"]];
   const EDU_STATUS = [["unknown", "Немає даних"], ["completed", "Завершено"], ["ongoing", "Триває"], ["incomplete", "Незавершено"]];
@@ -39,13 +58,14 @@ const MnpPersonKB = (() => {
     const has = cur && cur.id;
     root().innerHTML = `
       <div class="pk-wrap">
-        <h1>Створіть свій кар'єрний профіль</h1>
-        <p class="lead">Ми зберемо факти про вашу освіту, досвід, навички та мови — саме те, що допоможе підібрати напрям.</p>
+        <h1>Створіть кар'єрний профіль</h1>
+        <p class="lead">Почніть із будь-якого зручного способу. Ми зберемо факти про вашу освіту, досвід, навички та мови.</p>
         ${has ? `<div class="pk-card"><p>У вас уже є профіль (${esc(cur.core.status_uk)}).</p>
-           <a class="btn" href="#/profile/edit">Відкрити мій профіль</a></div>` : ""}
+           <a class="btn" href="#/profile/me">Відкрити мій профіль</a></div>` : ""}
         <div class="pk-choices">
-          <div class="choice-card" onclick="location.hash='#/profile/cv'"><h3>Завантажити резюме</h3><p>Ми знайдемо факти, ви їх перевірите й підтвердите.</p></div>
-          <div class="choice-card" onclick="location.hash='#/profile/build'"><h3>Заповнити самостійно</h3><p>Крок за кроком, без резюме.</p></div>
+          <div class="choice-card" onclick="location.hash='#/profile/cv'"><h3>Завантажити CV</h3><p>Швидко імпортуйте дані з резюме у форматі PDF, DOCX або TXT. Ви перевірите й підтвердите кожен факт.</p></div>
+          <div class="choice-card future"><h3>Підключити LinkedIn <span class="soon-tag">Незабаром</span></h3><p>Імпорт профілю LinkedIn з'явиться на наступному етапі.</p></div>
+          <div class="choice-card" onclick="location.hash='#/profile/build'"><h3>Заповнити вручну</h3><p>Додайте інформацію про себе, досвід, навички та освіту самостійно, крок за кроком.</p></div>
         </div>
       </div>`;
   }
@@ -78,8 +98,8 @@ const MnpPersonKB = (() => {
     const prev = document.getElementById("pk-prev"); if (prev) prev.onclick = () => { _step--; renderStep(); };
     const next = document.getElementById("pk-next"); if (next) next.onclick = () => act(async () => { await saveStep(step); _step++; renderStep(); });
     const fin = document.getElementById("pk-finish"); if (fin) fin.onclick = () => act(async () => {
-      const r = await me("/me/person/activate", { method: "POST" }).catch((e) => { throw e; });
-      toast("Профіль збережено"); location.hash = "#/profile/edit";
+      await me("/me/person/activate", { method: "POST" });
+      toast("Профіль збережено"); location.hash = "#/profile/confirmed";
     });
     (BODY[step] || (() => {}))();
   }
@@ -229,10 +249,13 @@ const MnpPersonKB = (() => {
     _p = await me("/me/person").catch(() => null);
     if (!_p || !_p.id) { location.hash = "#/profile"; return; }
     _step = 0;
-    root().innerHTML = `<div class="pk-wrap"><h1>Мій профіль <span class="badge">${esc(_p.core.status_uk)}</span></h1>
+    root().innerHTML = `<div class="pk-wrap">
+      <a class="kb-back" href="#/profile/me" style="display:inline-block">← Мій профіль</a>
+      <h1>Редагувати профіль <span class="badge ${_p.core.status === "active" ? "high" : "insufficient"}">${esc(_p.core.status_uk)}</span></h1>
+      <p class="muted">Зміни в списках (досвід, навички, освіта тощо) зберігаються одразу. Для розділів «Про мене» та «Мобільність» натисніть «Зберегти».</p>
       <div class="pk-steps" id="pk-tabs">${STEPS.slice(0, 7).map((s, i) => `<span data-s="${i}" class="${i === 0 ? "on" : ""}">${esc(STEP_TITLE[s])}</span>`).join("")}</div>
       <div id="pk-body"></div>
-      <div class="pk-nav"><button class="btn" id="pk-save-all">Зберегти основне</button></div></div>`;
+      <div class="pk-nav"><button class="btn" id="pk-save-all">Зберегти</button><a class="btn secondary" href="#/profile/me">Готово</a></div></div>`;
     document.querySelectorAll("#pk-tabs span").forEach((t) => t.onclick = () => {
       document.querySelectorAll("#pk-tabs span").forEach((x) => x.classList.remove("on"));
       t.classList.add("on"); _step = +t.dataset.s;
@@ -250,21 +273,46 @@ const MnpPersonKB = (() => {
   let _cv = null;
   async function screenCv() {
     await MnpApi.ensureSession();
+    const staged = _stagedCv; _stagedCv = null;
     root().innerHTML = `
-      <div class="pk-wrap"><h1>Завантажити резюме</h1>
+      <div class="pk-wrap"><h1>Завантажити CV</h1>
         <p class="lead">Ми знайдемо факти у вашому резюме. Ви перевірите та підтвердите їх — нічого не зберігається без вашого підтвердження.</p>
-        <input type="file" id="cv-file" accept=".pdf,.docx,.txt">
+        <div class="nv-drop" id="cv-drop">
+          <strong>Перетягніть файл сюди або оберіть</strong>
+          <p>PDF, DOCX або TXT · до 15 МБ</p>
+          <input type="file" id="cv-file" accept=".pdf,.docx,.txt">
+          <div id="cv-name" class="muted" style="margin-top:.4rem"></div>
+        </div>
         <button class="btn" id="cv-up">Розпізнати</button>
+        <a class="btn secondary" href="#/profile/build">Заповнити вручну</a>
         <div id="cv-out"></div>
       </div>`;
+    const input = document.getElementById("cv-file");
+    const nameEl = document.getElementById("cv-name");
+    const showName = () => { nameEl.textContent = input.files[0] ? `Обрано: ${input.files[0].name}` : ""; };
+    input.onchange = showName;
+    if (staged) {
+      const dt = new DataTransfer(); dt.items.add(staged); input.files = dt.files; showName();
+    }
+    const drop = document.getElementById("cv-drop");
+    ["dragover", "dragenter"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("drag")));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; showName(); }
+    });
     document.getElementById("cv-up").onclick = () => act(async () => {
-      const f = document.getElementById("cv-file").files[0];
+      const f = input.files[0];
       if (!f) { toast("Оберіть файл", false); return; }
+      document.getElementById("cv-out").innerHTML = `<p class="muted">Обробка файлу…</p>`;
       const form = new FormData(); form.append("file", f);
       const res = await MnpApi.request("/me/person/cv", { method: "POST", body: form, isForm: true });
       if (!res.parsed) {
         document.getElementById("cv-out").innerHTML = `<div class="error-box">${esc(res.fallback || res.message)}</div>
-          <a class="btn" href="#/profile/build">Заповнити вручну</a>`;
+          <p class="muted">Файл збережено. Ви можете заповнити профіль вручну — уже введені дані не втратяться.</p>
+          <a class="btn" href="#/profile/build">Заповнити вручну</a>
+          <button class="btn secondary" id="cv-retry">Спробувати інший файл</button>`;
+        const r = document.getElementById("cv-retry"); if (r) r.onclick = () => screenCv();
         return;
       }
       _cv = res.candidates; renderCvReview();
@@ -274,25 +322,114 @@ const MnpPersonKB = (() => {
     const c = _cv;
     const sec = (title, arr, render) => `<h3>${esc(title)}</h3>${arr.length ? arr.map((r, i) => `<label class="pk-chk"><input type="checkbox" checked data-sec="${title}" data-i="${i}"> ${render(r)}</label>`).join("") : `<p class="muted">Не знайдено.</p>`}`;
     document.getElementById("cv-out").innerHTML = `
-      <div class="pk-card"><p><b>Ми знайшли у вашому резюме:</b> зніміть галочку, щоб не додавати запис.</p>
-      ${sec("Досвід", c.experiences, (e) => `${esc(e.raw_job_title)} — ${esc(e.company_name || "—")}`)}
-      ${sec("Освіта", c.educations, (e) => `${esc(e.specialty_or_qualification || "—")}`)}
-      ${sec("Навички", c.skills, (s) => esc(s.raw_input))}
-      ${sec("Мови", c.languages, (l) => `${esc(l.language)} — ${esc(l.level)}`)}
-      ${sec("Сертифікати", c.credentials, (x) => esc(x.title))}
-      <button class="btn" id="cv-confirm">Підтвердити та зберегти</button></div>`;
+      <div class="pk-card">
+        <h2 style="margin-top:0">Попередній перегляд витягнутих даних</h2>
+        <p class="muted">Ми знайшли ці записи у вашому резюме. Зніміть галочку, щоб не додавати запис. Редагувати можна після збереження.</p>
+        ${sec("Досвід роботи", c.experiences, (e) => `${esc(e.raw_job_title)} — ${esc(e.company_name || "—")}`)}
+        ${sec("Освіта", c.educations, (e) => `${esc(e.specialty_or_qualification || "—")}`)}
+        ${sec("Навички", c.skills, (s) => esc(s.raw_input))}
+        ${sec("Мови", c.languages, (l) => `${esc(l.language)} — ${esc(l.level)}`)}
+        ${sec("Сертифікати", c.credentials, (x) => esc(x.title))}
+        <div class="pk-nav">
+          <button class="btn" id="cv-confirm">Перевірити та продовжити</button>
+          <a class="btn secondary" href="#/profile/build">Редагувати вручну</a>
+        </div>
+      </div>`;
     document.getElementById("cv-confirm").onclick = () => act(async () => {
       const pick = (title, arr) => arr.filter((_, i) => {
         const el = document.querySelector(`[data-sec="${title}"][data-i="${i}"]`); return el && el.checked;
       });
       const confirmed = {
-        experiences: pick("Досвід", c.experiences), educations: pick("Освіта", c.educations),
+        experiences: pick("Досвід роботи", c.experiences), educations: pick("Освіта", c.educations),
         skills: pick("Навички", c.skills), languages: pick("Мови", c.languages),
         credentials: pick("Сертифікати", c.credentials),
       };
       await MnpApi.request("/me/person/cv/confirm", { method: "POST", body: { document_id: c.document_id, confirmed } });
-      toast("Збережено в профіль"); location.hash = "#/profile/edit";
+      await me("/me/person/activate", { method: "POST" }).catch(() => {});
+      toast("Збережено в профіль"); location.hash = "#/profile/confirmed";
     });
+  }
+
+  // ---- confirmation screen ("Ми проаналізували ваш досвід") ----
+  async function screenConfirmed() {
+    await MnpApi.ensureSession();
+    const p = await me("/me/person").catch(() => null);
+    if (!p || !p.id) { location.hash = "#/profile"; return; }
+    const count = (a) => (p[a] || []).length;
+    root().innerHTML = `
+      <div class="pk-wrap">
+        <span class="demo-flag" style="background:#e6f6ef;color:var(--green)">Профіль збережено</span>
+        <h1>Ми проаналізували ваш досвід</h1>
+        <p class="lead">Перевірте, чи ми правильно зрозуміли ваш профіль. Ви можете відредагувати будь-який розділ.</p>
+        <div class="nv-prof-grid">
+          ${profCard("Особистий профіль", [
+            row("Ім'я", `${esc(p.core.first_name || "")} ${esc(p.core.last_name || "")}`),
+            row("Місто", esc(p.core.city || "—")),
+            row("Контакти", [p.core.phone, p.core.email, p.core.telegram_username].filter(Boolean).map(esc).join(" · ") || "—"),
+          ])}
+          ${profCard("Досвід роботи", (p.experiences || []).map((x) => row(esc(x.raw_job_title), esc(x.company_name || "—") + evChip(x.evidence_state))))}
+          ${profCard("Ключові навички", (p.skills || []).map((s) => row(esc(s.raw_input || "навичка"), esc(s.custom_status_uk) + evChip(s.evidence_state))))}
+          ${profCard("Освіта та мови", [
+            ...(p.educations || []).map((e) => row(esc(e.education_level_uk), esc(e.institution_name || "—"))),
+            ...(p.languages || []).map((l) => row(esc(l.language), esc(l.level_uk))),
+          ])}
+        </div>
+        <div class="pk-nav">
+          <a class="btn btn-lg" href="#/profile/me">Підтвердити профіль</a>
+          <a class="btn secondary" href="#/profile/edit">Редагувати</a>
+        </div>
+        <p class="muted" style="margin-top:.6rem">Знайдено записів: досвід ${count("experiences")} · освіта ${count("educations")} · навички ${count("skills")} · мови ${count("languages")} · сертифікати ${count("credentials")}.</p>
+      </div>`;
+  }
+  const row = (k, v) => `<li><span class="k">${k}</span><br>${v || "—"}</li>`;
+  const profCard = (title, rows) => `<div class="nv-prof-card"><h3>${esc(title)}</h3><ul>${rows.length ? rows.join("") : "<li class=\"muted\">Немає даних</li>"}</ul></div>`;
+
+  // ---- My Profile (read-only, human-readable canonical MnpPerson) ----
+  async function screenMyProfile() {
+    await MnpApi.ensureSession();
+    const p = await me("/me/person").catch(() => null);
+    if (!p || !p.id) { location.hash = "#/profile"; return; }
+    const m = p.mobility || {};
+    root().innerHTML = `
+      <div class="pk-wrap">
+        <h1>Мій профіль <span class="badge ${p.core.status === "active" ? "high" : "insufficient"}">${esc(p.core.status_uk)}</span></h1>
+        <div class="pk-nav" style="margin-top:.4rem">
+          <a class="btn" href="#/profile/edit">Редагувати профіль</a>
+          <a class="btn secondary" href="#/profile/cv">Оновити з CV</a>
+          <a class="btn secondary" href="#/catalog">Переглянути професії</a>
+        </div>
+        <div class="nv-prof-grid">
+          ${profCard("Особистий профіль", [
+            row("Ім'я", `${esc(p.core.first_name || "")} ${esc(p.core.last_name || "")}`),
+            row("Місто / регіон", [p.core.city, p.core.region, p.core.country].filter(Boolean).map(esc).join(", ") || "—"),
+          ])}
+          ${profCard("Контакти", [
+            row("Телефон", esc(p.core.phone || "—")),
+            row("Email", esc(p.core.email || "—")),
+            row("Telegram", esc(p.core.telegram_username || "—")),
+          ])}
+          ${profCard("Досвід роботи", (p.experiences || []).map((x) =>
+            row(esc(x.raw_job_title) + evChip(x.evidence_state),
+              `${esc(x.company_name || "—")}${x.start_date ? " · " + esc(x.start_date) : ""}${x.end_date ? " – " + esc(x.end_date) : (x.is_current === "yes" ? " · зараз" : "")}`)))}
+          ${profCard("Навички та інструменти", (p.skills || []).map((s) =>
+            row(esc(s.raw_input || "навичка") + evChip(s.evidence_state),
+              `${esc(s.custom_status_uk)}${s.proficiency ? " · " + esc(s.proficiency_uk) : ""}`)))}
+          ${profCard("Освіта", (p.educations || []).map((e) =>
+            row(esc(e.education_level_uk) + evChip(e.evidence_state),
+              `${esc(e.institution_name || "—")}${e.end_year ? " · " + e.end_year : ""}`)))}
+          ${profCard("Мови", (p.languages || []).map((l) => row(esc(l.language), esc(l.level_uk))))}
+          ${profCard("Сертифікати", (p.credentials || []).map((c) =>
+            row(esc(c.title) + evChip(c.evidence_state), esc(c.credential_type_uk))))}
+          ${profCard("Проєкти та активності", (p.activities || []).map((a) =>
+            row(esc(a.title) + evChip(a.evidence_state), esc(a.activity_type_uk))))}
+          ${profCard("Мобільність / формат роботи", [
+            row("Формат роботи", esc(m.work_format_uk || "—")),
+            row("Посвідчення водія", esc(m.has_driver_license_uk || "—") + (m.driver_license_categories ? " (" + esc(m.driver_license_categories) + ")" : "")),
+            row("Автомобіль", esc(m.has_car_uk || "—")),
+            row("Готовність до переїзду", esc(m.willing_to_relocate_uk || "—")),
+          ])}
+        </div>
+      </div>`;
   }
 
   // ================= ADMIN =================
@@ -455,6 +592,7 @@ const MnpPersonKB = (() => {
 
   return {
     screenLanding, screenBuild, screenEdit, screenCv,
+    screenMyProfile, screenConfirmed, stageCvFile,
     admScreenList, admScreenCreate, admScreenCard,
   };
 })();

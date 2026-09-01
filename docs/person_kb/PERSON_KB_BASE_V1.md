@@ -229,7 +229,48 @@ Person KB → Matching adapter · Person KB → Resume Builder · preference /
 values layer (from the retained tables) · document OCR · skill
 verification workflow · taxonomy review UI for `pending_review` skills.
 
-## 17. Operations (Founder — test without a developer)
+## 17. Customer Product UI V1 (NAPRIAM Phase 1)
+
+The customer-facing frontend was reworked from the plain V1 technical UI
+into the **NAPRIAM** product shell (branch `person-kb-base-v1`, PR #25).
+**No backend architecture changed** — the same Person KB DB / API / bearer
+sessions and the same Career KB power it.
+
+### Implemented (functional, end-to-end)
+
+| area | route | notes |
+|---|---|---|
+| Public shell + header | all `#/…` (hidden on `#/admin`) | brand + nav (Як це працює · Професії · Можливості · Про нас); auth-aware right side |
+| Home | `#/` | hero, CV drop-zone, «Заповнити вручну», illustrative result preview clearly marked «Приклад результату» |
+| How it works | `#/how` | 4 conceptual steps, no metrics |
+| About | `#/about` | mission only, no fabricated counts |
+| Create profile | `#/profile` | two functional methods + disabled LinkedIn card («Незабаром») |
+| Manual profile | `#/profile/build` | 8-step stepper (unchanged flow) → confirmation |
+| CV upload / parse / review | `#/profile/cv` | drop-zone, grouped candidate preview, reject/confirm → confirmation; parser failure keeps the file + offers manual |
+| Profile confirmation | `#/profile/confirmed` | «Ми проаналізували ваш досвід» — friendly evidence labels |
+| My Profile | `#/profile/me` | read-only human-readable `MnpPerson`; actions: Редагувати · Оновити з CV · Переглянути професії; survives reload |
+| Edit profile | `#/profile/edit` | tabbed editor (unchanged) |
+| Career catalog | `#/catalog` | real Career KB (150 / 5 ACTIVE / 145 DRAFT), NAPRIAM cards, no personalized %, no salary |
+| Career detail | `#/catalog/{id}` | real Career KB sections; market section → «Дані ринку будуть додані пізніше» |
+| Opportunities | `#/opportunities` | honest future state — «Персональний підбір … на наступному етапі», routes to the catalog |
+| Login (visual) | `#/login` | Email/Password/Google/LinkedIn shown **disabled** with «Незабаром» |
+| Admin | `#/admin/…` | unchanged, plain internal UI, no customer header, not linked from customer nav |
+
+### Deferred to later phases (shown only as disabled «Незабаром» or honest empty state)
+
+Production authentication (email/password) · Google OAuth · LinkedIn
+OAuth / LinkedIn import · personalized Matching + `MnpPerson → matching`
+adapter · personalized career recommendations / match % · Market KB ·
+salary / demand / employer intelligence · transition Route Builder ·
+skill-gap engine · What-if simulator · Resources section · consultations.
+
+### Control convention
+
+Every customer control is either **FUNCTIONAL** (works end-to-end) or
+**FUTURE** (visible, disabled, `«Незабаром»`, no navigation, no fake
+action). No fabricated user results, no fabricated market data anywhere.
+
+## 18. Operations (Founder — test without a developer)
 
 ```bash
 # 1. build schema + seed (Career KB 150 + 2 demo persons)
