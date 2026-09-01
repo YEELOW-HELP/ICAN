@@ -73,7 +73,7 @@ const App = (() => {
     // own sidebar + top bar and clears this header itself.
     if (hash.startsWith("#/admin") || hash.startsWith("#/app")) { header.innerHTML = ""; return; }
     const [, path] = hash.match(/^#\/([^/]*)/) || [null, ""];
-    const hasSession = !!localStorage.getItem("mnp_session_token");
+    const hasProfile = !!localStorage.getItem("mnp_has_profile");
     header.innerHTML = `
       <a class="nv-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
       <nav class="nv-nav">
@@ -81,8 +81,9 @@ const App = (() => {
       </nav>
       <div class="nv-actions">
         <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
-        ${hasSession ? `<a class="btn secondary" href="#/app">Мій профіль</a>` : ""}
-        <a class="btn" href="#/profile">Створити профіль</a>
+        ${hasProfile
+          ? `<a class="btn secondary" href="#/app">Мій профіль</a>`
+          : `<a class="btn" href="#/profile">Створити профіль</a>`}
       </div>`;
   }
 
@@ -119,7 +120,7 @@ const App = (() => {
 
       <div class="nv-cards">
         <div class="nv-card"><div class="ico">🎯</div><h3>Знайдемо близькі професії</h3><p>Професії, куди реально перейти з вашим досвідом. З'явиться на наступному етапі.</p></div>
-        <div class="nv-card"><div class="ico">🧩</div><h3>Покажемо skill gap</h3><p>Чого бракує для нової ролі та що вже підтверджено. З'явиться на наступному етапі.</p></div>
+        <div class="nv-card"><div class="ico">🧩</div><h3>Покажемо, яких навичок бракує</h3><p>Чого бракує для нової ролі та що вже підтверджено. З'явиться на наступному етапі.</p></div>
         <div class="nv-card"><div class="ico">🗺️</div><h3>Побудуємо маршрут переходу</h3><p>Зрозумілі кроки від поточної точки до цілі. З'явиться на наступному етапі.</p></div>
       </div>
 
@@ -157,7 +158,7 @@ const App = (() => {
       <div class="nv-steps-big">
         <div class="nv-step"><div class="num">1</div><h3>Завантажте CV або заповніть профіль</h3><p>PDF, DOCX, TXT — або крок за кроком вручну.</p></div>
         <div class="nv-step"><div class="num">2</div><h3>Підтвердіть ваші факти та навички</h3><p>Ви перевіряєте кожен запис — нічого не зберігається без підтвердження.</p></div>
-        <div class="nv-step"><div class="num">3</div><h3>Отримайте близькі професії та skill gap</h3><p>Персональний підбір. <span class="soon-tag">Незабаром</span></p></div>
+        <div class="nv-step"><div class="num">3</div><h3>Близькі професії та потрібні навички</h3><p>Персональний підбір. <span class="soon-tag">Незабаром</span></p></div>
         <div class="nv-step"><div class="num">4</div><h3>Побудуйте маршрут переходу</h3><p>Кроки навчання й дій. <span class="soon-tag">Незабаром</span></p></div>
       </div>
       <div class="nv-narrow" style="text-align:center;margin-top:1.5rem">
@@ -183,7 +184,7 @@ const App = (() => {
         </div>
         <div class="nv-panel">
           <h2 style="margin-top:0">Що вже є</h2>
-          <p>Каталог професій із фактичними даними та кар'єрний профіль (Person KB), який ви наповнюєте з резюме або вручну. Персональний підбір професій, аналіз навичок і маршрут переходу — у розробці.</p>
+          <p>Каталог професій із фактичними даними та кар'єрний профіль, який ви наповнюєте з резюме або вручну. Персональний підбір, аналіз навичок і маршрут переходу — у розробці.</p>
         </div>
         <a class="btn" href="#/profile">Створити профіль</a>
       </div>`;
@@ -235,7 +236,7 @@ const App = (() => {
       </div>
       <div class="nv-cards">
         ${plan("Free", `<span class="chip chip--green">Доступно</span>`, "0 ₴", ["Кар'єрний профіль (CV / вручну)", "Каталог професій", "Базовий огляд можливостей"], false)}
-        ${plan("Premium", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Персональний підбір професій", "Skill gap і маршрут переходу", "План дій і прогрес", "Щотижневі апдейти"], true)}
+        ${plan("Premium", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Персональний підбір професій", "Аналіз навичок і маршрут переходу", "План дій і прогрес", "Щотижневі апдейти"], true)}
         ${plan("Premium + Коуч", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Усе з Premium", "Персональний кар'єрний коуч", "Сесії та консультації"], true)}
       </div>
       <div class="nv-narrow"><p class="muted" style="font-size:.85rem">Оплата не реалізована. Значення цін — placeholder.</p></div>`;
@@ -267,7 +268,7 @@ const App = (() => {
                <a class="btn secondary btn-lg" href="#/catalog">Переглянути професії</a>
              </div>`}
         <div class="nv-cards">
-          <div class="nv-card future"><div class="ico">📊</div><h3>Skill gap</h3><p>Чого бракує для цільової ролі. <span class="soon-tag">Незабаром</span></p></div>
+          <div class="nv-card future"><div class="ico">📊</div><h3>Потрібні навички</h3><p>Чого бракує для цільової ролі. <span class="soon-tag">Незабаром</span></p></div>
           <div class="nv-card future"><div class="ico">🗺️</div><h3>Маршрут переходу</h3><p>Покрокові дії та навчання. <span class="soon-tag">Незабаром</span></p></div>
           <div class="nv-card future"><div class="ico">🔀</div><h3>«Що зміниться, якщо…»</h3><p>Симуляція сценаріїв. <span class="soon-tag">Незабаром</span></p></div>
         </div>

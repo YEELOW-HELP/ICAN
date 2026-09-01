@@ -23,18 +23,32 @@ const MnpPersonKB = (() => {
   let _stagedCv = null;
   function stageCvFile(file) { _stagedCv = file; }
 
-  // Customer-facing evidence labels — never the raw enum.
+  // Customer-facing evidence labels — never the raw enum. `self_reported`
+  // (the default for anything typed by hand) shows nothing: a chip on
+  // every manual row is noise, not information.
   const EV_LABEL = {
-    system_detected: ["Витягнуто з CV", "cv"],
-    cv_import: ["Витягнуто з CV", "cv"],
+    system_detected: ["Знайдено у CV", "cv"],
+    cv_import: ["Знайдено у CV", "cv"],
     user_confirmed: ["Підтверджено", "ok"],
     document_supported: ["Підтверджено документом", "ok"],
-    self_reported: ["Зі слів", "check"],
   };
   function evChip(state) {
     const hit = EV_LABEL[state];
     if (!hit) return "";
     return ` <span class="nv-ev ${hit[1]}">${hit[0]}</span>`;
+  }
+  // Friendly note for a skill the person typed that is not in the shared
+  // catalogue yet — no "taxonomy" wording in customer UI.
+  function skillNote(s) {
+    return s && s.custom_status === "pending_review"
+      ? ` <span class="nv-ev check">нова навичка</span>` : "";
+  }
+  // Header uses this flag to show "Мій профіль" instead of "Створити профіль".
+  function markProfile(exists) {
+    try {
+      if (exists) localStorage.setItem("mnp_has_profile", "1");
+      else localStorage.removeItem("mnp_has_profile");
+    } catch (e) {}
   }
 
   const TRI = [["unknown", "Немає даних"], ["yes", "Так"], ["no", "Ні"]];
@@ -56,6 +70,7 @@ const MnpPersonKB = (() => {
     await MnpApi.ensureSession();
     const cur = await me("/me/person").catch(() => ({ person: null }));
     const has = cur && cur.id;
+    markProfile(has);
     root().innerHTML = `
       <div class="pk-wrap">
         <h1>Створіть кар'єрний профіль</h1>
@@ -100,6 +115,7 @@ const MnpPersonKB = (() => {
     const next = document.getElementById("pk-next"); if (next) next.onclick = () => act(async () => { await saveStep(step); _step++; renderStep(); });
     const fin = document.getElementById("pk-finish"); if (fin) fin.onclick = () => act(async () => {
       await me("/me/person/activate", { method: "POST" });
+      markProfile(true);
       toast("Профіль збережено"); location.hash = "#/profile/confirmed";
     });
     (BODY[step] || (() => {}))();
@@ -212,7 +228,7 @@ const MnpPersonKB = (() => {
     const rows = (_p && _p.skills) || [];
     document.getElementById("pk-body").innerHTML = `
       <div class="pk-list">
-        ${rows.map((s) => `<div class="pk-row"><span>${esc(s.raw_input || "")} <em>(${esc(s.custom_status_uk)}${s.proficiency ? ", " + esc(s.proficiency_uk) : ""})</em></span>
+        ${rows.map((s) => `<div class="pk-row"><span>${esc(s.raw_input || "")}${skillNote(s)}${s.proficiency ? ` <em>· ${esc(s.proficiency_uk)}</em>` : ""}</span>
           <button class="mini" data-del="${s.id}">×</button></div>`).join("") || `<p class="muted">Поки що порожньо.</p>`}
       </div>
       <div class="pk-card">
@@ -248,7 +264,8 @@ const MnpPersonKB = (() => {
   async function screenEdit() {
     await MnpApi.ensureSession();
     _p = await me("/me/person").catch(() => null);
-    if (!_p || !_p.id) { location.hash = "#/profile"; return; }
+    if (!_p || !_p.id) { markProfile(false); location.hash = "#/profile"; return; }
+    markProfile(true);
     _step = 0;
     root().innerHTML = `<div class="pk-wrap">
       <a class="kb-back" href="#/profile/me" style="display:inline-block">← Мій профіль</a>
@@ -347,6 +364,7 @@ const MnpPersonKB = (() => {
       };
       await MnpApi.request("/me/person/cv/confirm", { method: "POST", body: { document_id: c.document_id, confirmed } });
       await me("/me/person/activate", { method: "POST" }).catch(() => {});
+      markProfile(true);
       toast("Збережено в профіль"); location.hash = "#/profile/confirmed";
     });
   }
@@ -355,13 +373,18 @@ const MnpPersonKB = (() => {
   async function screenConfirmed() {
     await MnpApi.ensureSession();
     const p = await me("/me/person").catch(() => null);
-    if (!p || !p.id) { location.hash = "#/profile"; return; }
+    if (!p || !p.id) { markProfile(false); location.hash = "#/profile"; return; }
+    markProfile(true);
     const count = (a) => (p[a] || []).length;
+    const needName = !p.core.first_name || p.core.first_name === "—";
     root().innerHTML = `
       <div class="pk-wrap">
         <span class="demo-flag" style="background:#e6f6ef;color:var(--green)">Профіль збережено</span>
         <h1>Ми проаналізували ваш досвід</h1>
         <p class="lead">Перевірте, чи ми правильно зрозуміли ваш профіль. Ви можете відредагувати будь-який розділ.</p>
+        ${needName ? `<div class="pk-card"><label class="pk-f"><span>Як вас звати?</span>
+          <input id="cf-name" placeholder="Ім'я"></label>
+          <button class="btn secondary" id="cf-name-save">Зберегти ім'я</button></div>` : ""}
         <div class="nv-prof-grid">
           ${profCard("Особистий профіль", [
             row("Ім'я", `${esc(p.core.first_name || "")} ${esc(p.core.last_name || "")}`),
@@ -369,7 +392,7 @@ const MnpPersonKB = (() => {
             row("Контакти", [p.core.phone, p.core.email, p.core.telegram_username].filter(Boolean).map(esc).join(" · ") || "—"),
           ])}
           ${profCard("Досвід роботи", (p.experiences || []).map((x) => row(esc(x.raw_job_title), esc(x.company_name || "—") + evChip(x.evidence_state))))}
-          ${profCard("Ключові навички", (p.skills || []).map((s) => row(esc(s.raw_input || "навичка"), esc(s.custom_status_uk) + evChip(s.evidence_state))))}
+          ${profCard("Ключові навички", (p.skills || []).map((s) => row(esc(s.raw_input || "навичка") + skillNote(s), evChip(s.evidence_state) || "&nbsp;")))}
           ${profCard("Освіта та мови", [
             ...(p.educations || []).map((e) => row(esc(e.education_level_uk), esc(e.institution_name || "—"))),
             ...(p.languages || []).map((l) => row(esc(l.language), esc(l.level_uk))),
@@ -381,6 +404,13 @@ const MnpPersonKB = (() => {
         </div>
         <p class="muted" style="margin-top:.6rem">Знайдено записів: досвід ${count("experiences")} · освіта ${count("educations")} · навички ${count("skills")} · мови ${count("languages")} · сертифікати ${count("credentials")}.</p>
       </div>`;
+    const nb = document.getElementById("cf-name-save");
+    if (nb) nb.onclick = () => act(async () => {
+      const v = (val("cf-name") || "").trim();
+      if (!v) { toast("Вкажіть ім'я", false); return; }
+      await me("/me/person", { method: "POST", body: { first_name: v } });
+      toast("Збережено"); screenConfirmed();
+    });
   }
   const row = (k, v) => `<li><span class="k">${k}</span><br>${v || "—"}</li>`;
   const profCard = (title, rows) => `<div class="nv-prof-card"><h3>${esc(title)}</h3><ul>${rows.length ? rows.join("") : "<li class=\"muted\">Немає даних</li>"}</ul></div>`;
@@ -389,7 +419,8 @@ const MnpPersonKB = (() => {
   async function screenMyProfile() {
     await MnpApi.ensureSession();
     const p = await me("/me/person").catch(() => null);
-    if (!p || !p.id) { location.hash = "#/profile"; return; }
+    if (!p || !p.id) { markProfile(false); location.hash = "#/profile"; return; }
+    markProfile(true);
     const m = p.mobility || {};
     root().innerHTML = `
       <div class="pk-wrap">
@@ -414,8 +445,8 @@ const MnpPersonKB = (() => {
             row(esc(x.raw_job_title) + evChip(x.evidence_state),
               `${esc(x.company_name || "—")}${x.start_date ? " · " + esc(x.start_date) : ""}${x.end_date ? " – " + esc(x.end_date) : (x.is_current === "yes" ? " · зараз" : "")}`)))}
           ${profCard("Навички та інструменти", (p.skills || []).map((s) =>
-            row(esc(s.raw_input || "навичка") + evChip(s.evidence_state),
-              `${esc(s.custom_status_uk)}${s.proficiency ? " · " + esc(s.proficiency_uk) : ""}`)))}
+            row(esc(s.raw_input || "навичка") + skillNote(s) + evChip(s.evidence_state),
+              s.proficiency ? esc(s.proficiency_uk) : "")))}
           ${profCard("Освіта", (p.educations || []).map((e) =>
             row(esc(e.education_level_uk) + evChip(e.evidence_state),
               `${esc(e.institution_name || "—")}${e.end_year ? " · " + e.end_year : ""}`)))}
@@ -594,7 +625,7 @@ const MnpPersonKB = (() => {
 
   return {
     screenLanding, screenBuild, screenEdit, screenCv,
-    screenMyProfile, screenConfirmed, stageCvFile, evChip,
+    screenMyProfile, screenConfirmed, stageCvFile, evChip, skillNote,
     admScreenList, admScreenCreate, admScreenCard,
   };
 })();

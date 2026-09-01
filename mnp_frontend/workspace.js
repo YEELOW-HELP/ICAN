@@ -77,6 +77,7 @@ const MnpWorkspace = (() => {
     await MnpApi.ensureSession();
     const p = await MnpApi.request("/me/person").catch(() => null);
     if (!p || !p.id) { location.hash = "#/profile"; return; }
+    try { localStorage.setItem("mnp_has_profile", "1"); } catch (e) {}
     const initials = (p.core.first_name || "?").trim().charAt(0) + (p.core.last_name || "").trim().charAt(0);
 
     const navHtml = SIDE.map((s) => `
@@ -150,7 +151,7 @@ const MnpWorkspace = (() => {
           </div>
           <div class="nv-panel">
             <h3 style="margin-top:0">Щотижневий апдейт</h3>
-            <div class="empty-state"><div class="ico">📭</div><h3>Поки що порожньо</h3><p>Апдейти з'являться, коли ви почнете виконувати кроки плану.</p></div>
+            <div class="empty-state"><div class="ico">📭</div><h3>Поки що тут нічого немає</h3><p>Апдейти з'являться, коли ви почнете виконувати кроки плану.</p></div>
           </div>
           <div class="nv-panel">
             <h3 style="margin-top:0">Ваш прогрес</h3>
@@ -165,7 +166,7 @@ const MnpWorkspace = (() => {
           <span class="chip chip--purple">Premium</span>
           <h3 style="margin:.5rem 0 .3rem">Коуч поруч</h3>
           <p class="muted" style="font-size:.9rem">Персональний кар'єрний коуч, сесії та нотатки.</p>
-          <a class="btn secondary is-disabled" aria-disabled="true">Дізнатися більше<span class="soon-tag">Незабаром</span></a>
+          <button class="btn secondary is-disabled" disabled>Дізнатися більше<span class="soon-tag">Незабаром</span></button>
         </div>`;
     },
 
@@ -179,29 +180,33 @@ const MnpWorkspace = (() => {
       ].filter(([, n]) => n > 0).map(([l, n]) => `${l} ${n}`).join(" · ") || "ще не заповнено";
       const combined = [can, am, want].every((s) => s === "filled") ? "filled"
         : [can, am, want].some((s) => s !== "empty") ? "partial" : "empty";
-      const c = (title, ico, state, sub, href, cta) => `
+      const c = (title, hint, ico, state, sub, href, cta) => `
         <div class="nv-card">
           <div class="ico">${ico}</div>
-          <h3 style="margin:.5rem 0 .3rem">${title}</h3>
+          <h3 style="margin:.5rem 0 .1rem">${title}</h3>
+          <div class="muted" style="font-size:.8rem;margin-bottom:.4rem">${hint}</div>
           <div style="margin-bottom:.5rem">${stateChip(state)}</div>
           <p style="color:var(--muted);font-size:.9rem;margin:0 0 .8rem">${sub}</p>
-          <a class="btn ${state === "empty" ? "" : "secondary"}" href="${href}">${cta}</a>
+          <a class="btn secondary" href="${href}">${cta}</a>
         </div>`;
       document.getElementById("ws-content").innerHTML = `
         <div class="page-header">
           <h1>Ваш цифровий кар'єрний профіль</h1>
-          <p>Три погляди на одні дані про вас. Разом вони дають точніші кар'єрні сценарії.</p>
+          <p>Один профіль — три погляди. Разом вони дають точніші кар'єрні сценарії.</p>
         </div>
 
         <div class="nv-cards">
-          ${c("Я можу", "🛠️", can, `Факти: ${esc(factCounts)}.`, "#/profile/me", can === "empty" ? "Заповнити профіль" : "Відкрити")}
-          ${c("Я є", "🧭", am, "Сильні сторони, стиль роботи, мотивація.", "#/app/strengths", "Дізнатися більше")}
-          ${c("Я хочу", "🎯", want, "Формат роботи, готовність до переїзду, цілі.", "#/app/goals", want === "empty" ? "Вказати цілі" : "Оновити цілі")}
+          ${c("Я можу", "Що я вже вмію", "🛠️", can, `Факти: ${esc(factCounts)}.`, "#/profile/me", "Відкрити")}
+          ${c("Я є", "Що мені підходить", "🧭", am, "Сильні сторони, стиль роботи, мотивація.", "#/app/strengths", "Дізнатися більше")}
+          ${c("Я хочу", "Чого я хочу", "🎯", want, "Формат роботи, готовність до переїзду, цілі.", "#/app/goals", "Відкрити")}
         </div>
 
         <div class="nv-panel" style="text-align:center">
           <p style="font-size:1.05rem;margin:.2rem 0"><b>Я можу</b> &nbsp;+&nbsp; <b>Я є</b> &nbsp;+&nbsp; <b>Я хочу</b> &nbsp;→&nbsp; <span class="chip chip--purple">Точніші кар'єрні сценарії</span></p>
-          <p class="muted" style="font-size:.85rem;margin:.3rem 0 0">Загальна готовність профілю: ${stateChip(combined)}</p>
+          <p class="muted" style="font-size:.85rem;margin:.3rem 0 .8rem">Готовність профілю: ${stateChip(combined)}</p>
+          ${combined !== "filled"
+            ? `<a class="btn" href="${want === "empty" ? "#/app/goals" : "#/profile/edit"}">Покращити профіль</a>`
+            : `<a class="btn secondary" href="#/app">На головну</a>`}
         </div>
 
         <div class="nv-panel">
@@ -217,7 +222,7 @@ const MnpWorkspace = (() => {
     skills(p) {
       const rows = p.skills || [];
       document.getElementById("ws-content").innerHTML = `
-        <div class="page-header"><h1>Мої навички</h1><p>Навички та інструменти з вашого профілю. Аналіз відсутніх навичок (skill gap) — на наступному етапі.</p></div>
+        <div class="page-header"><h1>Мої навички</h1><p>Навички та інструменти з вашого профілю. Аналіз того, яких навичок бракує для нової ролі — на наступному етапі.</p></div>
         <div class="nv-panel">
           <h3 style="margin-top:0">Підтверджені навички (${rows.length})</h3>
           <div class="chips">
@@ -227,7 +232,7 @@ const MnpWorkspace = (() => {
         </div>
         <div class="nv-panel">
           <h3 style="margin-top:0">Відсутні навички для цільової професії</h3>
-          ${futureState("Skill gap", "Порівняння ваших навичок з вимогами професій запрацює після підключення персонального підбору.")}
+          ${futureState("Яких навичок бракує", "Порівняння ваших навичок з вимогами професій запрацює після підключення персонального підбору.")}
         </div>`;
     },
 
@@ -258,11 +263,11 @@ const MnpWorkspace = (() => {
           ${block("Що може виснажувати", ["Рутина без сенсу", "Постійні перемикання"], "chip--orange")}
           <div class="nv-panel">
             <h3 style="margin-top:0">Ваші кар'єрні суперсили</h3>
-            <p class="muted" style="font-size:.9rem">У майбутньому цей блок поєднає сигнал оцінки з фактами вашого профілю (досвід, підтверджені навички).</p>
+            <p class="muted" style="font-size:.9rem">Цей блок поєднає результати тесту з фактами вашого профілю — досвідом і підтвердженими навичками.</p>
             <div class="chips"><span class="chip chip--purple">Переконувати та домовлятися</span><span class="chip chip--purple">Розбиратися в даних</span></div>
             <span class="soon-tag">Незабаром</span>
           </div>
-          <p class="muted" style="font-size:.8rem">Це приклад композиції екрана. Реальний аналіз з'явиться після впровадження методології оцінки; демо-результати не зберігаються у профіль.</p>
+          <p class="muted" style="font-size:.8rem">Це приклад того, як виглядатиме результат. Демо-відповіді не зберігаються у профіль.</p>
         ` : futureState("Результат оцінки", "Тут з'являться ваші сильні сторони, стиль роботи та мотивація після проходження тесту.")}`;
     },
 
@@ -318,7 +323,7 @@ const MnpWorkspace = (() => {
         ${grp("Цінності", ["Стабільність", "Розвиток", "Вплив", "Баланс", "Незалежність"])}
         ${grp("Мотивація", ["Складні задачі", "Визнання", "Дохід", "Місія"])}
         ${grp("Робочі уподобання", ["Темп", "Рівень структурованості", "Командність"])}
-        ${futureState("Оцінка інтересів і цінностей", "Ви зможете відзначити те, що резонує, і побачити свій профіль. Методологію оцінки затвердить окреме рішення.")}`;
+        ${futureState("Оцінка інтересів і цінностей", "Ви зможете відзначити те, що вам відгукується, і побачити свій профіль.")}`;
     },
 
     // ---- I WANT : goals (PARTIAL — canonical want-fields are functional) ----
@@ -374,17 +379,17 @@ const MnpWorkspace = (() => {
 
     scenarios() {
       document.getElementById("ws-content").innerHTML = `
-        <div class="page-header"><h1>Сценарії переходу</h1><p>Оберіть свій сценарій — від найшвидшого до найбільшого довгострокового потенціалу.</p></div>
-        <div class="metric-grid" style="grid-template-columns:repeat(3,1fr)">
-          <div class="metric-card"><span class="chip chip--blue">Найшвидший</span><div class="sub" style="margin-top:.6rem">Мінімум кроків до нової ролі</div></div>
-          <div class="metric-card"><span class="chip chip--green">Найкращий приріст доходу</span><div class="sub" style="margin-top:.6rem">Максимальна зміна доходу</div></div>
-          <div class="metric-card"><span class="chip chip--purple">Довгостроковий потенціал</span><div class="sub" style="margin-top:.6rem">Найкраща траєкторія на роки</div></div>
+        <div class="page-header"><h1>Сценарії переходу</h1><p>Три типи сценарію — залежно від того, що для вас важливіше.</p></div>
+        <div class="nv-cards">
+          <div class="nv-card"><span class="chip chip--blue">Найшвидший</span><p style="margin:.6rem 0 0;color:var(--muted);font-size:.9rem">Мінімум кроків до нової ролі</p></div>
+          <div class="nv-card"><span class="chip chip--green">Приріст доходу</span><p style="margin:.6rem 0 0;color:var(--muted);font-size:.9rem">Найбільша зміна доходу</p></div>
+          <div class="nv-card"><span class="chip chip--purple">Довгострокове зростання</span><p style="margin:.6rem 0 0;color:var(--muted);font-size:.9rem">Найкраща траєкторія на роки</p></div>
         </div>
-        ${futureState("Порівняння сценаріїв", "Сценарії, професії, терміни та кроки з'являться після підключення персонального підбору та маршрутів.")}
+        ${futureState("Порівняння сценаріїв", "Тут з'являться сценарії, професії, терміни та кроки — після підключення персональних рекомендацій.")}
         <div class="nv-panel">
-          <span class="chip chip--purple">Career Mobility Score</span>
-          <h3 style="margin:.5rem 0 .3rem">Оцінка кар'єрної мобільності</h3>
-          <p class="muted" style="font-size:.9rem">Єдиний показник того, наскільки легко вам змінити напрям. Методологію затвердить окреме рішення Founder.</p>
+          <span class="chip chip--purple">Оцінка кар'єрної мобільності</span>
+          <h3 style="margin:.5rem 0 .3rem">Наскільки легко вам змінити напрям</h3>
+          <p class="muted" style="font-size:.9rem">Один зрозумілий показник. З'явиться пізніше.</p>
           <span class="soon-tag">Незабаром</span>
         </div>`;
     },
@@ -443,9 +448,9 @@ const MnpWorkspace = (() => {
 
     insights() {
       document.getElementById("ws-content").innerHTML = `
-        <div class="page-header"><h1>Щотижневий апдейт</h1><p>Нові можливості, зменшений skill gap та поради тижня.</p></div>
-        <div class="empty-state"><div class="ico">📭</div><h3>Апдейтів поки немає</h3>
-          <p>Персональні події з'являться, коли запрацює підбір і ви почнете виконувати план. Ми не показуємо вигаданих подій.</p></div>`;
+        <div class="page-header"><h1>Щотижневий апдейт</h1><p>Нові можливості, прогрес за навичками та поради тижня.</p></div>
+        <div class="empty-state"><div class="ico">📭</div><h3>Поки що тут нічого немає</h3>
+          <p>Апдейти з'являться, коли ви почнете виконувати кроки плану.</p></div>`;
     },
 
     vacancies() {
@@ -469,7 +474,7 @@ const MnpWorkspace = (() => {
         <div class="page-header"><h1>Коуч поруч <span class="chip chip--purple">Premium</span></h1><p>Персональний кар'єрний коуч, сесії та нотатки.</p></div>
         <div class="adm-tabs">${tab("Чат", true)}${tab("Сесії")}${tab("Нотатки")}${tab("Питання")}</div>
         ${futureState("Коуч-модуль", "Чат з коучем, бронювання сесій та рекомендації — у складі NAPRIAM Premium. Backend коуча ще не підключено.")}
-        <a class="btn secondary is-disabled" aria-disabled="true" href="#/app/consultation">Запланувати консультацію<span class="soon-tag">Незабаром</span></a>`;
+        <a class="btn secondary" href="#/app/consultation">Як працюватимуть консультації</a>`;
     },
 
     consultation() {

@@ -16,6 +16,24 @@ Frontend: `mnp_frontend/` (plain JS, hash router, no build step).
 `app.js` = public + routing, `person.js` = Person KB flows, `workspace.js`
 = post-profile career workspace, `admin.js` = internal admin.
 
+### Interaction rules (frozen for Founder Acceptance)
+
+* **Every control** is WORKING, FUTURE (`disabled` + `«Незабаром»`), or
+  DEMO (`«Приклад»`). No control that looks active but does nothing,
+  blanks the page, throws, misroutes, or leaks an `/admin` route.
+* **One primary CTA per screen** (blue `.btn`); everything else is
+  `.btn.secondary` / `.btn.ghost`.
+* **Header** shows a single action: `Створити профіль` until a profile
+  exists (`localStorage.mnp_has_profile`), then `Мій профіль` → `#/app`.
+  A fresh session clears the flag.
+* **No internal terms in customer copy** — no "Person KB", "Career KB",
+  "MnpPerson", "taxonomy", "methodology", "Founder", "skill gap",
+  "детермінований". Evidence shows friendly labels only
+  (`Знайдено у CV` / `Підтверджено`); a hand-typed fact shows no chip.
+* **Empty vs future vs demo** — `«Поки що тут нічого немає»` /
+  `«Незабаром»` / `«Приклад»`, never "у вас немає відповідних…" for a
+  feature that simply isn't built.
+
 ---
 
 ## Two customer states, one design system

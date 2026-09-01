@@ -20,6 +20,7 @@ const MnpApi = (() => {
     const res = await fetch(`${BASE}/session`, { method: "POST" });
     const data = await res.json();
     localStorage.setItem("mnp_user_id", data.user_id);
+    localStorage.removeItem("mnp_has_profile");  // a fresh session has no known profile yet
     // secure bearer token -- authenticates private user routes; never
     // derivable from user_id. Person KB routes accept ONLY this.
     if (data.session_token) localStorage.setItem("mnp_session_token", data.session_token);
