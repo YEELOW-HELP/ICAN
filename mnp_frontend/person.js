@@ -71,6 +71,7 @@ const MnpPersonKB = (() => {
     const cur = await me("/me/person").catch(() => ({ person: null }));
     const has = cur && cur.id;
     markProfile(has);
+    const I = (n) => NvUI.icon(n);
     root().innerHTML = `
       <div class="pk-wrap">
         <h1>Створіть кар'єрний профіль</h1>
@@ -79,15 +80,27 @@ const MnpPersonKB = (() => {
            <a class="btn" href="#/app">Відкрити робочий простір</a>
            <a class="btn secondary" href="#/profile/me">Мій профіль</a></div>` : ""}
         <div class="pk-choices">
-          <div class="choice-card" onclick="location.hash='#/profile/cv'"><h3>Завантажити CV</h3><p>Швидко імпортуйте дані з резюме у форматі PDF, DOCX або TXT. Ви перевірите й підтвердите кожен факт.</p></div>
-          <div class="choice-card future"><h3>Підключити LinkedIn <span class="soon-tag">Незабаром</span></h3><p>Імпорт профілю LinkedIn з'явиться на наступному етапі.</p></div>
-          <div class="choice-card" onclick="location.hash='#/profile/build'"><h3>Заповнити вручну</h3><p>Додайте інформацію про себе, досвід, навички та освіту самостійно, крок за кроком.</p></div>
+          <div class="choice-card" onclick="location.hash='#/profile/cv'">
+            <div class="choice-ico nv-ico-box">${I("upload")}</div>
+            <h3>Завантажити CV</h3>
+            <p>Швидко імпортуйте дані з резюме у форматі PDF, DOCX або TXT. Ви перевірите й підтвердите кожен факт.</p>
+          </div>
+          <div class="choice-card future" aria-disabled="true">
+            <div class="choice-ico nv-ico-box soft">${I("chart")}</div>
+            <h3>Підключити LinkedIn <span class="soon-tag">Незабаром</span></h3>
+            <p>Імпорт профілю LinkedIn з'явиться на наступному етапі.</p>
+          </div>
+          <div class="choice-card" onclick="location.hash='#/profile/build'">
+            <div class="choice-ico nv-ico-box">${I("edit")}</div>
+            <h3>Заповнити вручну</h3>
+            <p>Додайте інформацію про себе, досвід, навички та освіту самостійно, крок за кроком.</p>
+          </div>
         </div>
       </div>`;
   }
 
-  const STEPS = ["about", "education", "experience", "activities", "skills", "languages", "mobility", "review"];
-  const STEP_TITLE = { about: "Про мене", education: "Освіта", experience: "Досвід", activities: "Проєкти та активності", skills: "Навички та інструменти", languages: "Мови", mobility: "Мобільність", review: "Перевірка" };
+  const STEPS = ["about", "experience", "education", "skills", "languages", "credentials", "activities", "mobility", "review"];
+  const STEP_TITLE = { about: "Основне", experience: "Досвід", education: "Освіта", skills: "Навички", languages: "Мови", credentials: "Сертифікати", activities: "Активності", mobility: "Мобільність", review: "Перевірка" };
   let _p = null, _step = 0;
 
   async function screenBuild() {
@@ -104,11 +117,12 @@ const MnpPersonKB = (() => {
     root().innerHTML = `
       <div class="pk-wrap">
         <div class="pk-steps">${STEPS.map((s, i) => `<span class="${i === _step ? "on" : i < _step ? "done" : ""}">${esc(STEP_TITLE[s])}</span>`).join("")}</div>
+        <p class="muted" style="font-size:.82rem;margin:.2rem 0 .6rem">Крок ${_step + 1} з ${STEPS.length}</p>
         <h1>${esc(STEP_TITLE[step])}</h1>
         <div id="pk-body"></div>
         <div class="pk-nav">
           ${_step > 0 ? `<button class="btn secondary" id="pk-prev">Назад</button>` : ""}
-          ${_step < STEPS.length - 1 ? `<button class="btn" id="pk-next">Далі</button>` : `<button class="btn" id="pk-finish">Зберегти профіль</button>`}
+          ${_step < STEPS.length - 1 ? `<button class="btn" id="pk-next">Продовжити</button>` : `<button class="btn" id="pk-finish">Зберегти профіль</button>`}
         </div>
       </div>`;
     const prev = document.getElementById("pk-prev"); if (prev) prev.onclick = () => { _step--; renderStep(); };
@@ -135,11 +149,15 @@ const MnpPersonKB = (() => {
     },
     education() { listBlock("educations", eduForm, (e) => `${esc(e.education_level_uk)} — ${esc(e.institution_name || "—")}${e.end_year ? " (" + e.end_year + ")" : ""}`); },
     experience() {
-      document.getElementById("pk-body").innerHTML = `<p class="muted" id="pk-noexp-hint"></p>` + blockHtml("experiences", (x) => `${esc(x.raw_job_title)} — ${esc(x.company_name || "—")}`);
+      const empty = !((_p && _p.experiences) || []).length;
+      document.getElementById("pk-body").innerHTML =
+        (empty ? `<p class="muted">Ще немає досвіду роботи? Це нормально — просто натисніть «Продовжити».</p>` : "")
+        + blockHtml("experiences", (x) => `${esc(x.raw_job_title)} — ${esc(x.company_name || "—")}`);
       wireBlock("experiences", expForm);
     },
     activities() { listBlock("activities", actForm, (a) => `${esc(a.activity_type_uk)}: ${esc(a.title)}`); },
     skills() { skillsBody(); },
+    credentials() { listBlock("credentials", credForm, (c) => `${esc(c.credential_type_uk)}: ${esc(c.title || "—")}`); },
     languages() { listBlock("languages", langForm, (l) => `${esc(l.language)} — ${esc(l.level_uk)}`); },
     mobility() {
       const m = (_p && _p.mobility) || {};
@@ -216,11 +234,14 @@ const MnpPersonKB = (() => {
   const actForm = (a) => `${S("a-type", "Тип", ACT_TYPE, a.activity_type)}${F("a-title", "Назва *", a.title)}${F("a-org", "Організація", a.organization)}${F("a-role", "Роль", a.role)}${F("a-sd", "Початок", a.start_date, "type=date")}${F("a-ed", "Завершення", a.end_date, "type=date")}${A("a-desc", "Опис", a.description)}${A("a-res", "Результат / досягнення", a.result_or_achievement)}`;
   const langForm = (l) => `${F("l-lang", "Мова *", l.language)}${S("l-lvl", "Рівень", LANG_LEVEL, l.level)}${F("l-cert", "Сертифікат", l.certificate)}`;
 
+  const credForm = (c) => `${S("cr-type", "Тип", CRED_TYPE, c.credential_type)}${F("cr-title", "Назва *", c.title)}${F("cr-prov", "Провайдер", c.provider)}${F("cr-issue", "Дата видачі", c.issue_date, "type=date")}${F("cr-exp", "Дійсний до", c.expiry_date, "type=date")}${F("cr-num", "Номер", c.credential_number)}${A("cr-desc", "Опис", c.description)}`;
+
   const COLLECT = {
     educations: () => ({ education_level: val("e-lvl"), institution_name: val("e-inst"), specialty_or_qualification: val("e-spec"), start_year: val("e-sy") || null, end_year: val("e-ey") || null, status: val("e-st"), description: val("e-desc") }),
     experiences: () => ({ raw_job_title: val("x-title"), company_name: val("x-co"), start_date: val("x-sd") || null, end_date: val("x-ed") || null, is_current: val("x-cur"), responsibilities_description: val("x-resp"), achievements: val("x-ach"), tools_used: val("x-tools") }),
     activities: () => ({ activity_type: val("a-type"), title: val("a-title"), organization: val("a-org"), role: val("a-role"), start_date: val("a-sd") || null, end_date: val("a-ed") || null, description: val("a-desc"), result_or_achievement: val("a-res") }),
     languages: () => ({ language: val("l-lang"), level: val("l-lvl"), certificate: val("l-cert") }),
+    credentials: () => ({ credential_type: val("cr-type"), title: val("cr-title"), provider: val("cr-prov"), issue_date: val("cr-issue") || null, expiry_date: val("cr-exp") || null, credential_number: val("cr-num"), description: val("cr-desc") }),
   };
 
   // ---- skills ----
@@ -271,7 +292,7 @@ const MnpPersonKB = (() => {
       <a class="kb-back" href="#/profile/me" style="display:inline-block">← Мій профіль</a>
       <h1>Редагувати профіль <span class="badge ${_p.core.status === "active" ? "high" : "insufficient"}">${esc(_p.core.status_uk)}</span></h1>
       <p class="muted">Зміни в списках (досвід, навички, освіта тощо) зберігаються одразу. Для розділів «Про мене» та «Мобільність» натисніть «Зберегти».</p>
-      <div class="pk-steps" id="pk-tabs">${STEPS.slice(0, 7).map((s, i) => `<span data-s="${i}" class="${i === 0 ? "on" : ""}">${esc(STEP_TITLE[s])}</span>`).join("")}</div>
+      <div class="pk-steps" id="pk-tabs">${STEPS.slice(0, STEPS.length - 1).map((s, i) => `<span data-s="${i}" class="${i === 0 ? "on" : ""}">${esc(STEP_TITLE[s])}</span>`).join("")}</div>
       <div id="pk-body"></div>
       <div class="pk-nav"><button class="btn" id="pk-save-all">Зберегти</button><a class="btn secondary" href="#/profile/me">Готово</a></div></div>`;
     document.querySelectorAll("#pk-tabs span").forEach((t) => t.onclick = () => {
@@ -289,13 +310,21 @@ const MnpPersonKB = (() => {
 
   // ---- CV upload + review ----
   let _cv = null;
+  function cvSteps(active) {
+    const S = [["Завантаження"], ["Перевірка"], ["Підтвердження"], ["Профіль"]];
+    return `<div class="flow-steps">${S.map(([t], i) => `
+      ${i ? '<span class="sep"></span>' : ""}
+      <span class="fs ${i === active ? "on" : i < active ? "done" : ""}"><span class="n">${i < active ? "✓" : i + 1}</span>${esc(t)}</span>`).join("")}</div>`;
+  }
   async function screenCv() {
     await MnpApi.ensureSession();
     const staged = _stagedCv; _stagedCv = null;
     root().innerHTML = `
       <div class="pk-wrap"><h1>Завантажити CV</h1>
+        ${cvSteps(0)}
         <p class="lead">Ми знайдемо факти у вашому резюме. Ви перевірите та підтвердите їх — нічого не зберігається без вашого підтвердження.</p>
         <div class="nv-drop" id="cv-drop">
+          <div class="nv-ico-box soft" style="margin:0 auto .5rem">${NvUI.icon("upload")}</div>
           <strong>Перетягніть файл сюди або оберіть</strong>
           <p>PDF, DOCX або TXT · до 15 МБ</p>
           <input type="file" id="cv-file" accept=".pdf,.docx,.txt">
@@ -340,6 +369,7 @@ const MnpPersonKB = (() => {
     const c = _cv;
     const sec = (title, arr, render) => `<h3>${esc(title)}</h3>${arr.length ? arr.map((r, i) => `<label class="pk-chk"><input type="checkbox" checked data-sec="${title}" data-i="${i}"> ${render(r)}</label>`).join("") : `<p class="muted">Не знайдено.</p>`}`;
     document.getElementById("cv-out").innerHTML = `
+      ${cvSteps(1)}
       <div class="pk-card">
         <h2 style="margin-top:0">Попередній перегляд витягнутих даних</h2>
         <p class="muted">Ми знайшли ці записи у вашому резюме. Зніміть галочку, щоб не додавати запис. Редагувати можна після збереження.</p>
@@ -379,6 +409,7 @@ const MnpPersonKB = (() => {
     const needName = !p.core.first_name || p.core.first_name === "—";
     root().innerHTML = `
       <div class="pk-wrap">
+        ${cvSteps(2)}
         <span class="demo-flag" style="background:#e6f6ef;color:var(--green)">Профіль збережено</span>
         <h1>Ми проаналізували ваш досвід</h1>
         <p class="lead">Перевірте, чи ми правильно зрозуміли ваш профіль. Ви можете відредагувати будь-який розділ.</p>
@@ -470,10 +501,8 @@ const MnpPersonKB = (() => {
     if (!MnpApi.isAdmin()) { location.hash = "#/admin/login"; return; }
     const rows = await admin("/admin/persons");
     root().innerHTML = `
-      <div class="admin-bar"><span>Person KB</span>
-        <a href="#/admin/persons/new" class="btn">+ Створити профіль</a>
-        <a href="#/admin/catalog" class="admin-logout" style="color:var(--muted)">Career KB</a></div>
-      <h1>Люди (${rows.length})</h1>
+      <div class="adm-actions"><h1 style="flex:1">Люди (${rows.length})</h1>
+        <a href="#/admin/persons/new" class="btn">+ Створити профіль</a></div>
       <input id="pk-q" class="career-search" placeholder="Пошук за ім'ям / містом / статусом">
       <table class="kb-table"><thead><tr><th>Ім'я</th><th>Телефон</th><th>Email</th><th>Telegram</th><th>Місто</th><th>Статус</th><th>Оновлено</th><th></th></tr></thead>
       <tbody id="pk-rows">${rows.map(prow).join("")}</tbody></table>`;
@@ -588,11 +617,7 @@ const MnpPersonKB = (() => {
       toast("Збережено"); admRender();
     });
   }
-  const credForm = (c) => `${S("cr-type", "Тип", CRED_TYPE, c.credential_type)}${F("cr-title", "Назва *", c.title)}${F("cr-prov", "Провайдер", c.provider)}${F("cr-issue", "Дата видачі", c.issue_date, "type=date")}${F("cr-exp", "Дійсний до", c.expiry_date, "type=date")}${F("cr-num", "Номер", c.credential_number)}${A("cr-desc", "Опис", c.description)}`;
-  const ADM_COLLECT = {
-    ...COLLECT,
-    credentials: () => ({ credential_type: val("cr-type"), title: val("cr-title"), provider: val("cr-prov"), issue_date: val("cr-issue") || null, expiry_date: val("cr-exp") || null, credential_number: val("cr-num"), description: val("cr-desc") }),
-  };
+  const ADM_COLLECT = { ...COLLECT };
   // admin form ids differ from user (e- vs different prefixes) -- reuse user COLLECT which reads e-/x-/a-/l-
   ADM_COLLECT.educations = COLLECT.educations;
   ADM_COLLECT.experiences = COLLECT.experiences;

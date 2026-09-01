@@ -109,14 +109,8 @@ const MnpAdmin = (() => {
     _admCache = await MnpApi.admin("/admin/careers");
     const counts = _admCache.reduce((a, c) => (a[c.status] = (a[c.status] || 0) + 1, a), {});
     root().innerHTML = `
-      <div class="admin-bar">
-        <span>Режим редактора</span>
-        <a href="#/admin/career/new" class="btn">+ Створити професію</a>
-        <a href="#/admin/persons" class="btn secondary">Person KB / Люди</a>
-        <a href="#/catalog" class="admin-logout" style="color:var(--muted)">публічний сайт</a>
-        <a href="#" class="admin-logout">вийти</a>
-      </div>
-      <h1>Career KB — усі професії (${_admCache.length})</h1>
+      <div class="adm-actions"><h1 style="flex:1">Професії — усі (${_admCache.length})</h1>
+        <a href="#/admin/career/new" class="btn">+ Створити професію</a></div>
       <p class="lead">Опубліковано: ${counts.active || 0} · Чернетки: ${counts.draft || 0} · В архіві: ${counts.archived || 0}.
          Публічно показуються лише опубліковані.</p>
       <input id="adm-cat-search" class="career-search" type="text" placeholder="Пошук професії або категорії...">

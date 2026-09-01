@@ -43,16 +43,26 @@ Frontend: `mnp_frontend/` (plain JS, hash router, no build step).
 | **A — before profile** | public header (`#site-header`) | `#/`, `#/how`, `#/about`, `#/login`, `#/pricing`, `#/catalog`, `#/opportunities`, `#/profile…` |
 | **B — after profile** | workspace shell (left sidebar + slim top bar), no public header, no admin links | `#/app`, `#/app/<module>` |
 
-Workspace left navigation (grouped, no empty pages):
+Workspace left navigation (Founder-approved; icons are inline SVG from
+`ui.js`, not emoji). Future modules keep a sidebar entry — they open a
+real explainer / future-state screen — with a `Незабаром` pill:
 
 ```
-Головна · Профіль · Мої навички
-Цифровий профіль:  Сильні сторони · Інтереси та цінності · Цілі
-Розвиток кар'єри:  Сценарії · План дій · Прогрес · Вакансії для мене · Інсайти
+Огляд · Мій профіль
+Мої сценарії [Незабаром] · Що зміниться, якщо… [Незабаром] · Мій маршрут [Незабаром]
+План дій [Незабаром] · Прогрес [Незабаром] · Інсайти [Незабаром]
+Вакансії [Незабаром] · Ресурси [Незабаром]
+── AI Коуч [Premium] · Консультація [Незабаром] · Тарифи
 ```
 
-Admin (`#/admin/*`) is a **separate** plain internal interface — never
-blended with the customer UI, never linked from customer navigation.
+The Digital Career Profile detail screens (`#/app/skills`,
+`#/app/strengths`, `#/app/values`, `#/app/goals`) are reached from
+**Мій профіль**, not the sidebar.
+
+Admin (`#/admin/*`) is a **separate** plain internal interface with its
+own dark top nav (`NAPRIAM ADMIN · Люди · Професії · Вийти`), rendered
+into `#site-header` — never blended with the customer UI, never linked
+from customer navigation.
 
 ---
 
@@ -83,9 +93,9 @@ contract).
 | Digital Profile home | `#/app/profile` | **FUNCTIONAL** — three cards (Я можу / Я є / Я хочу) with deterministic completeness state, the `I CAN + I AM + I WANT → точніші сценарії` visual, future-state card for personal scenarios |
 | **I CAN** — My Profile (read-only) | `#/profile/me` | **FUNCTIONAL** — human-readable canonical `MnpPerson` (experience · education · skills · tools · languages · projects · credentials · evidence) |
 | Edit profile (tabbed) | `#/profile/edit` | **FUNCTIONAL** |
-| **I CAN** — Мої навички | `#/app/skills` | **PARTIAL** — real confirmed skills FUNCTIONAL; skill-gap block VISUAL / FUTURE |
-| **I AM** — Сильні сторони / стиль роботи | `#/app/strengths` | **VISUAL / FUTURE** — result shell (сильні сторони · стиль роботи · мотивація · що виснажує · кар'єрні суперсили), all marked «Приклад результату»; nothing persisted |
-| **I AM** — Тест сильних сторін | `#/app/assessment` | **VISUAL / FUTURE** — frontend-only demo (3 A/B questions, ~7 хв promise), no scoring, `sessionStorage` only, never written to Person KB |
+| **I CAN** — Мої навички | `#/app/skills` | **PARTIAL** — real confirmed skills FUNCTIONAL; "яких навичок бракує" block VISUAL / FUTURE |
+| **I AM** — Дізнайтесь свої сильні сторони | `#/app/strengths` | **VISUAL / FUTURE** — «Пройти тест» button **disabled** + «Незабаром»; example result sections all marked «Приклад»; nothing persisted, no scoring |
+| **I AM** — `#/app/assessment` | redirect | legacy route → redirects to `#/app/strengths` (the assessment is not built) |
 | **I AM** — Інтереси та цінності | `#/app/values` | **VISUAL / FUTURE** — Інтереси / Цінності / Мотивація / Робочі уподобання chips |
 | **I WANT** — Цілі | `#/app/goals` | **PARTIAL** — FUNCTIONAL: work format · willing-to-relocate · work geography (saved to `MnpPerson` via `POST /me/person`, the existing endpoint). VISUAL / FUTURE: desired income (goal, not market), transition pace, career directions, priority ranking |
 
@@ -174,22 +184,40 @@ internal Matching later needs to *exclude* specific careers.
 
 ---
 
-## Design system (§21)
+## Design system (§21 / §23)
 
-Shared classes in `style.css`:
+Tokens in `style.css :root` — `--surface`, `--surface-soft`, `--text`,
+`--muted`, `--primary`, `--primary-hover`, `--border`, `--success`,
+`--future` (+ the original `--fg`/`--accent`/… kept as aliases),
+`--space-1..5`, `--radius`, `--shadow-sm`/`-md`. Max content width
+`--maxw: 1200px`.
+
+**Icons** — inline SVG set in `ui.js` (`NvUI.icon(name)`), 20×20,
+`stroke: currentColor`. No emoji in primary UI. `NvUI.greeting()` gives
+the time-of-day greeting.
+
+Shared classes:
 
 * semantic status: `.chip--green` (have / done / strength) · `.chip--orange`
   (gap) · `.chip--red` (blocker) · `.chip--blue` (current / next / nav) ·
   `.chip--purple` (future / destination / Premium)
-* `.page-header` · `.metric-card` / `.metric-grid` · `.progress-ring`
-  (conic-gradient, `--p`) · `.timeline` · `.empty-state` ·
-  `.future-state` (+ `.soon-tag`) · `.demo-flag`
+* `.page-header` · `.nv-ico-box` (icon tile) · `.metric-card` ·
+  `.progress-ring` · `.timeline` · `.empty-state` · `.future-state`
+  (+ `.soon-tag`) · `.demo-flag` · `.flow-steps` (numbered onboarding
+  stepper)
 * buttons: `.btn` / `.btn.secondary` / `.btn.ghost` / `.btn.is-disabled`
-  (+ `[disabled]`)
-* public: `.nv-header` · `.nv-hero` · `.nv-card` · `.nv-step` · `.nv-panel`
-  · `.nv-prof-card`
-* workspace: `.ws` · `.ws-side` / `.ws-nav` · `.ws-top` · `.ws-body` ·
-  `.ws-hero` · `.ws-grid2`
+  (+ native `[disabled]`)
+* public: `.nv-header` (single sticky row: brand · nav · actions) ·
+  `.nv-hero` · `.nv-card` · `.nv-panel` · `.nv-prof-card` · `.site-footer`
+* workspace: `.ws` · `.ws-side` / `.ws-nav` (icon · label · `.soon` pill) ·
+  `.ws-top` · `.ws-body` · `.ws-hero` · `.dim-row` · `.chat-panel` ·
+  `.plan-board`
+* admin: `.adm-nav` (dark internal top bar)
+
+CV / onboarding flow indicator: `1 Завантаження · 2 Перевірка ·
+3 Підтвердження · 4 Профіль`. Manual wizard: 9 steps
+(`Основне · Досвід · Освіта · Навички · Мови · Сертифікати · Активності ·
+Мобільність · Перевірка`), «Крок X з 9», «Назад» / «Продовжити».
 
 Copy is deliberately tighter than the reference screens: one main question
 per screen, one primary CTA, 1–2 secondary, no long instructional

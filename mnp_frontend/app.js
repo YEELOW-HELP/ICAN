@@ -69,21 +69,59 @@ const App = (() => {
 
   function renderHeader() {
     const hash = location.hash || "#/";
-    // Admin has its own (none) chrome; the post-profile workspace draws its
-    // own sidebar + top bar and clears this header itself.
-    if (hash.startsWith("#/admin") || hash.startsWith("#/app")) { header.innerHTML = ""; return; }
+    renderFooter(hash);
+    // Admin gets its own dark internal nav; the post-profile workspace draws
+    // its own sidebar + top bar and clears this header itself.
+    if (hash.startsWith("#/admin")) { renderAdminNav(hash); return; }
+    if (hash.startsWith("#/app")) { header.innerHTML = ""; return; }
     const [, path] = hash.match(/^#\/([^/]*)/) || [null, ""];
     const hasProfile = !!localStorage.getItem("mnp_has_profile");
     header.innerHTML = `
-      <a class="nv-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
-      <nav class="nv-nav">
-        ${NAV.map(([p, t]) => `<a href="#/${p}" class="${p === path ? "is-active" : ""}">${t}</a>`).join("")}
-      </nav>
-      <div class="nv-actions">
-        <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
-        ${hasProfile
-          ? `<a class="btn secondary" href="#/app">Мій профіль</a>`
-          : `<a class="btn" href="#/profile">Створити профіль</a>`}
+      <div class="nv-header">
+        <a class="nv-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
+        <nav class="nv-nav">
+          ${NAV.map(([p, t]) => `<a href="#/${p}" class="${p === path ? "is-active" : ""}">${t}</a>`).join("")}
+        </nav>
+        <div class="nv-actions">
+          <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
+          ${hasProfile
+            ? `<a class="btn secondary" href="#/app">Мій профіль</a>`
+            : `<a class="btn" href="#/profile">Створити профіль</a>`}
+        </div>
+      </div>`;
+  }
+
+  function renderAdminNav(hash) {
+    if (hash === "#/admin/login" || !MnpApi.isAdmin()) { header.innerHTML = ""; return; }
+    const p = (hash.match(/^#\/admin\/([^/]*)/) || [])[1] || "";
+    const item = (slug, label) =>
+      `<a href="#/admin/${slug}" class="${p.startsWith(slug.split("/")[0]) ? "is-active" : ""}">${label}</a>`;
+    header.innerHTML = `
+      <div class="adm-nav">
+        <b>NAPRIAM ADMIN</b>
+        ${item("persons", "Люди")}
+        ${item("catalog", "Професії")}
+        <span class="spacer"></span>
+        <a href="#" id="adm-logout">Вийти</a>
+      </div>`;
+    const lo = document.getElementById("adm-logout");
+    if (lo) lo.addEventListener("click", (e) => { e.preventDefault(); MnpApi.adminLogout(); location.hash = "#/admin/login"; });
+  }
+
+  function renderFooter(hash) {
+    const f = document.getElementById("site-footer");
+    if (!f) return;
+    if (hash.startsWith("#/admin") || hash.startsWith("#/app")) { f.innerHTML = ""; f.style.display = "none"; return; }
+    f.style.display = "";
+    f.innerHTML = `
+      <div class="site-footer-inner">
+        <div class="fbrand"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></div>
+        <nav>
+          <a href="#/how">Як це працює</a>
+          <a href="#/catalog">Професії</a>
+          <a href="#/about">Про нас</a>
+        </nav>
+        <span class="fcopy">© 2026 NAPRIAM</span>
       </div>`;
   }
 
@@ -91,42 +129,58 @@ const App = (() => {
   // PUBLIC — Home
   // ===================================================================
   function screenHome() {
+    const I = (n) => NvUI.icon(n);
     root.innerHTML = `
       <section class="nv-hero">
         <div>
           <h1>Ким ви можете<br>працювати далі?</h1>
-          <p class="lead">NAPRIAM перетворює ваш реальний досвід і навички на нові кар'єрні можливості та зрозумілий план переходу.</p>
-          <div class="nv-drop" id="home-drop">
+          <p class="lead">NAPRIAM перетворює ваш реальний досвід, навички та цілі на нові кар'єрні можливості та зрозумілий маршрут переходу.</p>
+          <div class="nv-hero-actions">
+            <a class="btn btn-lg" href="#/profile">Створити профіль</a>
+            <a class="btn secondary btn-lg" href="#/profile/cv">Завантажити CV</a>
+            <a class="tertiary" href="#/profile/build">Заповнити вручну</a>
+          </div>
+          <div class="nv-drop" id="home-drop" style="margin-top:1.75rem">
+            <div class="nv-ico-box soft" style="margin:0 auto .5rem">${I("upload")}</div>
             <strong>Перетягніть сюди ваш CV</strong>
             <p>PDF, DOCX або TXT</p>
-            <div style="margin-top:.8rem">
-              <a class="btn btn-lg" href="#/profile/cv">Завантажити CV</a>
-              <a class="btn secondary btn-lg" href="#/profile/build">Заповнити вручну</a>
-            </div>
             <div style="margin-top:.6rem">
-              <button class="btn ghost is-disabled" disabled>Імпортувати LinkedIn<span class="soon-tag">Незабаром</span></button>
+              <button class="btn ghost is-disabled" disabled title="Функція з'явиться пізніше">Імпортувати LinkedIn<span class="soon-tag">Незабаром</span></button>
             </div>
           </div>
         </div>
         <div class="nv-preview">
-          <span class="demo-flag">Приклад результату</span>
+          <span class="demo-flag">Приклад</span>
           <p style="margin:.2rem 0 .8rem;font-weight:600">Так виглядатимуть ваші можливості</p>
           <div class="nv-preview-row"><b>Аналітик даних</b><span>суміжний напрям</span></div>
           <div class="nv-preview-row"><b>Керівник проєктів</b><span>кар'єрне зростання</span></div>
           <div class="nv-preview-row"><b>Продуктовий аналітик</b><span>перенесення навичок</span></div>
-          <p class="nv-preview-note">Це ілюстрація майбутнього результату, а не розрахунок для вашого профілю. Персональний підбір з'явиться на наступному етапі.</p>
+          <p class="nv-preview-note">Це демонстрація інтерфейсу, а не персональний результат. Персональний підбір з'явиться на наступному етапі.</p>
         </div>
       </section>
 
+      <h2 style="text-align:center;margin:2.5rem 0 1.5rem">Ваш цифровий кар'єрний профіль</h2>
       <div class="nv-cards">
-        <div class="nv-card"><div class="ico">🎯</div><h3>Знайдемо близькі професії</h3><p>Професії, куди реально перейти з вашим досвідом. З'явиться на наступному етапі.</p></div>
-        <div class="nv-card"><div class="ico">🧩</div><h3>Покажемо, яких навичок бракує</h3><p>Чого бракує для нової ролі та що вже підтверджено. З'явиться на наступному етапі.</p></div>
-        <div class="nv-card"><div class="ico">🗺️</div><h3>Побудуємо маршрут переходу</h3><p>Зрозумілі кроки від поточної точки до цілі. З'явиться на наступному етапі.</p></div>
+        <div class="nv-card">
+          <div class="nv-ico-box">${I("briefcase")}</div>
+          <h3>Зрозуміти себе</h3>
+          <p><b>Я можу</b> — досвід, освіта та навички, які у вас уже є. <span class="chip chip--green" style="margin-top:.5rem;display:inline-block">Працює</span></p>
+        </div>
+        <div class="nv-card">
+          <div class="nv-ico-box purple">${I("compass")}</div>
+          <h3>Знайти напрям</h3>
+          <p><b>Я є</b> — сильні сторони, інтереси та стиль роботи. <span class="soon-tag" style="margin:.5rem 0 0">Незабаром</span></p>
+        </div>
+        <div class="nv-card">
+          <div class="nv-ico-box green">${I("target")}</div>
+          <h3>Побудувати маршрут</h3>
+          <p><b>Я хочу</b> — формат роботи та цілі; далі — сценарії та кроки переходу. <span class="chip chip--orange" style="margin-top:.5rem;display:inline-block">Частково</span></p>
+        </div>
       </div>
 
-      <section class="nv-panel">
-        <h2 style="margin-top:0">Що вже працює зараз</h2>
-        <p class="lead" style="font-size:1rem">Створіть кар'єрний профіль із CV або вручну, перевірте розпізнані факти — і одразу переглядайте каталог професій.</p>
+      <section class="nv-panel" style="text-align:center">
+        <h2 style="margin-top:0">Почніть з профілю</h2>
+        <p class="muted" style="max-width:52ch;margin:.4rem auto 1rem">Створіть профіль із CV або вручну, перевірте розпізнані факти — і одразу переглядайте каталог професій.</p>
         <a class="btn" href="#/profile">Створити профіль</a>
         <a class="btn secondary" href="#/catalog">Переглянути професії</a>
       </section>`;
