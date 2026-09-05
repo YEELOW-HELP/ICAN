@@ -48,7 +48,7 @@ from app.db.base import Base
 # import every model module so create_all() sees the full metadata
 from app.db import (  # noqa: F401
     models, models_access, models_assessment, models_career_card, models_career_kb_mnp,
-    models_crm, models_identity, models_knowledge, models_matching_mnp, models_platform,
+    models_crm, models_identity, models_knowledge, models_matching_mnp, models_person_kb, models_platform,
     models_profile,
 )
 from app.db.models_career_card import MnpKnowledge, MnpSkill

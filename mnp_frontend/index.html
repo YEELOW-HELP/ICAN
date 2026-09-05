@@ -3,29 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>МОЖУ: Мій Напрям</title>
-<link rel="stylesheet" href="style.css?v=5">
+<title>NAPRIAM — Кар'єрний навігатор</title>
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand" onclick="location.hash='#/'">МОЖУ: Мій Напрям</div>
-  <nav>
-    <a href="#/">Головна</a>
-    <a href="#/catalog">Кар'єри</a>
-    <a href="#/results">Мої рекомендації</a>
-    <a href="#/career-card">Кар'єрна карта</a>
-  </nav>
-</header>
+<header id="site-header"></header>
 <main id="app"></main>
-<footer class="footer">MNP V1 -- deterministic, explainable career navigation. No AI, no fabricated numbers.</footer>
-<!-- ?v= is bumped by hand on every edit to api.js/app.js/style.css --
-     StaticFiles doesn't send strong cache-revalidation headers, so a
-     browser can otherwise keep serving a stale cached copy of these
-     files indefinitely after a fix ships (this exact thing happened
-     during Founder Acceptance Testing: a real server-side fix was live,
-     but the browser kept running the old script). -->
-<script src="api.js?v=5"></script>
-<script src="admin.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<footer class="site-footer" id="site-footer"></footer>
+<!-- ?v= is bumped by hand on every edit to ui.js/api.js/app.js/person.js/workspace.js/admin.js/style.css.
+     StaticFiles doesn't send strong cache-revalidation headers, so a browser can
+     otherwise keep serving a stale cached copy indefinitely after a fix ships. -->
+<script src="ui.js?v=15"></script>
+<script src="api.js?v=15"></script>
+<script src="admin.js?v=15"></script>
+<script src="person.js?v=15"></script>
+<script src="workspace.js?v=15"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

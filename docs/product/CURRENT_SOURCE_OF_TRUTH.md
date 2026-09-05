@@ -87,19 +87,70 @@ Acceptance record: `docs/mnp_v1/04_KNOWLEDGE_BASE/CAREER_KB_V1_FOUNDER_ACCEPTANC
 
 ## 5. Person domain
 
-**Person KB has NOT been implemented as a new canonical domain.**
+**PERSON KB BASE V1 is the canonical Person KB** (`MnpPerson` /
+`mnp_persons` + fact tables; branch `person-kb-base-v1`). Fact-first
+career profile — education / credentials / experience / activities /
+skills / languages / mobility / documents, with an evidence state on
+every fact. Fed by three flows into ONE root: user manual profile, user
+CV upload + review, admin manual. Docs:
+`docs/person_kb/PERSON_KB_BASE_V1.md`.
 
-Before any implementation, the existing domains must be reconciled / reused
-where appropriate:
+Explicitly **not** in Base V1: psychological portrait / RIASEC / Big Five
+/ Work Values / Work Styles / aptitude / AI personality inference /
+universal career-fit score.
 
-- Identity
-- Assessment
-- Evidence
-- Profile
-- Knowledge
+Reuse decisions (see `PERSON_KB_BASE_V1.md` §14):
 
-Do **not** create a parallel third Person model stack without explicit
-Founder architecture approval.
+- **Identity** — reused as-is (`IdentityUser`). Private user routes
+  authenticate with a **bearer session token** (`POST /v1/mnp/session` →
+  `session_token`; hash-only in `mnp_web_sessions`) — a client-supplied
+  `X-Mnp-User-Id` is never trusted on Person KB routes.
+- **Skill taxonomy** — reused: `mnp_person_skills_v1 → mnp_skills` (the
+  same rows the Career KB uses). No parallel Person skill dictionary.
+- **Resume parser** — reused (`app/services/resume_parser_mnp` pure
+  functions).
+- **Evidence** — the canonical Person KB evidence model is
+  `PersonEvidenceState` on `MnpPerson` fact rows. `MnpEvidence` /
+  `MnpCareerCard` evidence is retained for Matching compatibility only;
+  new Person code must not write to it.
+- The old `MnpCareerCard` person stack + `MnpEvidence` + Stage 3A
+  `Assessment` / `Profile` / `Knowledge` — **retained** for Matching /
+  questionnaire compatibility; superseded for new development. Person KB
+  is **not** wired into Matching in Base V1 (a `MnpPerson → matching
+  input` adapter is the next step).
+
+Do **not** create a further parallel Person model stack. New Person-side
+development targets `MnpPerson`.
+
+**Customer UI:** the `mnp_frontend/` customer app was reworked into the
+**NAPRIAM** product shell (Phase 1, branch `person-kb-base-v1` / PR #25).
+The *whole* product is laid out visually — public site + Person KB flows +
+Career KB catalog (FUNCTIONAL), plus a post-profile career workspace
+(`#/app`, left-sidebar shell) whose development modules (Dashboard next
+action · Scenarios · What-if · Route · Action plan · Progress · Insights ·
+Vacancies · Resources · Coach · Consultation · Pricing) are **VISUAL /
+FUTURE** — disabled `«Незабаром»` controls or honest empty states, no
+fabricated numbers. Backend unchanged; Matching not touched. Admin stays a
+separate plain internal UI. Full screen map + Career KB
+public/admin/internal-Matching scope rule:
+`docs/product/NAPRIAM_PRODUCT_UI_V1.md`.
+
+**Digital Career Profile (I CAN / I AM / I WANT):** three projections over
+the **one** `MnpPerson` — no duplicate model, no new tables. **I CAN** =
+factual Person KB (FUNCTIONAL). **I AM** = strengths / work-style /
+interests assessment layer (VISUAL / FUTURE — a frontend-only demo test,
+nothing persisted, no scoring). **I WANT** = PARTIAL: work format /
+relocation / work geography are real `MnpPerson` fields saved via the
+existing `POST /me/person`; desired income (goal only, never market),
+transition pace, priorities are VISUAL / FUTURE. Completeness is
+deterministic + qualitative («Заповнено / Частково / Не заповнено»), no
+fabricated %. Future Matching dimensions (documented only): Capability Fit
+= I CAN, Personal Fit = I AM, Goal Fit = I WANT.
+
+**Career KB scope:** `status` is a publication flag. Public catalog/detail
+→ ACTIVE only; Admin → all 150; internal Matching development → all 150
+(no implicit filter). Never auto-change status. Tests:
+`tests/test_career_public_scope.py`.
 
 ---
 
@@ -151,8 +202,9 @@ superseded.
 ## 10. Next workstream
 
 ```
-Repository cleanup  (done)
-   → Person-domain reconciliation
-   → Person KB BASE V1
-   → later: Market KB Ukraine
+Repository cleanup        (done)
+Person KB BASE V1          (done -- branch person-kb-base-v1)
+   → Person KB → Matching adapter
+   → Resume Builder on Person KB
+   → later: preference / values layer, Market KB Ukraine
 ```

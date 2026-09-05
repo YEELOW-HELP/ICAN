@@ -9,6 +9,7 @@ from app.api.admin import router as admin_router
 from app.api.crm import router as crm_router
 from app.api.mnp import router as mnp_router
 from app.api.mnp_admin import router as mnp_admin_router
+from app.api.person_kb import router as person_kb_router
 from app.db.models import User
 from app.db.session import get_session
 from app.schemas.profile import ProfileOut
@@ -19,6 +20,7 @@ app.include_router(admin_router)
 app.include_router(crm_router)
 app.include_router(mnp_router)
 app.include_router(mnp_admin_router)
+app.include_router(person_kb_router)
 
 _FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "admin_frontend"
 if _FRONTEND_DIR.is_dir():

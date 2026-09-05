@@ -14,6 +14,7 @@ from app.db import models_knowledge  # noqa: F401
 from app.db import models_career_card  # noqa: F401
 from app.db import models_career_kb_mnp  # noqa: F401
 from app.db import models_matching_mnp  # noqa: F401
+from app.db import models_person_kb  # noqa: F401
 
 
 @pytest_asyncio.fixture

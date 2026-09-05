@@ -55,7 +55,7 @@ async def _build_and_seed(db_path: Path, *, reset: bool) -> None:
     # import every model module so create_all() sees the full metadata
     from app.db import (  # noqa: F401
         models, models_access, models_assessment, models_career_card, models_career_kb_mnp,
-        models_crm, models_identity, models_knowledge, models_matching_mnp, models_platform,
+        models_crm, models_identity, models_knowledge, models_matching_mnp, models_person_kb, models_platform,
         models_profile,
     )
     from app.db.session import async_session_factory, engine
@@ -74,6 +74,12 @@ async def _build_and_seed(db_path: Path, *, reset: bool) -> None:
         summ = await seed_starter_catalog(session)
     print(f"  imported Work.ua starter catalog: {summ['created']} DRAFT careers, "
           f"{summ['skipped_existing']} skipped, {summ['skills_created']} new canonical skills")
+
+    from app.services.person_kb.seed_demo import seed_demo_persons
+
+    async with async_session_factory() as session:
+        ps = await seed_demo_persons(session)
+    print(f"  seeded Person KB demo: {ps['created']} new persons ({ps['total']} total)")
 
     # a dev admin login so the Career KB Editor is usable out of the box
     from sqlalchemy import select

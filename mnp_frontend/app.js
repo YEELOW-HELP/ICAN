@@ -1,10 +1,12 @@
-// MNP V1 minimal functional frontend. Plain JS, hash router, no build
-// step -- matches admin_frontend's own vanilla convention. Not pixel-
-// perfect marketing design; the goal is that a user can go from landing
-// to a real, explainable result without a developer in the loop.
+// NAPRIAM — customer product frontend. Plain JS, hash router, no build step.
+// Phase 1 scope: public shell (Home / How it works / About / Login-future /
+// Opportunities-future), Person KB flows (person.js), Career KB explorer.
+// Personalized Matching is Phase 2 — the old match/questionnaire screens are
+// kept reachable by direct URL but are not surfaced in the product.
 
 const App = (() => {
   const root = document.getElementById("app");
+  const header = document.getElementById("site-header");
 
   const FEASIBILITY_LABELS = {
     ready_now: "Можете почати зараз", near_ready: "Майже готові", reachable: "Досяжно",
@@ -25,32 +27,19 @@ const App = (() => {
     const label = { high: "Високо", medium: "Середньо", low: "Низько", insufficient: "Недостатньо даних" }[b];
     return `<span class="badge ${b}">${label}</span>`;
   }
-
   function feasibilityBadge(status) {
     return `<span class="badge feasibility-${status}">${FEASIBILITY_LABELS[status] || status}</span>`;
   }
-
-  function setLoading() {
-    root.innerHTML = `<div class="loading">Завантаження...</div>`;
-  }
-
+  function setLoading() { root.innerHTML = `<div class="loading">Завантаження...</div>`; }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
       { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
     ));
   }
-
   function showError(err) {
-    root.innerHTML = `<div class="error-box">Сталася помилка: ${err.message || err}</div><a href="#/" class="btn">На головну</a>`;
+    root.innerHTML = `<div class="error-box">Сталася помилка: ${esc(err.message || err)}</div><a href="#/" class="btn">На головну</a>`;
   }
 
-  // Every button that fires an API call goes through this: disables the
-  // button while the request is in flight (no accidental double-submit),
-  // and -- the actual point of this helper -- guarantees a failure is
-  // always shown inline instead of the button just silently doing
-  // nothing, which is what every "click and nothing happens" report so
-  // far has actually been (an unhandled promise rejection with no
-  // visible error at all).
   function onClickSafely(button, handler) {
     button.addEventListener("click", async () => {
       let errorBox = button.parentElement.querySelector(".btn-error-box");
@@ -58,84 +47,298 @@ const App = (() => {
       button.disabled = true;
       const originalText = button.textContent;
       button.textContent = "Зачекайте...";
-      try {
-        await handler();
-      } catch (e) {
+      try { await handler(); }
+      catch (e) {
         errorBox = document.createElement("div");
         errorBox.className = "error-box btn-error-box";
         errorBox.style.marginTop = "0.75rem";
         errorBox.textContent = `Не вдалося виконати дію: ${e.message || e}`;
         button.insertAdjacentElement("afterend", errorBox);
-      } finally {
-        button.disabled = false;
-        button.textContent = originalText;
-      }
+      } finally { button.disabled = false; button.textContent = originalText; }
     });
   }
 
-  // --- Screens ---------------------------------------------------------
+  // --- Global product header ------------------------------------------
+  // Hidden entirely on admin routes — admin is a separate internal tool.
+  const NAV = [
+    ["how", "Як це працює"],
+    ["catalog", "Професії"],
+    ["opportunities", "Можливості"],
+    ["about", "Про нас"],
+  ];
 
-  function screenLanding() {
-    root.innerHTML = `
-      <h1>МОЖУ: Мій Напрям</h1>
-      <p class="lead">Перетворюємо ваш досвід, навички та цілі на реалістичну карту кар'єрних переходів -- без "процентів збігу" і вигаданих даних.</p>
-      <a href="#/start" class="btn">Знайти свій напрям</a>
-      <a href="#/catalog" class="btn secondary">Переглянути професії</a>
-    `;
+  function renderHeader() {
+    const hash = location.hash || "#/";
+    renderFooter(hash);
+    // Admin gets its own dark internal nav; the post-profile workspace draws
+    // its own sidebar + top bar and clears this header itself.
+    if (hash.startsWith("#/admin")) { renderAdminNav(hash); return; }
+    if (hash.startsWith("#/app")) { header.innerHTML = ""; return; }
+    const [, path] = hash.match(/^#\/([^/]*)/) || [null, ""];
+    const hasProfile = !!localStorage.getItem("mnp_has_profile");
+    header.innerHTML = `
+      <div class="nv-header">
+        <a class="nv-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
+        <nav class="nv-nav">
+          ${NAV.map(([p, t]) => `<a href="#/${p}" class="${p === path ? "is-active" : ""}">${t}</a>`).join("")}
+        </nav>
+        <div class="nv-actions">
+          <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
+          ${hasProfile
+            ? `<a class="btn secondary" href="#/app">Мій профіль</a>`
+            : `<a class="btn" href="#/profile">Створити профіль</a>`}
+        </div>
+      </div>`;
   }
 
-  function screenStart() {
+  function renderAdminNav(hash) {
+    if (hash === "#/admin/login" || !MnpApi.isAdmin()) { header.innerHTML = ""; return; }
+    const p = (hash.match(/^#\/admin\/([^/]*)/) || [])[1] || "";
+    const item = (slug, label) =>
+      `<a href="#/admin/${slug}" class="${p.startsWith(slug.split("/")[0]) ? "is-active" : ""}">${label}</a>`;
+    header.innerHTML = `
+      <div class="adm-nav">
+        <b>NAPRIAM ADMIN</b>
+        ${item("persons", "Люди")}
+        ${item("catalog", "Професії")}
+        <span class="spacer"></span>
+        <a href="#" id="adm-logout">Вийти</a>
+      </div>`;
+    const lo = document.getElementById("adm-logout");
+    if (lo) lo.addEventListener("click", (e) => { e.preventDefault(); MnpApi.adminLogout(); location.hash = "#/admin/login"; });
+  }
+
+  function renderFooter(hash) {
+    const f = document.getElementById("site-footer");
+    if (!f) return;
+    if (hash.startsWith("#/admin") || hash.startsWith("#/app")) { f.innerHTML = ""; f.style.display = "none"; return; }
+    f.style.display = "";
+    f.innerHTML = `
+      <div class="site-footer-inner">
+        <div class="fbrand"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></div>
+        <nav>
+          <a href="#/how">Як це працює</a>
+          <a href="#/catalog">Професії</a>
+          <a href="#/about">Про нас</a>
+        </nav>
+        <span class="fcopy">© 2026 NAPRIAM</span>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Home
+  // ===================================================================
+  function screenHome() {
+    const I = (n) => NvUI.icon(n);
     root.innerHTML = `
-      <h1>Почнемо</h1>
-      <p class="lead">Оберіть, як зручніше зібрати вашу кар'єрну карту.</p>
-      <div class="choice-grid">
-        <div class="choice-card" onclick="location.hash='#/upload'">
-          <h3>Завантажити резюме</h3>
-          <p>PDF, DOCX або TXT. Ми одразу структуруємо ваш досвід -- без додаткового підтвердження.</p>
+      <section class="nv-hero">
+        <div>
+          <h1>Ким ви можете<br>працювати далі?</h1>
+          <p class="lead">NAPRIAM перетворює ваш реальний досвід, навички та цілі на нові кар'єрні можливості та зрозумілий маршрут переходу.</p>
+          <div class="nv-hero-actions">
+            <a class="btn btn-lg" href="#/profile">Створити профіль</a>
+            <a class="btn secondary btn-lg" href="#/profile/cv">Завантажити CV</a>
+            <a class="tertiary" href="#/profile/build">Заповнити вручну</a>
+          </div>
+          <div class="nv-drop" id="home-drop" style="margin-top:1.75rem">
+            <div class="nv-ico-box soft" style="margin:0 auto .5rem">${I("upload")}</div>
+            <strong>Перетягніть сюди ваш CV</strong>
+            <p>PDF, DOCX або TXT</p>
+            <div style="margin-top:.6rem">
+              <button class="btn ghost is-disabled" disabled title="Функція з'явиться пізніше">Імпортувати LinkedIn<span class="soon-tag">Незабаром</span></button>
+            </div>
+          </div>
         </div>
-        <div class="choice-card" onclick="location.hash='#/questionnaire/capital'">
-          <h3>Пройти без резюме</h3>
-          <p>Коротка анкета: досвід, навички, освіта, а потім -- цілі.</p>
+        <div class="nv-preview">
+          <span class="demo-flag">Приклад</span>
+          <p style="margin:.2rem 0 .8rem;font-weight:600">Так виглядатимуть ваші можливості</p>
+          <div class="nv-preview-row"><b>Аналітик даних</b><span>суміжний напрям</span></div>
+          <div class="nv-preview-row"><b>Керівник проєктів</b><span>кар'єрне зростання</span></div>
+          <div class="nv-preview-row"><b>Продуктовий аналітик</b><span>перенесення навичок</span></div>
+          <p class="nv-preview-note">Це демонстрація інтерфейсу, а не персональний результат. Персональний підбір з'явиться на наступному етапі.</p>
+        </div>
+      </section>
+
+      <h2 style="text-align:center;margin:2.5rem 0 1.5rem">Ваш цифровий кар'єрний профіль</h2>
+      <div class="nv-cards">
+        <div class="nv-card">
+          <div class="nv-ico-box">${I("briefcase")}</div>
+          <h3>Зрозуміти себе</h3>
+          <p><b>Я можу</b> — досвід, освіта та навички, які у вас уже є. <span class="chip chip--green" style="margin-top:.5rem;display:inline-block">Працює</span></p>
+        </div>
+        <div class="nv-card">
+          <div class="nv-ico-box purple">${I("compass")}</div>
+          <h3>Знайти напрям</h3>
+          <p><b>Я є</b> — сильні сторони, інтереси та стиль роботи. <span class="soon-tag" style="margin:.5rem 0 0">Незабаром</span></p>
+        </div>
+        <div class="nv-card">
+          <div class="nv-ico-box green">${I("target")}</div>
+          <h3>Побудувати маршрут</h3>
+          <p><b>Я хочу</b> — формат роботи та цілі; далі — сценарії та кроки переходу. <span class="chip chip--orange" style="margin-top:.5rem;display:inline-block">Частково</span></p>
         </div>
       </div>
-    `;
+
+      <section class="nv-panel" style="text-align:center">
+        <h2 style="margin-top:0">Почніть з профілю</h2>
+        <p class="muted" style="max-width:52ch;margin:.4rem auto 1rem">Створіть профіль із CV або вручну, перевірте розпізнані факти — і одразу переглядайте каталог професій.</p>
+        <a class="btn" href="#/profile">Створити профіль</a>
+        <a class="btn secondary" href="#/catalog">Переглянути професії</a>
+      </section>`;
+
+    // drag & drop on the hero drop-zone -> hand off to the CV flow
+    const drop = document.getElementById("home-drop");
+    if (drop) {
+      ["dragover", "dragenter"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+      ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("drag")));
+      drop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          MnpPersonKB.stageCvFile(e.dataTransfer.files[0]);
+          location.hash = "#/profile/cv";
+        }
+      });
+    }
   }
 
-  function screenUpload() {
+  // ===================================================================
+  // PUBLIC — How it works
+  // ===================================================================
+  function screenHowItWorks() {
     root.innerHTML = `
-      <h1>Завантажте резюме</h1>
-      <p class="lead">Підтримуються PDF (з текстовим шаром), DOCX, TXT.</p>
-      <div class="field"><input type="file" id="cv-file" accept=".pdf,.docx,.txt"></div>
-      <button class="btn" id="upload-btn">Завантажити</button>
-      <div id="upload-status"></div>
-    `;
-    document.getElementById("upload-btn").addEventListener("click", async () => {
-      const fileInput = document.getElementById("cv-file");
-      const statusEl = document.getElementById("upload-status");
-      if (!fileInput.files.length) { statusEl.textContent = "Оберіть файл спочатку."; return; }
-      statusEl.textContent = "Обробка...";
-      try {
-        const result = await MnpApi.uploadDocument(fileInput.files[0]);
-        if (result.extraction_status === "extracted" || result.extraction_status === "parse_partial") {
-          location.hash = "#/questionnaire/capital";
-        } else {
-          statusEl.innerHTML = `<div class="error-box">Не вдалося розпізнати файл (${result.extraction_status}). Спробуйте пройти анкету без резюме.</div><a href="#/questionnaire/capital" class="btn">Заповнити анкету</a>`;
-        }
-      } catch (e) {
-        statusEl.innerHTML = `<div class="error-box">Не вдалося завантажити файл: ${e.message}</div>`;
-      }
-    });
+      <div class="nv-narrow">
+        <h1>Як працює NAPRIAM</h1>
+        <p class="lead">Чотири кроки від вашого досвіду до зрозумілого плану. Зараз працюють кроки 1–2; кроки 3–4 з'являться на наступних етапах.</p>
+      </div>
+      <div class="nv-steps-big">
+        <div class="nv-step"><div class="num">1</div><h3>Завантажте CV або заповніть профіль</h3><p>PDF, DOCX, TXT — або крок за кроком вручну.</p></div>
+        <div class="nv-step"><div class="num">2</div><h3>Підтвердіть ваші факти та навички</h3><p>Ви перевіряєте кожен запис — нічого не зберігається без підтвердження.</p></div>
+        <div class="nv-step"><div class="num">3</div><h3>Близькі професії та потрібні навички</h3><p>Персональний підбір. <span class="soon-tag">Незабаром</span></p></div>
+        <div class="nv-step"><div class="num">4</div><h3>Побудуйте маршрут переходу</h3><p>Кроки навчання й дій. <span class="soon-tag">Незабаром</span></p></div>
+      </div>
+      <div class="nv-narrow" style="text-align:center;margin-top:1.5rem">
+        <a class="btn btn-lg" href="#/profile">Почати</a>
+      </div>`;
   }
+
+  // ===================================================================
+  // PUBLIC — About
+  // ===================================================================
+  function screenAbout() {
+    root.innerHTML = `
+      <div class="nv-narrow">
+        <h1>Про нас</h1>
+        <p class="lead">Наша місія — допомогти людям в Україні впевнено переходити між кар'єрними етапами та знаходити реалістичні професійні можливості.</p>
+        <div class="nv-panel">
+          <h2 style="margin-top:0">У що ми віримо</h2>
+          <ul>
+            <li>Рішення про кар'єру мають спиратися на реальні факти про людину, а не на здогади.</li>
+            <li>Результат має бути зрозумілим і поясненним — без «чорної скриньки» та вигаданих відсотків.</li>
+            <li>Ми не показуємо цифр (зарплат, попиту, статистики), доки не маємо перевіреного джерела.</li>
+          </ul>
+        </div>
+        <div class="nv-panel">
+          <h2 style="margin-top:0">Що вже є</h2>
+          <p>Каталог професій із фактичними даними та кар'єрний профіль, який ви наповнюєте з резюме або вручну. Персональний підбір, аналіз навичок і маршрут переходу — у розробці.</p>
+        </div>
+        <a class="btn" href="#/profile">Створити профіль</a>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Login (visual future state only)
+  // ===================================================================
+  function screenLogin() {
+    root.innerHTML = `
+      <div class="nv-narrow">
+        <h1>Вхід</h1>
+        <p class="lead">Вхід за email та паролем, а також через Google і LinkedIn з'явиться на наступному етапі. Зараз профіль створюється без реєстрації.</p>
+        <div class="nv-panel">
+          <div class="field"><label>Email</label><input type="email" disabled placeholder="you@example.com"></div>
+          <div class="field"><label>Пароль</label><input type="password" disabled placeholder="••••••••"></div>
+          <button class="btn is-disabled" disabled>Увійти<span class="soon-tag">Незабаром</span></button>
+          <div style="margin-top:.75rem">
+            <button class="btn secondary is-disabled" disabled>Продовжити з Google<span class="soon-tag">Незабаром</span></button>
+            <button class="btn secondary is-disabled" disabled>Продовжити з LinkedIn<span class="soon-tag">Незабаром</span></button>
+          </div>
+        </div>
+        <a class="btn" href="#/profile">Створити профіль без реєстрації</a>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Pricing (visual shell only; prices are placeholders, no checkout)
+  // ===================================================================
+  function screenPricing() {
+    const plan = (name, chip, price, feats, future) => `
+      <div class="nv-card ${future ? "future" : ""}">
+        ${chip}
+        <h3 style="margin:.5rem 0 .2rem">${name}</h3>
+        <div style="font-size:1.4rem;font-weight:800">${price}</div>
+        <ul style="padding-left:1.1rem;color:var(--muted);font-size:.9rem;margin:.6rem 0 0">
+          ${feats.map((f) => `<li>${f}</li>`).join("")}
+        </ul>
+        <div style="margin-top:.8rem">
+          ${future
+            ? `<button class="btn secondary is-disabled" disabled>Обрати<span class="soon-tag">Незабаром</span></button>`
+            : `<a class="btn" href="#/profile">Почати безкоштовно</a>`}
+        </div>
+      </div>`;
+    root.innerHTML = `
+      <div class="nv-narrow">
+        <h1>Тарифи</h1>
+        <p class="lead">Ціни на цій сторінці — орієнтовний макет, а не остаточне рішення. Оплата й оформлення підписки ще не підключені.</p>
+      </div>
+      <div class="nv-cards">
+        ${plan("Free", `<span class="chip chip--green">Доступно</span>`, "0 ₴", ["Кар'єрний профіль (CV / вручну)", "Каталог професій", "Базовий огляд можливостей"], false)}
+        ${plan("Premium", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Персональний підбір професій", "Аналіз навичок і маршрут переходу", "План дій і прогрес", "Щотижневі апдейти"], true)}
+        ${plan("Premium + Коуч", `<span class="chip chip--purple">Незабаром</span>`, "— ₴ / міс", ["Усе з Premium", "Персональний кар'єрний коуч", "Сесії та консультації"], true)}
+      </div>
+      <div class="nv-narrow"><p class="muted" style="font-size:.85rem">Оплата не реалізована. Значення цін — placeholder.</p></div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Opportunities (honest future state — Matching is Phase 2)
+  // ===================================================================
+  async function screenOpportunities() {
+    setLoading();
+    let hasProfile = false;
+    try { const p = await MnpApi.request("/me/person"); hasProfile = !!(p && p.id); } catch (e) {}
+    root.innerHTML = `
+      <div class="nv-narrow">
+        <h1>Можливості</h1>
+        ${hasProfile
+          ? `<p class="lead">Ваш профіль готовий.</p>
+             <div class="nv-future">
+               <div class="ico">🧭</div>
+               <h2>Персональний підбір професій буде доступний на наступному етапі</h2>
+               <p>Наступний крок — зіставити ваш досвід і навички з вимогами професій. Поки що ви можете переглянути повний каталог професій.</p>
+               <a class="btn btn-lg" href="#/catalog">Переглянути професії</a>
+             </div>`
+          : `<div class="nv-future">
+               <div class="ico">🧭</div>
+               <h2>Спочатку створіть профіль</h2>
+               <p>Персональні можливості будуються на основі вашого кар'єрного профілю. Персональний підбір з'явиться на наступному етапі; каталог професій доступний вже зараз.</p>
+               <a class="btn btn-lg" href="#/profile">Створити профіль</a>
+               <a class="btn secondary btn-lg" href="#/catalog">Переглянути професії</a>
+             </div>`}
+        <div class="nv-cards">
+          <div class="nv-card future"><div class="ico">📊</div><h3>Потрібні навички</h3><p>Чого бракує для цільової ролі. <span class="soon-tag">Незабаром</span></p></div>
+          <div class="nv-card future"><div class="ico">🗺️</div><h3>Маршрут переходу</h3><p>Покрокові дії та навчання. <span class="soon-tag">Незабаром</span></p></div>
+          <div class="nv-card future"><div class="ico">🔀</div><h3>«Що зміниться, якщо…»</h3><p>Симуляція сценаріїв. <span class="soon-tag">Незабаром</span></p></div>
+        </div>
+      </div>`;
+  }
+
+  // ===================================================================
+  // Legacy matching flow (kept reachable by URL, not surfaced in product)
+  // ===================================================================
+  function screenStart() { location.hash = "#/profile"; }
+  function screenUpload() { location.hash = "#/profile/cv"; }
 
   async function screenQuestionnaireCapital() {
     setLoading();
     let missing;
-    try {
-      missing = await MnpApi.getMissingFields();
-    } catch (e) {
-      showError(e);
-      return;
-    }
+    try { missing = await MnpApi.getMissingFields(); } catch (e) { showError(e); return; }
     root.innerHTML = `
       <h1>Ваш досвід</h1>
       <p class="lead">Заповнюємо лише те, чого ще не знаємо.</p>
@@ -197,9 +400,7 @@ const App = (() => {
       const { match_run_id } = await MnpApi.createMatchRun();
       localStorage.setItem("mnp_last_match_run", match_run_id);
       location.hash = `#/results/${match_run_id}`;
-    } catch (e) {
-      showError(e);
-    }
+    } catch (e) { showError(e); }
   }
 
   function careerRow(entry, rankLabel) {
@@ -224,9 +425,7 @@ const App = (() => {
         ${results.blocked.length ? `<h2>Недоступно зараз</h2>${results.blocked.map((e) => careerRow(e, "")).join("")}` : ""}
         <a href="#/catalog" class="btn secondary">Переглянути весь каталог професій</a>
       `;
-    } catch (e) {
-      showError(e);
-    }
+    } catch (e) { showError(e); }
   }
 
   async function screenCareerDetail(careerMatchId) {
@@ -238,24 +437,17 @@ const App = (() => {
         <p class="lead">${view.description_short_uk}</p>
         <div>${feasibilityBadge(view.feasibility_status)} <span class="badge insufficient">${DISTANCE_LABELS[view.transition_distance] || view.transition_distance}</span></div>
         ${view.market_data_limited ? `<p class="limitation-label">Дані про ринок праці для цієї професії поки обмежені</p>` : ""}
-
         <h2>Компоненти відповідності</h2>
         <div class="chips">
           ${view.components.map((c) => `<span class="chip">${COMPONENT_LABELS[c.component_type] || c.component_type}: ${c.status === "scored" ? bandBadge(c.band) : bandBadge(null)}</span>`).join("")}
         </div>
-
         ${view.matched_skill_labels.length ? `<h2>Що вже підтверджено</h2><div class="chips">${view.matched_skill_labels.map((s) => `<span class="chip">${s}</span>`).join("")}</div>` : ""}
-
         ${view.gaps.length ? `<h2>Над чим варто попрацювати</h2><ul class="gap-list">${view.gaps.map((g) => `<li><strong>${g.reference_label}</strong> -- ${g.action === "learn" ? "вивчити" : g.action === "practice" ? "попрактикувати" : "переформулювати досвід"}</li>`).join("")}</ul>` : ""}
-
         ${view.feasibility_findings.length ? `<h2>Вимоги професії</h2><ul class="gap-list">${view.feasibility_findings.map((f) => `<li>${f.requirement_description || f.finding_type} (${f.status})</li>`).join("")}</ul>` : ""}
-
         <a href="#/route/${careerMatchId}" class="btn">Переглянути маршрут</a>
         <a href="#/results/${localStorage.getItem('mnp_last_match_run')}" class="btn secondary">Назад до результатів</a>
       `;
-    } catch (e) {
-      showError(e);
-    }
+    } catch (e) { showError(e); }
   }
 
   async function screenRoute(careerMatchId) {
@@ -271,16 +463,12 @@ const App = (() => {
         </ul>
         <a href="#/career/${careerMatchId}" class="btn secondary">Назад до професії</a>
       `;
-    } catch (e) {
-      showError(e);
-    }
+    } catch (e) { showError(e); }
   }
 
-  // --- Career Explorer (Career KB V1) ---------------------------------
-  // Left: searchable catalog of the 5 ACTIVE careers. Right: the full
-  // Career Card for the selected profession, all from GET /careers +
-  // GET /careers/{id} (the production Career KB -- no hardcoded content).
-
+  // ===================================================================
+  // Career Explorer (Career KB V1) — real customer-facing catalog
+  // ===================================================================
   let _catalogCache = null;
 
   async function screenCatalog(selectedId) {
@@ -290,39 +478,24 @@ const App = (() => {
       const careers = _catalogCache;
       const isDesktop = window.matchMedia("(min-width: 761px)").matches;
       if (!selectedId && careers.length && isDesktop) {
-        // Desktop shows a two-pane layout, so open the first career by
-        // default. On mobile the catalog list comes first (brief §14).
         location.hash = `#/catalog/${careers[0].id}`;
         return;
       }
       const detail = selectedId ? await MnpApi.getCareerDetail(selectedId) : null;
-      const card = await MnpApi.getCareerCard();
-
-      const adminBar = MnpApi.isAdmin()
-        ? `<div class="admin-bar">
-             <span>Режим редактора</span>
-             <a href="#/admin/catalog" class="btn secondary">Усі професії (Career KB)</a>
-             <a href="#/admin/career/new" class="btn">+ Створити професію</a>
-             <a href="#" class="admin-logout">вийти</a>
-           </div>`
-        : `<div class="admin-bar muted"><a href="#/admin/login" class="admin-login-link">Вхід для редагування</a></div>`;
 
       root.innerHTML = `
-        ${adminBar}
         <div class="explorer">
           <aside class="explorer-catalog" data-open="${detail ? "false" : "true"}">
             <h1>Професії</h1>
+            <p class="muted" style="font-size:.88rem;margin:.2rem 0 .8rem">Каталог професій з фактичними даними. Персональний підбір — на наступному етапі.</p>
             <input id="career-search" class="career-search" type="text" placeholder="Пошук професії..." autocomplete="off">
             <div id="career-list">${renderCatalogList(careers, selectedId)}</div>
           </aside>
           <section class="explorer-detail">
-            ${detail ? renderCareerKbDetail(detail, card) : `<p class="lead">Оберіть професію зі списку.</p>`}
+            ${detail ? renderCareerKbDetail(detail) : `<p class="lead">Оберіть професію зі списку.</p>`}
           </section>
         </div>
       `;
-
-      const logout = root.querySelector(".admin-logout");
-      if (logout) logout.addEventListener("click", (e) => { e.preventDefault(); MnpApi.adminLogout(); render(); });
 
       const search = document.getElementById("career-search");
       if (search) {
@@ -337,9 +510,7 @@ const App = (() => {
                             : `<p class="limitation-label">Нічого не знайдено</p>`;
         });
       }
-    } catch (e) {
-      showError(e);
-    }
+    } catch (e) { showError(e); }
   }
 
   function renderCatalogList(careers, selectedId) {
@@ -379,42 +550,23 @@ const App = (() => {
         </tbody>
       </table>`;
   }
-
   function skillReqClass(code) {
     return { must_have: "high", high_value: "medium", differentiator: "insufficient", optional: "insufficient" }[code] || "insufficient";
   }
 
-  function renderCareerKbDetail(d, card) {
-    const cta = card
-      ? `<a href="#/results" class="btn">Подивитися мої рекомендації</a>`
-      : `<a href="#/start" class="btn">Дізнатися, чи підходить мені ця професія</a>`;
-
+  function renderCareerKbDetail(d) {
     const reqOrder = ["education", "experience", "language", "credential", "legal", "other"];
-
-    const adminEdit = MnpApi.isAdmin()
-      ? `<a class="btn" href="#/admin/career/${d.id}" style="float:right">Редагувати</a>` : "";
-
     return `
       <div class="kb-detail">
         <a class="kb-back" href="#/catalog">← До списку професій</a>
-        ${adminEdit}
         <h1>${esc(d.identity.name_uk)}</h1>
         <p class="kb-cat">${esc(d.identity.category_uk || "")}</p>
         <p class="lead">${esc(d.overview.short_description_uk)}</p>
 
         <div class="kb-kpis">
-          <div class="kb-kpi">
-            <span class="kb-kpi-label">Складність входу</span>
-            <span class="kb-kpi-value">${esc(d.entry.difficulty_uk)}</span>
-          </div>
-          <div class="kb-kpi">
-            <span class="kb-kpi-label">Старт без досвіду</span>
-            <span class="kb-kpi-value">${esc(d.entry.without_experience_uk)}</span>
-          </div>
-          <div class="kb-kpi">
-            <span class="kb-kpi-label">Ринок праці</span>
-            <span class="kb-kpi-value kb-kpi-muted">${esc(d.market.status_uk)}</span>
-          </div>
+          <div class="kb-kpi"><span class="kb-kpi-label">Складність входу</span><span class="kb-kpi-value">${esc(d.entry.difficulty_uk)}</span></div>
+          <div class="kb-kpi"><span class="kb-kpi-label">Старт без досвіду</span><span class="kb-kpi-value">${esc(d.entry.without_experience_uk)}</span></div>
+          <div class="kb-kpi"><span class="kb-kpi-label">Ринок праці</span><span class="kb-kpi-value kb-kpi-muted">${esc(d.market.status_uk)}</span></div>
         </div>
 
         <h2>${esc(d.overview.title_uk)}</h2>
@@ -437,16 +589,10 @@ const App = (() => {
         <p class="limitation-label">«Бажана» — перевага, а не обов'язкова умова. Відсутність підтверджених даних не означає, що вимоги немає.</p>
 
         <h2>Переваги та недоліки</h2>
-        <p class="limitation-label">Редакційна оцінка MNP, а не статистика.</p>
+        <p class="limitation-label">Редакційна оцінка NAPRIAM, а не статистика.</p>
         <div class="kb-proscons">
-          <div class="kb-pros">
-            <h3>Переваги</h3>
-            <ul class="kb-list">${d.pros_cons.advantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul>
-          </div>
-          <div class="kb-cons">
-            <h3>Недоліки</h3>
-            <ul class="kb-list">${d.pros_cons.disadvantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul>
-          </div>
+          <div class="kb-pros"><h3>Переваги</h3><ul class="kb-list">${d.pros_cons.advantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
+          <div class="kb-cons"><h3>Недоліки</h3><ul class="kb-list">${d.pros_cons.disadvantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
         </div>
 
         <h2>${esc(d.career_path.label_uk)}</h2>
@@ -461,7 +607,7 @@ const App = (() => {
         </ol>
 
         <h2>Попит і зарплата</h2>
-        <p class="limitation-label">${esc(d.market.status_uk)}. Ми не показуємо орієнтовних цифр, доки немає перевіреного джерела.</p>
+        <p class="limitation-label">Дані ринку будуть додані пізніше. Ми не показуємо орієнтовних цифр, доки немає перевіреного джерела.</p>
 
         ${d.related_careers.length ? `
           <h2>Пов'язані професії</h2>
@@ -474,51 +620,53 @@ const App = (() => {
           </div>` : ""}
 
         <div class="kb-cta">
-          <h2>Ваше співпадіння</h2>
-          <p>${card ? "Ваша кар'єрна карта вже створена — подивіться, як ця професія співвідноситься з вашим досвідом." : "Пройдіть коротку анкету, щоб побачити, наскільки ця професія підходить саме вам."}</p>
-          ${cta}
+          <h2>Чи підходить вам ця професія?</h2>
+          <p>Персональний підбір і аналіз відповідності з'являться на наступному етапі. Зараз ви можете створити кар'єрний профіль, щоб бути готовими.</p>
+          <a href="#/profile" class="btn">Створити профіль</a>
         </div>
       </div>
     `;
   }
-
   function relatedId(code) {
     const hit = (_catalogCache || []).find((c) => c.code === code);
     return hit ? hit.id : "";
   }
 
-  async function screenCareerCard() {
-    setLoading();
-    try {
-      const card = await MnpApi.getCareerCard();
-      if (!card) {
-        root.innerHTML = `<h1>Кар'єрна карта</h1><p class="lead">Картки ще немає.</p><a href="#/start" class="btn">Почати</a>`;
-        return;
-      }
-      root.innerHTML = `
-        <h1>Кар'єрна карта</h1>
-        <p class="lead">Версія ${card.version}</p>
-        <h2>Досвід</h2>
-        ${card.experiences.map((e) => `<div class="card"><strong>${e.raw_job_title}</strong>${e.company_name ? ` -- ${e.company_name}` : ""}</div>`).join("") || "<p>Немає даних</p>"}
-        <h2>Навички</h2>
-        <div class="chips">${card.person_skills.map((s) => `<span class="chip">${s.proficiency_level}</span>`).join("") || "Немає даних"}</div>
-        <h2>Освіта</h2>
-        ${card.educations.map((e) => `<div class="card">${e.level}${e.graduation_year ? `, ${e.graduation_year}` : ""}</div>`).join("") || "<p>Немає даних</p>"}
-        <p class="limitation-label">Редагування картки в інтерфейсі -- у розробці; наразі повторно пройдіть анкету, щоб оновити дані.</p>
-        <a href="#/questionnaire/capital" class="btn">Оновити дані</a>
-      `;
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  // --- Router ------------------------------------------------------------
-
+  // --- Router --------------------------------------------------------
   function render() {
+    renderHeader();
     const hash = location.hash || "#/";
     const [, path, param] = hash.match(/^#\/([^/]*)(?:\/(.*))?$/) || [null, "", null];
 
-    if (path === "" ) return screenLanding();
+    if (path === "") return screenHome();
+    if (path === "how") return screenHowItWorks();
+    if (path === "about") return screenAbout();
+    if (path === "login") return screenLogin();
+    if (path === "pricing") return screenPricing();
+    if (path === "opportunities") return screenOpportunities();
+    if (path === "catalog") return screenCatalog(param || null);
+
+    // Post-profile career workspace (workspace.js) — visual product shell,
+    // future modules are clearly non-live.
+    if (path === "app") return MnpWorkspace.render(param || "");
+
+    // Person KB customer flows (person.js)
+    if (path === "profile" && !param) return MnpPersonKB.screenLanding();
+    if (path === "profile" && param === "build") return MnpPersonKB.screenBuild();
+    if (path === "profile" && param === "me") return MnpPersonKB.screenMyProfile();
+    if (path === "profile" && param === "edit") return MnpPersonKB.screenEdit();
+    if (path === "profile" && param === "cv") return MnpPersonKB.screenCv();
+    if (path === "profile" && param === "confirmed") return MnpPersonKB.screenConfirmed();
+
+    // Admin (separate internal interface)
+    if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
+    if (path === "admin" && (param === "catalog" || !param)) return MnpAdmin.screenAdminCatalog();
+    if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
+    if (path === "admin" && param === "persons") return MnpPersonKB.admScreenList();
+    if (path === "admin" && param === "persons/new") return MnpPersonKB.admScreenCreate();
+    if (path === "admin" && param && param.startsWith("persons/")) return MnpPersonKB.admScreenCard(param.slice("persons/".length));
+
+    // Legacy matching flow — reachable by URL, not surfaced in the product
     if (path === "start") return screenStart();
     if (path === "upload") return screenUpload();
     if (path === "questionnaire" && param === "capital") return screenQuestionnaireCapital();
@@ -527,21 +675,13 @@ const App = (() => {
     if (path === "results") return screenResults(param || localStorage.getItem("mnp_last_match_run"));
     if (path === "career") return screenCareerDetail(param);
     if (path === "route") return screenRoute(param);
-    if (path === "catalog") return screenCatalog(param || null);
-    if (path === "career-card") return screenCareerCard();
-    if (path === "admin" && param === "login") return MnpAdmin.screenLogin();
-    if (path === "admin" && (param === "catalog" || !param)) return MnpAdmin.screenAdminCatalog();
-    if (path === "admin" && param && param.startsWith("career/")) return MnpAdmin.screenEditor(param.slice("career/".length));
-    return screenLanding();
+    if (path === "career-card") return (location.hash = "#/profile/me");
+
+    return screenHome();
   }
 
   window.addEventListener("hashchange", render);
   window.addEventListener("DOMContentLoaded", render);
-
-  // Last-resort safety net: every screen/handler above already catches
-  // its own errors and shows them inline, but this guarantees that if
-  // something is ever missed, the user sees a message instead of a
-  // button that silently does nothing.
   window.addEventListener("unhandledrejection", (event) => {
     if (!root.querySelector(".error-box")) showError(event.reason || new Error("Невідома помилка"));
   });
