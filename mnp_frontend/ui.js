@@ -27,6 +27,8 @@ const NvUI = (() => {
     doc: '<path d="M6 3.5h5l3 3v10H6z"/><path d="M11 3.5v3h3M8 10h4M8 13h4"/>',
     gauge: '<path d="M4 14a6 6 0 1 1 12 0"/><path d="m10 14 3-4"/><circle cx="10" cy="14" r=".7" fill="currentColor"/>',
     home: '<path d="m3.5 9.5 6.5-5.5 6.5 5.5"/><path d="M5 8.5v7.5h10V8.5"/>',
+    trash: '<path d="M4.5 6h11M8 6V4.3c0-.5.4-.8.8-.8h2.4c.4 0 .8.3.8.8V6M6 6l.6 9.4c0 .6.5 1 1 1h4.8c.5 0 1-.4 1-1L14 6"/><path d="M8.3 9v4.5M11.7 9v4.5"/>',
+    close: '<path d="m5 5 10 10M15 5 5 15"/>',
   };
   function icon(name, cls) {
     const body = P[name] || P.grid;
@@ -40,5 +42,78 @@ const NvUI = (() => {
     if (h < 18) return "Добрий день";
     return "Добрий вечір";
   }
-  return { icon, greeting };
+
+  /* ---- flat illustration system (own art, on-brand palette) -------------
+   * Never a photo of a real or stock person -- nothing here can be mistaken
+   * for a real MOЖУ participant or staff member. Simple geometric figures,
+   * consistent yellow / ink / cream palette, reused across hero + future
+   * pages + catalog cards. */
+  // Clean avatar silhouette: circular head + rounded shoulder arc, single
+  // tone. Deliberately abstract (no face/skin detail) -- reads as "a
+  // person" without implying any specific individual's likeness.
+  const person = (cx, cy, s, tone) => {
+    const headR = s * 0.24, headCy = cy - s * 0.34;
+    return `
+    <path d="M${cx - s * 0.5} ${cy + s * 0.5} a${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 Z" fill="${tone}"/>
+    <circle cx="${cx}" cy="${headCy}" r="${headR}" fill="${tone}"/>`;
+  };
+  const ILL = {
+    person: `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="300" fill="#fdf3d8"/>
+      <circle cx="205" cy="155" r="112" fill="#ffe38c"/>
+      <circle cx="335" cy="55" r="20" fill="#fff" opacity=".55"/>
+      <circle cx="52" cy="230" r="14" fill="#18140f" opacity=".08"/>
+      <rect x="90" y="262" width="230" height="13" rx="6.5" fill="#18140f" opacity=".08"/>
+      <circle cx="205" cy="155" r="70" fill="none" stroke="#ffc72c" stroke-width="3" opacity=".5"/>
+      ${person(205, 190, 150, "#18140f")}
+      <path d="M172 108c6-20 22-32 38-32" stroke="#ffc72c" stroke-width="5" fill="none" stroke-linecap="round"/>
+    </svg>`,
+    consult: `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="300" fill="#fdf3d8"/>
+      <ellipse cx="200" cy="262" rx="165" ry="16" fill="#18140f" opacity=".06"/>
+      <rect x="55" y="55" width="290" height="170" rx="20" fill="#fff" opacity=".65"/>
+      <circle cx="135" cy="150" r="72" fill="#ffe9ac"/>
+      <circle cx="275" cy="155" r="76" fill="#fff3c9"/>
+      ${person(135, 195, 128, "#18140f")}
+      ${person(275, 200, 132, "#4c4638")}
+      <path d="M170 140c18-16 46-16 66 2" stroke="#18140f" stroke-width="4" fill="none" stroke-linecap="round" opacity=".22"/>
+    </svg>`,
+    map: `<svg viewBox="0 0 400 220" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="220" fill="#fdf3d8"/>
+      <path d="M90 40 L230 30 L300 60 L320 110 L280 170 L190 190 L110 160 L70 100 Z" fill="#fff" stroke="#ece4d0" stroke-width="2"/>
+      <path d="M150 70 L260 70 M140 100 L270 110 M160 140 L250 150" stroke="#ece4d0" stroke-width="2"/>
+      <circle cx="215" cy="95" r="13" fill="#18140f"/>
+      <path d="M215 108 L215 60 Q215 45 230 45 Q245 45 245 60 Q245 75 215 108Z" fill="#ffc72c" stroke="#18140f" stroke-width="2"/>
+    </svg>`,
+    chart: `<svg viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="240" fill="#fdf3d8"/>
+      <ellipse cx="200" cy="218" rx="165" ry="13" fill="#18140f" opacity=".06"/>
+      <circle cx="118" cy="150" r="66" fill="#ffe9ac"/>
+      ${person(118, 178, 108, "#18140f")}
+      <rect x="60" y="150" width="110" height="70" rx="10" fill="#fff"/>
+      <rect x="75" y="185" width="14" height="25" fill="#ffc72c"/>
+      <rect x="98" y="170" width="14" height="40" fill="#18140f" opacity=".7"/>
+      <rect x="121" y="195" width="14" height="15" fill="#ffc72c"/>
+      <circle cx="295" cy="155" r="70" fill="#fff3c9"/>
+      ${person(295, 185, 100, "#4c4638")}
+      <rect x="255" y="120" width="80" height="55" rx="8" fill="#fff"/>
+      <path d="M265 155 L280 140 L295 150 L320 128" stroke="#18140f" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+    </svg>`,
+  };
+  function illustration(name) { return ILL[name] || ILL.person; }
+
+  const DOODLE = {
+    arrow: `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 10c8 2 20 8 26 22M22 28l10 4 2-11"/></svg>`,
+    heart: `<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 17s-6.5-4.1-8.4-8C.4 6 2 3 5.2 3c1.9 0 3.3 1 4.8 3 1.5-2 2.9-3 4.8-3 3.2 0 4.8 3 3.6 6-1.9 3.9-8.4 8-8.4 8z"/></svg>`,
+  };
+  function doodleIcon(name) { return DOODLE[name] || ""; }
+
+  function logoMark() {
+    return `<svg class="nv-logo-mark" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+      <rect width="32" height="32" rx="9" fill="#ffc72c"/>
+      <path d="M11 9l5 7 5-7M16 16v7" stroke="#18140f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`;
+  }
+
+  return { icon, greeting, illustration, doodleIcon, logoMark };
 })();

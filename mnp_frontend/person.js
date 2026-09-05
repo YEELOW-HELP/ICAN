@@ -74,26 +74,28 @@ const MnpPersonKB = (() => {
     const I = (n) => NvUI.icon(n);
     root().innerHTML = `
       <div class="pk-wrap">
-        <h1>Створіть кар'єрний профіль</h1>
-        <p class="lead">Почніть із будь-якого зручного способу. Ми зберемо факти про вашу освіту, досвід, навички та мови.</p>
+        <span class="eyebrow">Ваш наступний крок — можливий</span>
+        <h1>Створити кар'єрний профіль</h1>
+        <p class="lead">Оберіть зручний спосіб, і ми допоможемо вам зробити перший крок до нових можливостей.</p>
         ${has ? `<div class="pk-card"><p>У вас уже є профіль (${esc(cur.core.status_uk)}).</p>
            <a class="btn" href="#/app">Відкрити робочий простір</a>
            <a class="btn secondary" href="#/profile/me">Мій профіль</a></div>` : ""}
         <div class="pk-choices">
+          <div class="choice-card is-reco" onclick="location.hash='#/profile/build'">
+            <span class="badge-reco">${I("sparkles")} Рекомендовано</span>
+            <div class="choice-ico nv-ico-box">${I("edit")}</div>
+            <h3>Заповнити самостійно</h3>
+            <p>Підійде, якщо готові пройти профіль за 10–15 хвилин.</p>
+          </div>
           <div class="choice-card" onclick="location.hash='#/profile/cv'">
             <div class="choice-ico nv-ico-box">${I("upload")}</div>
-            <h3>Завантажити CV</h3>
-            <p>Швидко імпортуйте дані з резюме у форматі PDF, DOCX або TXT. Ви перевірите й підтвердите кожен факт.</p>
+            <h3>Завантажити резюме</h3>
+            <p>Ми проаналізуємо ваш досвід і допоможемо швидше заповнити профіль.</p>
           </div>
           <div class="choice-card future" aria-disabled="true">
-            <div class="choice-ico nv-ico-box soft">${I("chart")}</div>
-            <h3>Підключити LinkedIn <span class="soon-tag">Незабаром</span></h3>
-            <p>Імпорт профілю LinkedIn з'явиться на наступному етапі.</p>
-          </div>
-          <div class="choice-card" onclick="location.hash='#/profile/build'">
-            <div class="choice-ico nv-ico-box">${I("edit")}</div>
-            <h3>Заповнити вручну</h3>
-            <p>Додайте інформацію про себе, досвід, навички та освіту самостійно, крок за кроком.</p>
+            <div class="choice-ico nv-ico-box soft">${I("user")}</div>
+            <h3>Профіль створює консультант <span class="soon-tag">Незабаром</span></h3>
+            <p>Отримайте особисту підтримку від нашого фахівця.</p>
           </div>
         </div>
       </div>`;
@@ -112,17 +114,23 @@ const MnpPersonKB = (() => {
   }
   async function reload() { _p = await me("/me/person"); renderStep(); }
 
+  function wizBar(cur, total, label) {
+    return `<div class="wiz-bar-wrap">
+      <div class="wiz-bar-top"><span>${esc(label)}</span><b>Крок ${cur} з ${total}</b></div>
+      <div class="wiz-bar"><div class="wiz-bar-fill" style="width:${Math.round((cur / total) * 100)}%"></div></div>
+    </div>`;
+  }
+
   function renderStep() {
     const step = STEPS[_step];
     root().innerHTML = `
       <div class="pk-wrap">
-        <div class="pk-steps">${STEPS.map((s, i) => `<span class="${i === _step ? "on" : i < _step ? "done" : ""}">${esc(STEP_TITLE[s])}</span>`).join("")}</div>
-        <p class="muted" style="font-size:.82rem;margin:.2rem 0 .6rem">Крок ${_step + 1} з ${STEPS.length}</p>
+        ${wizBar(_step + 1, STEPS.length, "Створення кар'єрного профілю")}
         <h1>${esc(STEP_TITLE[step])}</h1>
         <div id="pk-body"></div>
         <div class="pk-nav">
           ${_step > 0 ? `<button class="btn secondary" id="pk-prev">Назад</button>` : ""}
-          ${_step < STEPS.length - 1 ? `<button class="btn" id="pk-next">Продовжити</button>` : `<button class="btn" id="pk-finish">Зберегти профіль</button>`}
+          ${_step < STEPS.length - 1 ? `<button class="btn" id="pk-next">Продовжити →</button>` : `<button class="btn" id="pk-finish">Зберегти профіль</button>`}
         </div>
       </div>`;
     const prev = document.getElementById("pk-prev"); if (prev) prev.onclick = () => { _step--; renderStep(); };
@@ -138,14 +146,23 @@ const MnpPersonKB = (() => {
   const BODY = {
     about() {
       const c = (_p && _p.core) || {};
+      const fn = c.first_name === "—" ? "" : (c.first_name || "");
+      const initials = ((fn[0] || "") + (c.last_name ? c.last_name[0] : "")).toUpperCase() || "?";
       document.getElementById("pk-body").innerHTML = `
-        ${F("f-fn", "Ім'я *", c.first_name === "—" ? "" : c.first_name)}
+        <div class="avatar-circle" id="f-avatar">${initials}</div>
+        ${F("f-fn", "Ім'я *", fn)}
         ${F("f-ln", "Прізвище", c.last_name)}
         ${F("f-phone", "Телефон", c.phone)}
         ${F("f-email", "Email", c.email, "type=email")}
         ${F("f-tg", "Telegram (@username)", c.telegram_username)}
         ${F("f-city", "Місто", c.city)}
         ${F("f-region", "Область", c.region)}`;
+      const upd = () => {
+        const i = (((val("f-fn") || "")[0] || "") + ((val("f-ln") || "")[0] || "")).toUpperCase() || "?";
+        document.getElementById("f-avatar").textContent = i;
+      };
+      document.getElementById("f-fn").addEventListener("input", upd);
+      document.getElementById("f-ln").addEventListener("input", upd);
     },
     education() { listBlock("educations", eduForm, (e) => `${esc(e.education_level_uk)} — ${esc(e.institution_name || "—")}${e.end_year ? " (" + e.end_year + ")" : ""}`); },
     experience() {
@@ -170,12 +187,23 @@ const MnpPersonKB = (() => {
     },
     review() {
       const v = _p || {};
+      const sections = [
+        ["Особиста інформація", true],
+        ["Досвід роботи", (v.experiences || []).length > 0],
+        ["Освіта", (v.educations || []).length > 0],
+        ["Навички та інструменти", (v.skills || []).length > 0],
+        ["Мови", (v.languages || []).length > 0],
+      ];
       document.getElementById("pk-body").innerHTML = `
-        <p class="lead">Перевірте дані перед збереженням.</p>
-        <div class="pk-card">
-          <p><b>${esc((v.core || {}).first_name || "")} ${esc((v.core || {}).last_name || "")}</b> · ${esc((v.core || {}).city || "")}</p>
-          <p>Освіта: ${(v.educations || []).length} · Досвід: ${(v.experiences || []).length} · Активності: ${(v.activities || []).length} · Навички: ${(v.skills || []).length} · Мови: ${(v.languages || []).length}</p>
-        </div>`;
+        <div class="pk-card" style="text-align:center;padding:2rem 1.5rem">
+          <div class="nv-ico-box" style="margin:0 auto .8rem;width:48px;height:48px;background:var(--st-green-bg);color:var(--st-green)">${NvUI.icon("check")}</div>
+          <h2 style="margin:.2rem 0 .4rem">Чудово! Основна інформація готова</h2>
+          <p class="muted" style="max-width:44ch;margin:0 auto 1.1rem">Ви заповнили ключові розділи профілю. Далі ми дізнаємось більше про ваші сильні сторони, інтереси та цілі.</p>
+          <div style="display:inline-block;text-align:left">
+            ${sections.map(([t, done]) => `<div class="wi-q" style="${done ? "color:var(--st-green)" : ""}">${NvUI.icon(done ? "check" : "close")}${esc(t)}</div>`).join("")}
+          </div>
+        </div>
+        <p class="muted" style="margin-top:1rem">Освіта: ${(v.educations || []).length} · Досвід: ${(v.experiences || []).length} · Активності: ${(v.activities || []).length} · Навички: ${(v.skills || []).length} · Мови: ${(v.languages || []).length}</p>`;
     },
   };
 
@@ -192,9 +220,9 @@ const MnpPersonKB = (() => {
   function blockHtml(coll, label) {
     const rows = (_p && _p[coll]) || [];
     return `<div class="pk-list" id="pk-${coll}">
-      ${rows.map((r) => `<div class="pk-row"><span>${label(r)}</span>
-        <button class="mini" data-edit="${r.id}">Ред.</button>
-        <button class="mini" data-del="${r.id}">×</button></div>`).join("") || `<p class="muted">Поки що порожньо.</p>`}
+      ${rows.map((r) => `<div class="pk-row-card"><span class="pk-row-txt">${label(r)}</span>
+        <button class="mini-ic" data-edit="${r.id}" type="button" title="Редагувати">${NvUI.icon("edit")}</button>
+        <button class="mini-ic danger" data-del="${r.id}" type="button" title="Видалити">${NvUI.icon("trash")}</button></div>`).join("") || `<p class="muted">Поки що порожньо.</p>`}
       <div id="pk-form-${coll}"></div>
       <button class="btn secondary" id="pk-add-${coll}">+ Додати</button>
     </div>`;
@@ -244,41 +272,47 @@ const MnpPersonKB = (() => {
     credentials: () => ({ credential_type: val("cr-type"), title: val("cr-title"), provider: val("cr-prov"), issue_date: val("cr-issue") || null, expiry_date: val("cr-exp") || null, credential_number: val("cr-num"), description: val("cr-desc") }),
   };
 
-  // ---- skills ----
+  // ---- skills (chip-tag picker, mirrors C08) ----
+  const POPULAR_SKILLS = ["Комунікація", "Excel", "Організація роботи", "Клієнтський сервіс", "Управління проєктами", "Англійська мова", "Продажі", "Маркетинг", "Креативність", "Робота в команді"];
   function skillsBody() {
     const rows = (_p && _p.skills) || [];
+    const already = new Set(rows.map((s) => (s.raw_input || "").toLowerCase()));
     document.getElementById("pk-body").innerHTML = `
-      <div class="pk-list">
-        ${rows.map((s) => `<div class="pk-row"><span>${esc(s.raw_input || "")}${skillNote(s)}${s.proficiency ? ` <em>· ${esc(s.proficiency_uk)}</em>` : ""}</span>
-          <button class="mini" data-del="${s.id}">×</button></div>`).join("") || `<p class="muted">Поки що порожньо.</p>`}
-      </div>
       <div class="pk-card">
-        <label class="pk-f"><span>Знайти навичку в каталозі</span><input id="sk-search" placeholder="почніть вводити..."></label>
-        <div id="sk-results"></div>
-        <label class="pk-f"><span>або додати свою</span><input id="sk-custom" placeholder="назва навички / інструмента"></label>
-        ${S("sk-prof", "Рівень (необов'язково)", PROF, "")}
-        <button class="btn" id="sk-add-custom">+ Додати своє</button>
+        <label class="pk-f"><span>Які у вас навички?</span><input id="sk-search" placeholder="почніть вводити або оберіть із підказок нижче"></label>
+        <div id="sk-results" class="chips-row" style="margin:.3rem 0"></div>
+        <p class="muted" style="font-size:.82rem;margin:.7rem 0 .4rem">Популярні навички</p>
+        <div class="chips-row">
+          ${POPULAR_SKILLS.filter((s) => !already.has(s.toLowerCase())).map((s) => `<button class="chip" data-quick="${esc(s)}" type="button">+ ${esc(s)}</button>`).join("")}
+        </div>
+      </div>
+      <p class="muted" style="font-size:.82rem;margin:1rem 0 .4rem">Ваші навички (${rows.length})</p>
+      <div class="chips-row">
+        ${rows.map((s) => `<span class="chip" style="display:inline-flex;align-items:center;gap:.4rem">${esc(s.raw_input || "")}${skillNote(s)}${s.proficiency ? ` · ${esc(s.proficiency_uk)}` : ""}<button class="chip-x" data-del="${s.id}" type="button" aria-label="Видалити">×</button></span>`).join("") || `<p class="muted">Поки що порожньо.</p>`}
       </div>`;
-    document.querySelectorAll(".pk-list [data-del]").forEach((b) => b.onclick = () => act(async () => {
+    document.querySelectorAll(".chip-x").forEach((b) => b.onclick = () => act(async () => {
       _p = await me(`/me/person/skills/${b.dataset.del}`, { method: "DELETE" }); renderStep();
+    }));
+    document.querySelectorAll("[data-quick]").forEach((b) => b.onclick = () => act(async () => {
+      _p = await me("/me/person/skills", { method: "POST", body: { raw_input: b.dataset.quick } });
+      toast("Додано"); renderStep();
     }));
     const search = document.getElementById("sk-search");
     search.oninput = async () => {
       const q = search.value.trim();
       if (q.length < 2) { document.getElementById("sk-results").innerHTML = ""; return; }
       const res = await me(`/me/person/skills/search?q=${encodeURIComponent(q)}`);
-      document.getElementById("sk-results").innerHTML = res.map((s) => `<button class="mini" data-skid="${s.id}">${esc(s.name_uk)}</button>`).join(" ");
+      document.getElementById("sk-results").innerHTML = res.map((s) => `<button class="chip" data-skid="${s.id}" type="button">+ ${esc(s.name_uk)}</button>`).join(" ")
+        || `<button class="chip" data-quick="${esc(q)}" type="button">+ Додати «${esc(q)}» як свою навичку</button>`;
       document.querySelectorAll("#sk-results [data-skid]").forEach((b) => b.onclick = () => act(async () => {
-        _p = await me("/me/person/skills", { method: "POST", body: { canonical_skill_id: b.dataset.skid, proficiency: val("sk-prof") || null } });
+        _p = await me("/me/person/skills", { method: "POST", body: { canonical_skill_id: b.dataset.skid } });
+        toast("Додано"); renderStep();
+      }));
+      document.querySelectorAll("#sk-results [data-quick]").forEach((b) => b.onclick = () => act(async () => {
+        _p = await me("/me/person/skills", { method: "POST", body: { raw_input: b.dataset.quick } });
         toast("Додано"); renderStep();
       }));
     };
-    document.getElementById("sk-add-custom").onclick = () => act(async () => {
-      const raw = val("sk-custom").trim();
-      if (!raw) return;
-      _p = await me("/me/person/skills", { method: "POST", body: { raw_input: raw, proficiency: val("sk-prof") || null } });
-      toast("Додано"); renderStep();
-    });
   }
 
   // ---- edit existing profile ----
@@ -310,12 +344,8 @@ const MnpPersonKB = (() => {
 
   // ---- CV upload + review ----
   let _cv = null;
-  function cvSteps(active) {
-    const S = [["Завантаження"], ["Перевірка"], ["Підтвердження"], ["Профіль"]];
-    return `<div class="flow-steps">${S.map(([t], i) => `
-      ${i ? '<span class="sep"></span>' : ""}
-      <span class="fs ${i === active ? "on" : i < active ? "done" : ""}"><span class="n">${i < active ? "✓" : i + 1}</span>${esc(t)}</span>`).join("")}</div>`;
-  }
+  const CV_STAGE_LABEL = ["Завантаження резюме", "Перевірка знайдених даних", "Підтвердження профілю", "Профіль готовий"];
+  function cvSteps(active) { return wizBar(active + 1, CV_STAGE_LABEL.length, CV_STAGE_LABEL[active]); }
   async function screenCv() {
     await MnpApi.ensureSession();
     const staged = _stagedCv; _stagedCv = null;
@@ -351,7 +381,7 @@ const MnpPersonKB = (() => {
     document.getElementById("cv-up").onclick = () => act(async () => {
       const f = input.files[0];
       if (!f) { toast("Оберіть файл", false); return; }
-      document.getElementById("cv-out").innerHTML = `<p class="muted">Обробка файлу…</p>`;
+      showProcessing();
       const form = new FormData(); form.append("file", f);
       const res = await MnpApi.request("/me/person/cv", { method: "POST", body: form, isForm: true });
       if (!res.parsed) {
@@ -365,6 +395,28 @@ const MnpPersonKB = (() => {
       _cv = res.candidates; renderCvReview();
     });
   }
+  // Decorative pacing over a real async CV-parse call -- ticks visually,
+  // never blocks or fakes a result; the real request runs in parallel.
+  function showProcessing() {
+    const stages = ["Читаємо файл", "Визначаємо досвід", "Знаходимо навички", "Аналізуємо освіту", "Готуємо попередні дані"];
+    const out = document.getElementById("cv-out");
+    out.innerHTML = `${cvSteps(1)}<div class="pk-card" style="text-align:center;padding:2rem 1.5rem">
+      <div class="nv-ico-box soft" style="margin:0 auto .8rem;width:48px;height:48px">${NvUI.icon("checklist")}</div>
+      <h2 style="margin:.2rem 0 1rem">Аналізуємо ваше резюме</h2>
+      <div id="cv-proc-list" style="display:inline-block;text-align:left">
+        ${stages.map((s, i) => `<div class="wi-q" data-i="${i}" style="opacity:${i === 0 ? 1 : .4}">${NvUI.icon("gauge")}${esc(s)}</div>`).join("")}
+      </div></div>`;
+    let i = 0;
+    const rows = out.querySelectorAll("#cv-proc-list .wi-q");
+    const t = setInterval(() => {
+      if (i >= rows.length) { clearInterval(t); return; }
+      rows[i].style.opacity = 1;
+      rows[i].style.color = "var(--st-green)";
+      rows[i].innerHTML = NvUI.icon("check") + esc(stages[i]);
+      i++;
+    }, 420);
+  }
+
   function renderCvReview() {
     const c = _cv;
     const sec = (title, arr, render) => `<h3>${esc(title)}</h3>${arr.length ? arr.map((r, i) => `<label class="pk-chk"><input type="checkbox" checked data-sec="${title}" data-i="${i}"> ${render(r)}</label>`).join("") : `<p class="muted">Не знайдено.</p>`}`;

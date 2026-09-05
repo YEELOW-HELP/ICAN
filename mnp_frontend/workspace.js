@@ -97,7 +97,7 @@ const MnpWorkspace = (() => {
     root().innerHTML = `
       <div class="ws">
         <aside class="ws-side">
-          <a class="ws-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
+          <a class="ws-brand" href="#/">${NvUI.logoMark()}<b>Yellow Hub</b><span>Кар'єрний центр</span></a>
           <nav class="ws-nav">${navHtml}</nav>
           <div class="ws-side-foot">
             <a href="#/how">${I("book")}<span class="lbl">Довідка</span></a>
@@ -168,7 +168,7 @@ const MnpWorkspace = (() => {
           <div class="panel-head">
             <div class="nv-ico-box purple">${I("layers")}</div>
             <div><h3 style="margin:0">Персональні сценарії</h3>
-              <p class="muted" style="margin:.15rem 0 0;font-size:.88rem">NAPRIAM змоделює варіанти вашого професійного майбутнього</p></div>
+              <p class="muted" style="margin:.15rem 0 0;font-size:.88rem">Yellow Hub змоделює варіанти вашого професійного майбутнього</p></div>
           </div>
           <p class="muted" style="font-size:.92rem">На основі «Я можу», «Я є» та «Я хочу» ви побачите кілька напрямів переходу з кроками до кожного.</p>
           <span class="soon-tag">Незабаром</span>

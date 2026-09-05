@@ -1,4 +1,4 @@
-// NAPRIAM — customer product frontend. Plain JS, hash router, no build step.
+// Yellow Hub — customer product frontend. Plain JS, hash router, no build step.
 // Phase 1 scope: public shell (Home / How it works / About / Login-future /
 // Opportunities-future), Person KB flows (person.js), Career KB explorer.
 // Personalized Matching is Phase 2 — the old match/questionnaire screens are
@@ -7,6 +7,8 @@
 const App = (() => {
   const root = document.getElementById("app");
   const header = document.getElementById("site-header");
+
+  const LOGO_MARK = NvUI.logoMark();
 
   const FEASIBILITY_LABELS = {
     ready_now: "Можете почати зараз", near_ready: "Майже готові", reachable: "Досяжно",
@@ -61,10 +63,9 @@ const App = (() => {
   // --- Global product header ------------------------------------------
   // Hidden entirely on admin routes — admin is a separate internal tool.
   const NAV = [
-    ["how", "Як це працює"],
     ["catalog", "Професії"],
-    ["opportunities", "Можливості"],
-    ["about", "Про нас"],
+    ["how", "Як це працює"],
+    ["about", "Про МОЖУ"],
   ];
 
   function renderHeader() {
@@ -76,14 +77,17 @@ const App = (() => {
     if (hash.startsWith("#/app")) { header.innerHTML = ""; return; }
     const [, path] = hash.match(/^#\/([^/]*)/) || [null, ""];
     const hasProfile = !!localStorage.getItem("mnp_has_profile");
+    // "Увійти" is a staff entry point (consultant / admin), not a client
+    // login -- clients never need an account in PILOT-30. See #/login.
     header.innerHTML = `
       <div class="nv-header">
-        <a class="nv-brand" href="#/"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></a>
+        <a class="nv-brand" href="#/">${LOGO_MARK}<b>Yellow Hub</b><span>Кар'єрний центр</span></a>
         <nav class="nv-nav">
           ${NAV.map(([p, t]) => `<a href="#/${p}" class="${p === path ? "is-active" : ""}">${t}</a>`).join("")}
+          <a href="#/market" class="${path === "market" ? "is-active" : ""}">Ринок праці<span class="soon-tag" style="margin-left:.35rem">Незабаром</span></a>
         </nav>
         <div class="nv-actions">
-          <button class="btn ghost is-disabled" disabled title="Виробнича авторизація з'явиться пізніше">Увійти<span class="soon-tag">Незабаром</span></button>
+          <a href="#/login" class="btn ghost">Увійти</a>
           ${hasProfile
             ? `<a class="btn secondary" href="#/app">Мій профіль</a>`
             : `<a class="btn" href="#/profile">Створити профіль</a>`}
@@ -98,7 +102,7 @@ const App = (() => {
       `<a href="#/admin/${slug}" class="${p.startsWith(slug.split("/")[0]) ? "is-active" : ""}">${label}</a>`;
     header.innerHTML = `
       <div class="adm-nav">
-        <b>NAPRIAM ADMIN</b>
+        <b>YELLOW HUB · ADMIN</b>
         ${item("persons", "Люди")}
         ${item("catalog", "Професії")}
         <span class="spacer"></span>
@@ -115,13 +119,16 @@ const App = (() => {
     f.style.display = "";
     f.innerHTML = `
       <div class="site-footer-inner">
-        <div class="fbrand"><b>NAPRIAM</b><span>Кар'єрний навігатор</span></div>
+        <div class="fbrand">${LOGO_MARK}<span><b>Yellow Hub</b><span>Професійні можливості для кожного</span></span></div>
         <nav>
-          <a href="#/how">Як це працює</a>
+          <a href="#/about">Про МОЖУ</a>
           <a href="#/catalog">Професії</a>
-          <a href="#/about">Про нас</a>
+          <a href="#/how">Як це працює</a>
+          <a href="#/market">Ринок праці</a>
+          <a href="#/privacy">Конфіденційність</a>
+          <a href="#/terms">Умови використання</a>
         </nav>
-        <span class="fcopy">© 2026 NAPRIAM</span>
+        <span class="fcopy">© 2026 Yellow Hub</span>
       </div>`;
   }
 
@@ -131,92 +138,107 @@ const App = (() => {
   function screenHome() {
     const I = (n) => NvUI.icon(n);
     root.innerHTML = `
-      <section class="nv-hero">
+      <section class="hero-split">
         <div>
-          <h1>Ким ви можете<br>працювати далі?</h1>
-          <p class="lead">NAPRIAM перетворює ваш реальний досвід, навички та цілі на нові кар'єрні можливості та зрозумілий маршрут переходу.</p>
-          <div class="nv-hero-actions">
-            <a class="btn btn-lg" href="#/profile">Створити профіль</a>
-            <a class="btn secondary btn-lg" href="#/profile/cv">Завантажити CV</a>
-            <a class="tertiary" href="#/profile/build">Заповнити вручну</a>
+          <span class="eyebrow">Ваш наступний крок — можливий</span>
+          <h1>Не знаєте, куди рухатися в кар'єрі?</h1>
+          <p class="lead">Створіть кар'єрний профіль і побачите реалістичні професійні напрями, що вам підходять зараз.</p>
+          <div class="hero-actions">
+            <a class="btn btn-lg" href="#/profile">Створити кар'єрний профіль →</a>
+            <a class="btn secondary btn-lg" href="#/catalog">Переглянути професії</a>
           </div>
-          <div class="nv-drop" id="home-drop" style="margin-top:1.75rem">
-            <div class="nv-ico-box soft" style="margin:0 auto .5rem">${I("upload")}</div>
-            <strong>Перетягніть сюди ваш CV</strong>
-            <p>PDF, DOCX або TXT</p>
-            <div style="margin-top:.6rem">
-              <button class="btn ghost is-disabled" disabled title="Функція з'явиться пізніше">Імпортувати LinkedIn<span class="soon-tag">Незабаром</span></button>
-            </div>
+          <div class="check-row">
+            <span><span class="ck">${I("check")}</span>Безкоштовно</span>
+            <span><span class="ck">${I("check")}</span>Зрозуміло та просто</span>
+            <span><span class="ck">${I("check")}</span>Для кожного</span>
           </div>
         </div>
-        <div class="nv-preview">
-          <span class="demo-flag">Приклад</span>
-          <p style="margin:.2rem 0 .8rem;font-weight:600">Так виглядатимуть ваші можливості</p>
-          <div class="nv-preview-row"><b>Аналітик даних</b><span>суміжний напрям</span></div>
-          <div class="nv-preview-row"><b>Керівник проєктів</b><span>кар'єрне зростання</span></div>
-          <div class="nv-preview-row"><b>Продуктовий аналітик</b><span>перенесення навичок</span></div>
-          <p class="nv-preview-note">Це демонстрація інтерфейсу, а не персональний результат. Персональний підбір з'явиться на наступному етапі.</p>
+        <div class="illus-wrap">
+          <div class="illus-frame">${NvUI.illustration("person")}</div>
+          <div class="doodle d-tl">${NvUI.doodleIcon("arrow")}<span class="txt">Нові можливості починаються з розуміння себе</span></div>
+          <div class="sticky-note">Краще майбутнє починається сьогодні ${NvUI.doodleIcon("heart")}</div>
         </div>
       </section>
 
-      <h2 style="text-align:center;margin:2.5rem 0 1.5rem">Ваш цифровий кар'єрний профіль</h2>
-      <div class="nv-cards">
-        <div class="nv-card">
-          <div class="nv-ico-box">${I("briefcase")}</div>
-          <h3>Зрозуміти себе</h3>
-          <p><b>Я можу</b> — досвід, освіта та навички, які у вас уже є. <span class="chip chip--green" style="margin-top:.5rem;display:inline-block">Працює</span></p>
-        </div>
-        <div class="nv-card">
-          <div class="nv-ico-box purple">${I("compass")}</div>
-          <h3>Знайти напрям</h3>
-          <p><b>Я є</b> — сильні сторони, інтереси та стиль роботи. <span class="soon-tag" style="margin:.5rem 0 0">Незабаром</span></p>
-        </div>
-        <div class="nv-card">
-          <div class="nv-ico-box green">${I("target")}</div>
-          <h3>Побудувати маршрут</h3>
-          <p><b>Я хочу</b> — формат роботи та цілі; далі — сценарії та кроки переходу. <span class="chip chip--orange" style="margin-top:.5rem;display:inline-block">Частково</span></p>
-        </div>
+      <h2>Для кого це</h2>
+      <div class="tile-nav-grid">
+        <a class="tile-nav" href="#/profile"><span class="tn-ico">${I("route")}</span><span class="tn-lbl">Хочу змінити професію</span><span class="tn-chev">${I("arrow")}</span></a>
+        <a class="tile-nav" href="#/profile"><span class="tn-ico">${I("briefcase")}</span><span class="tn-lbl">Втратили роботу</span><span class="tn-chev">${I("arrow")}</span></a>
+        <a class="tile-nav" href="#/profile"><span class="tn-ico">${I("target")}</span><span class="tn-lbl">Повертаюсь на ринок праці</span><span class="tn-chev">${I("arrow")}</span></a>
+        <a class="tile-nav" href="#/profile"><span class="tn-ico">${I("compass")}</span><span class="tn-lbl">Шукаю свій напрям</span><span class="tn-chev">${I("arrow")}</span></a>
       </div>
 
-      <section class="nv-panel" style="text-align:center">
-        <h2 style="margin-top:0">Почніть з профілю</h2>
-        <p class="muted" style="max-width:52ch;margin:.4rem auto 1rem">Створіть профіль із CV або вручну, перевірте розпізнані факти — і одразу переглядайте каталог професій.</p>
-        <a class="btn" href="#/profile">Створити профіль</a>
-        <a class="btn secondary" href="#/catalog">Переглянути професії</a>
-      </section>`;
+      <h2>Що ви отримаєте</h2>
+      <div class="tile-feat-grid">
+        <div class="tile-feat"><span class="tn-ico">${I("doc")}</span><h3>Кар'єрний профіль</h3><p>Ваші сильні сторони та інтереси</p></div>
+        <div class="tile-feat"><span class="tn-ico">${I("chart")}</span><h3>Реалістичні напрями</h3><p>Професії, що вам підходять зараз</p></div>
+        <div class="tile-feat"><span class="tn-ico">${I("lightbulb")}</span><h3>Пояснення рекомендацій</h3><p>Чому саме ці професії і що це означає</p></div>
+        <div class="tile-feat"><span class="tn-ico">${I("target")}</span><h3>Наступні кроки</h3><p>З чого почати і як розвиватися</p></div>
+      </div>
 
-    // drag & drop on the hero drop-zone -> hand off to the CV flow
-    const drop = document.getElementById("home-drop");
-    if (drop) {
-      ["dragover", "dragenter"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
-      ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("drag")));
-      drop.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-          MnpPersonKB.stageCvFile(e.dataTransfer.files[0]);
-          location.hash = "#/profile/cv";
-        }
-      });
-    }
+      <h2>Як це працює</h2>
+      <div class="step-flow">
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">1</span><span class="sf-ico">${I("edit")}</span></div><h3>Створіть профіль</h3><p>Дайте відповіді на прості запитання</p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">2</span><span class="sf-ico">${I("checklist")}</span></div><h3>Отримайте напрями</h3><p>Сервіс підбере професії, що вам підходять</p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">3</span><span class="sf-ico">${I("target")}</span></div><h3>Оберіть свій фокус</h3><p>Дослідіть професії та можливості</p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">4</span><span class="sf-ico">${I("chart")}</span></div><h3>Рухайтесь далі</h3><p>Отримайте наступні кроки для вашої мети</p></div>
+      </div>
+
+      <div class="cta-band">
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="cb-ico">${I("sparkles")}</span>
+          <div><h2>Почніть із першого кроку</h2><p>Створіть кар'єрний профіль і відкрийте нові можливості для себе.</p></div>
+        </div>
+        <a class="btn btn-lg" href="#/profile">Створити кар'єрний профіль →</a>
+        <span class="cb-doodle">Ти можеш! ${NvUI.doodleIcon("heart")}</span>
+      </div>`;
   }
 
   // ===================================================================
   // PUBLIC — How it works
   // ===================================================================
   function screenHowItWorks() {
+    const I = (n) => NvUI.icon(n);
     root.innerHTML = `
-      <div class="nv-narrow">
-        <h1>Як працює NAPRIAM</h1>
-        <p class="lead">Чотири кроки від вашого досвіду до зрозумілого плану. Зараз працюють кроки 1–2; кроки 3–4 з'являться на наступних етапах.</p>
+      <div class="crumb"><a href="#/">Головна</a><span class="sep">›</span><span class="cur">Як це працює</span></div>
+      <section class="hero-split">
+        <div>
+          <span class="eyebrow">Ваш наступний крок — можливий</span>
+          <h1>Як це працює</h1>
+          <p class="lead">Ми зробили процес простим і зрозумілим, щоб ви могли отримати персональні рекомендації та обрати реалістичний наступний крок.</p>
+        </div>
+        <div class="illus-wrap">
+          <div class="illus-frame">${NvUI.illustration("person")}</div>
+          <div class="doodle d-tl">${NvUI.doodleIcon("arrow")}<span class="txt">Крок за кроком до бажаного майбутнього</span></div>
+        </div>
+      </section>
+
+      <div class="step-flow" style="grid-template-columns:repeat(5,1fr)">
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">1</span><span class="sf-ico">${I("edit")}</span></div><h3>Створіть кар'єрний профіль</h3><p>Розкажіть про себе: освіту, досвід, інтереси. Це займе близько 10–15 хвилин.</p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">2</span><span class="sf-ico">${I("checklist")}</span></div><h3>Отримайте професійні напрями</h3><p>Сервіс проаналізує ваші дані та запропонує реалістичні напрями, які відповідають вашому досвіду.</p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">3</span><span class="sf-ico">${I("chat")}</span></div><h3>Перегляньте рекомендації</h3><p>Побачите, що у вас вже є, які навички можна перенести та що ще важливо врахувати. <span class="soon-tag">Незабаром</span></p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">4</span><span class="sf-ico">${I("target")}</span></div><h3>Оберіть свій напрям</h3><p>Разом із консультантом оберіть найбільш близький і зрозумілий для себе варіант. <span class="soon-tag">Незабаром</span></p></div>
+        <span class="sf-arrow">${I("arrow")}</span>
+        <div class="sf-item"><div class="sf-row"><span class="sf-n">5</span><span class="sf-ico">${I("route")}</span></div><h3>Отримайте наступні кроки</h3><p>Ви отримаєте план дій: з чого почати, що дослідити і куди рухатися далі. <span class="soon-tag">Незабаром</span></p></div>
       </div>
-      <div class="nv-steps-big">
-        <div class="nv-step"><div class="num">1</div><h3>Завантажте CV або заповніть профіль</h3><p>PDF, DOCX, TXT — або крок за кроком вручну.</p></div>
-        <div class="nv-step"><div class="num">2</div><h3>Підтвердіть ваші факти та навички</h3><p>Ви перевіряєте кожен запис — нічого не зберігається без підтвердження.</p></div>
-        <div class="nv-step"><div class="num">3</div><h3>Близькі професії та потрібні навички</h3><p>Персональний підбір. <span class="soon-tag">Незабаром</span></p></div>
-        <div class="nv-step"><div class="num">4</div><h3>Побудуйте маршрут переходу</h3><p>Кроки навчання й дій. <span class="soon-tag">Незабаром</span></p></div>
-      </div>
-      <div class="nv-narrow" style="text-align:center;margin-top:1.5rem">
-        <a class="btn btn-lg" href="#/profile">Почати</a>
+
+      <div class="cta-band">
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="cb-ico">${I("route")}</span>
+          <div><h2>Готові зробити перший крок?</h2><p>Створіть кар'єрний профіль і відкрийте нові можливості для себе.</p></div>
+        </div>
+        <a class="btn btn-lg" href="#/profile">Почати зараз →</a>
+        <div class="check-row" style="color:rgba(24,20,15,.75)">
+          <span><span class="ck" style="background:rgba(24,20,15,.1);color:var(--brand-ink)">${I("check")}</span>Безкоштовно</span>
+          <span><span class="ck" style="background:rgba(24,20,15,.1);color:var(--brand-ink)">${I("check")}</span>Зрозуміло та просто</span>
+          <span><span class="ck" style="background:rgba(24,20,15,.1);color:var(--brand-ink)">${I("check")}</span>Для кожного</span>
+        </div>
       </div>`;
   }
 
@@ -224,47 +246,144 @@ const App = (() => {
   // PUBLIC — About
   // ===================================================================
   function screenAbout() {
+    const I = (n) => NvUI.icon(n);
+    root.innerHTML = `
+      <div class="crumb"><a href="#/">Головна</a><span class="sep">›</span><span class="cur">Про МОЖУ</span></div>
+      <div class="nv-narrow" style="max-width:760px;margin:0 0 1.5rem">
+        <span class="eyebrow">Соціальна програма</span>
+        <h1 style="font-size:clamp(2rem,3vw,2.6rem);font-weight:800;letter-spacing:-.01em">Про МОЖУ</h1>
+        <p class="lead">Соціальна програма в межах Yellow Hub, яка допомагає людям у складних життєвих ситуаціях знайти свій професійний шлях і повернутися до активного життя.</p>
+      </div>
+      <div class="hero-split" style="margin-top:0">
+        <div class="illus-wrap">
+          <div class="illus-frame">${NvUI.illustration("consult")}</div>
+          <div class="sticky-note" style="left:-1.2rem;right:auto;bottom:-1.2rem;transform:rotate(-3deg)">Поруч, коли важливо ${NvUI.doodleIcon("heart")}</div>
+        </div>
+        <div class="tile-feat-grid" style="grid-template-columns:1fr 1fr;margin:0">
+          <div class="tile-feat"><span class="tn-ico">${I("user")}</span><h3>Для тих, хто потребує підтримки</h3><p>Для людей, які втратили роботу або хочуть змінити професійний напрям.</p></div>
+          <div class="tile-feat"><span class="tn-ico">${I("gauge")}</span><h3>Безкоштовний доступ</h3><p>Участь у програмі не потребує оплати.</p></div>
+          <div class="tile-feat"><span class="tn-ico">${I("edit")}</span><h3>Експертна підтримка</h3><p>Консультації від фахівців, які допомагають розібратися в можливостях.</p></div>
+          <div class="tile-feat"><span class="tn-ico">${I("lightbulb")}</span><h3>Реальні можливості</h3><p>Допомагаємо не лише зрозуміти себе, а й рухатися далі.</p></div>
+        </div>
+      </div>
+
+      <div class="cta-band">
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="cb-ico">${I("compass")}</span>
+          <div><h2>МОЖУ</h2><p>Люди. Підтримка. Нові можливості.</p></div>
+        </div>
+        <a class="btn btn-lg" href="#/profile">Дізнатися більше →</a>
+      </div>
+
+      <div class="nv-narrow" style="max-width:760px">
+        <h2>У що ми віримо</h2>
+        <ul>
+          <li>Рішення про кар'єру мають спиратися на реальні факти про людину, а не на здогади.</li>
+          <li>Результат має бути зрозумілим і поясненним — без «чорної скриньки» та вигаданих відсотків.</li>
+          <li>Технологія без живої людини недостатня: кожен напрям перевіряє кар'єрний консультант.</li>
+          <li>Ми не показуємо цифр (зарплат, попиту, статистики), доки не маємо перевіреного джерела.</li>
+        </ul>
+        <p class="muted">Ми запускаємо продукт разом із першими учасниками у Харкові. Каталог професій і кар'єрний профіль (з CV або вручну) вже працюють. Персональні рекомендації, перевірка консультантом і маршрут наступного кроку запускаються поступово, у межах пілотної програми.</p>
+        <a class="btn" href="#/profile">Створити кар'єрний профіль</a>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Ринок праці (future -- honest empty state, no fabricated data)
+  // ===================================================================
+  function screenMarket() {
+    const I = (n) => NvUI.icon(n);
+    root.innerHTML = `
+      <div class="crumb"><a href="#/">Головна</a><span class="sep">›</span><span class="cur">Ринок праці</span></div>
+      <div class="nv-narrow" style="max-width:760px;margin:0 0 1.5rem">
+        <h1 style="font-size:clamp(2rem,3vw,2.6rem);font-weight:800;letter-spacing:-.01em">Ринок праці в Україні</h1>
+        <p class="lead">Актуальна інформація про тенденції, затребувані професії та навички на українському ринку праці.</p>
+      </div>
+      <div class="future-hero">
+        <div class="future-illus">${NvUI.illustration("chart")}
+          <div class="future-card"><h3>Незабаром</h3><p>Ми готуємо для вас цей розділ</p></div>
+        </div>
+      </div>
+      <div class="tile-feat-grid">
+        <div class="tile-feat future"><span class="tn-ico">${I("chart")}</span><h3>Тенденції</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("briefcase")}</span><h3>Затребувані професії</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("layers")}</span><h3>Рівень зарплат</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("book")}</span><h3>Навички майбутнього</h3><p><span class="soon-tag">Незабаром</span></p></div>
+      </div>
+      <div class="nv-narrow" style="text-align:center;margin-top:1.5rem">
+        <button class="btn secondary notify-btn" disabled title="Розсилка сповіщень ще не підключена">${I("chat")} Повідомити, коли буде готово →</button>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Регіон (future -- honest empty state, no fabricated data)
+  // ===================================================================
+  function screenRegion() {
+    const I = (n) => NvUI.icon(n);
+    root.innerHTML = `
+      <div class="crumb"><a href="#/">Головна</a><span class="sep">›</span><a href="#/region">Регіон</a><span class="sep">›</span><span class="cur">Професії у вашому регіоні</span></div>
+      <div class="nv-narrow" style="max-width:760px;margin:0 0 1.5rem">
+        <h1 style="font-size:clamp(2rem,3vw,2.6rem);font-weight:800;letter-spacing:-.01em">Професії у вашому регіоні</h1>
+        <p class="lead">Дізнайтеся, які професії найбільш затребувані у вашому регіоні, і які є можливості для працевлаштування та розвитку.</p>
+      </div>
+      <div class="future-hero">
+        <div class="future-illus">${NvUI.illustration("map")}
+          <div class="future-card"><h3>Незабаром</h3><p>Ми готуємо для вас цей розділ</p></div>
+        </div>
+      </div>
+      <div class="tile-feat-grid">
+        <div class="tile-feat future"><span class="tn-ico">${I("chart")}</span><h3>Популярні професії</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("map")}</span><h3>Можливості в регіоні</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("book")}</span><h3>Освітні програми</h3><p><span class="soon-tag">Незабаром</span></p></div>
+        <div class="tile-feat future"><span class="tn-ico">${I("user")}</span><h3>Історії успіху</h3><p><span class="soon-tag">Незабаром</span></p></div>
+      </div>
+      <div class="nv-narrow" style="text-align:center;margin-top:1.5rem">
+        <button class="btn secondary notify-btn" disabled title="Розсилка сповіщень ще не підключена">${I("chat")} Повідомити, коли буде готово →</button>
+      </div>`;
+  }
+
+  // ===================================================================
+  // PUBLIC — Login hub (staff entry point: admin real, consultant future)
+  // ===================================================================
+  function screenLoginHub() {
+    const I = (n) => NvUI.icon(n);
     root.innerHTML = `
       <div class="nv-narrow">
-        <h1>Про нас</h1>
-        <p class="lead">Наша місія — допомогти людям в Україні впевнено переходити між кар'єрними етапами та знаходити реалістичні професійні можливості.</p>
-        <div class="nv-panel">
-          <h2 style="margin-top:0">У що ми віримо</h2>
-          <ul>
-            <li>Рішення про кар'єру мають спиратися на реальні факти про людину, а не на здогади.</li>
-            <li>Результат має бути зрозумілим і поясненним — без «чорної скриньки» та вигаданих відсотків.</li>
-            <li>Ми не показуємо цифр (зарплат, попиту, статистики), доки не маємо перевіреного джерела.</li>
-          </ul>
+        <h1>Увійти</h1>
+        <p class="lead">Клієнти не потребують акаунта — кар'єрний профіль створюється без реєстрації. Цей вхід — для консультантів та адміністраторів Yellow Hub.</p>
+        <div class="login-split">
+          <div class="login-role-card">
+            <span class="tn-ico">${I("user")}</span>
+            <h3>Я консультант</h3>
+            <p>Перегляд клієнтів, рекомендацій і статусів консультацій.</p>
+            <button class="btn is-disabled" disabled>Увійти<span class="soon-tag">Незабаром</span></button>
+          </div>
+          <div class="login-role-card">
+            <span class="tn-ico">${I("checklist")}</span>
+            <h3>Я адміністратор</h3>
+            <p>Каталог професій, людей та повний доступ до налаштувань.</p>
+            <a class="btn" href="#/admin/login">Увійти</a>
+          </div>
         </div>
-        <div class="nv-panel">
-          <h2 style="margin-top:0">Що вже є</h2>
-          <p>Каталог професій із фактичними даними та кар'єрний профіль, який ви наповнюєте з резюме або вручну. Персональний підбір, аналіз навичок і маршрут переходу — у розробці.</p>
-        </div>
-        <a class="btn" href="#/profile">Створити профіль</a>
+        <p class="muted" style="margin-top:1.25rem;font-size:.85rem">Шукаєте свій кар'єрний профіль? <a href="#/profile">Створити або відкрити профіль →</a></p>
       </div>`;
+  }
+
+  function screenPrivacy() {
+    root.innerHTML = `<div class="nv-narrow"><h1>Конфіденційність</h1>
+      <p class="lead">Політика конфіденційності зараз готується разом із запуском пілотної програми.</p>
+      <p class="muted">Ми не показуємо цей текст, доки він не узгоджений — щоб не публікувати недостовірну інформацію про обробку даних. Питання щодо ваших даних — на пошту нижче.</p>
+      <a class="btn secondary" href="#/">На головну</a></div>`;
+  }
+  function screenTerms() {
+    root.innerHTML = `<div class="nv-narrow"><h1>Умови використання</h1>
+      <p class="lead">Умови використання зараз готуються разом із запуском пілотної програми.</p>
+      <a class="btn secondary" href="#/">На головну</a></div>`;
   }
 
   // ===================================================================
   // PUBLIC — Login (visual future state only)
   // ===================================================================
-  function screenLogin() {
-    root.innerHTML = `
-      <div class="nv-narrow">
-        <h1>Вхід</h1>
-        <p class="lead">Вхід за email та паролем, а також через Google і LinkedIn з'явиться на наступному етапі. Зараз профіль створюється без реєстрації.</p>
-        <div class="nv-panel">
-          <div class="field"><label>Email</label><input type="email" disabled placeholder="you@example.com"></div>
-          <div class="field"><label>Пароль</label><input type="password" disabled placeholder="••••••••"></div>
-          <button class="btn is-disabled" disabled>Увійти<span class="soon-tag">Незабаром</span></button>
-          <div style="margin-top:.75rem">
-            <button class="btn secondary is-disabled" disabled>Продовжити з Google<span class="soon-tag">Незабаром</span></button>
-            <button class="btn secondary is-disabled" disabled>Продовжити з LinkedIn<span class="soon-tag">Незабаром</span></button>
-          </div>
-        </div>
-        <a class="btn" href="#/profile">Створити профіль без реєстрації</a>
-      </div>`;
-  }
-
   // ===================================================================
   // PUBLIC — Pricing (visual shell only; prices are placeholders, no checkout)
   // ===================================================================
@@ -470,56 +589,74 @@ const App = (() => {
   // Career Explorer (Career KB V1) — real customer-facing catalog
   // ===================================================================
   let _catalogCache = null;
+  let _catFilter = "Усі", _catQuery = "";
+  const CARD_ILLUS = ["person", "consult", "chart"];
 
   async function screenCatalog(selectedId) {
     setLoading();
     try {
       if (!_catalogCache) _catalogCache = await MnpApi.listCareers();
-      const careers = _catalogCache;
-      const isDesktop = window.matchMedia("(min-width: 761px)").matches;
-      if (!selectedId && careers.length && isDesktop) {
-        location.hash = `#/catalog/${careers[0].id}`;
-        return;
-      }
-      const detail = selectedId ? await MnpApi.getCareerDetail(selectedId) : null;
-
-      root.innerHTML = `
-        <div class="explorer">
-          <aside class="explorer-catalog" data-open="${detail ? "false" : "true"}">
-            <h1>Професії</h1>
-            <p class="muted" style="font-size:.88rem;margin:.2rem 0 .8rem">Каталог професій з фактичними даними. Персональний підбір — на наступному етапі.</p>
-            <input id="career-search" class="career-search" type="text" placeholder="Пошук професії..." autocomplete="off">
-            <div id="career-list">${renderCatalogList(careers, selectedId)}</div>
-          </aside>
-          <section class="explorer-detail">
-            ${detail ? renderCareerKbDetail(detail) : `<p class="lead">Оберіть професію зі списку.</p>`}
-          </section>
-        </div>
-      `;
-
-      const search = document.getElementById("career-search");
-      if (search) {
-        search.addEventListener("input", () => {
-          const q = search.value.trim().toLowerCase();
-          const filtered = careers.filter((c) =>
-            c.name_uk.toLowerCase().includes(q) ||
-            (c.category_uk || "").toLowerCase().includes(q) ||
-            (c.description_short_uk || "").toLowerCase().includes(q));
-          document.getElementById("career-list").innerHTML =
-            filtered.length ? renderCatalogList(filtered, selectedId)
-                            : `<p class="limitation-label">Нічого не знайдено</p>`;
-        });
-      }
+      if (selectedId) { await screenCareerDetailPage(selectedId); return; }
+      renderCatalogGrid();
     } catch (e) { showError(e); }
   }
 
-  function renderCatalogList(careers, selectedId) {
-    return careers.map((c) => `
-      <a class="catalog-item ${c.id === selectedId ? "is-selected" : ""}" href="#/catalog/${c.id}">
-        <strong>${esc(c.name_uk)}</strong>
-        <span class="catalog-item-cat">${esc(c.category_uk || "")}</span>
-      </a>
-    `).join("");
+  function renderCatalogGrid() {
+    const I = (n) => NvUI.icon(n);
+    const careers = _catalogCache;
+    const cats = ["Усі", ...Array.from(new Set(careers.map((c) => c.category_uk).filter(Boolean)))];
+    root.innerHTML = `
+      <div class="hero-split" style="margin-bottom:1.5rem">
+        <div>
+          <span class="eyebrow">Досліджуйте. Обирайте. Розвивайтесь</span>
+          <h1>Професії</h1>
+          <p class="lead">Досліджуйте світ професій, дізнавайтеся, чим вони займаються, та відкривайте нові можливості для свого майбутнього.</p>
+          <input id="career-search" class="career-search" type="text" placeholder="Пошук професії, навички або сфери діяльності" autocomplete="off" style="max-width:420px">
+        </div>
+        <div class="illus-wrap">
+          <div class="illus-frame">${NvUI.illustration("person")}</div>
+          <div class="doodle d-tl">${NvUI.doodleIcon("arrow")}<span class="txt">Відкривайте нові можливості</span></div>
+        </div>
+      </div>
+      <div class="pill-row" id="cat-pills">
+        ${cats.map((c) => `<button data-cat="${esc(c)}" class="${c === _catFilter ? "is-active" : ""}">${esc(c)}</button>`).join("")}
+      </div>
+      <div id="pcard-list"></div>
+      <div class="cta-band">
+        <div style="display:flex;align-items:center;gap:1rem">
+          <span class="cb-ico">${I("compass")}</span>
+          <div><h2>Не знайшли потрібну професію?</h2><p>Каталог поповнюється. Спробуйте інший запит або перегляньте всі категорії.</p></div>
+        </div>
+        <button class="btn btn-lg" id="cat-reset">Спробувати ще раз →</button>
+      </div>`;
+    renderPcardList();
+    document.querySelectorAll("#cat-pills button").forEach((b) => b.onclick = () => { _catFilter = b.dataset.cat; renderCatalogGrid(); });
+    const search = document.getElementById("career-search");
+    search.value = _catQuery;
+    search.addEventListener("input", () => { _catQuery = search.value; renderPcardList(); });
+    document.getElementById("cat-reset").onclick = () => { _catFilter = "Усі"; _catQuery = ""; renderCatalogGrid(); };
+  }
+
+  function renderPcardList() {
+    const q = _catQuery.trim().toLowerCase();
+    const filtered = _catalogCache.filter((c) =>
+      (_catFilter === "Усі" || c.category_uk === _catFilter) &&
+      (!q || c.name_uk.toLowerCase().includes(q) || (c.category_uk || "").toLowerCase().includes(q) || (c.description_short_uk || "").toLowerCase().includes(q)));
+    const list = document.getElementById("pcard-list");
+    list.innerHTML = filtered.length ? `<div class="pcard-grid">${filtered.map((c, i) => renderPcard(c, i)).join("")}</div>`
+      : `<p class="limitation-label">Нічого не знайдено. Спробуйте інший запит.</p>`;
+  }
+
+  function renderPcard(c, i) {
+    const I = (n) => NvUI.icon(n);
+    return `<a class="pcard" href="#/catalog/${c.id}">
+      <div class="pcard-illus">${NvUI.illustration(CARD_ILLUS[i % CARD_ILLUS.length])}</div>
+      <div class="pcard-body">
+        <h3>${esc(c.name_uk)}</h3>
+        <p>${esc(c.description_short_uk || c.category_uk || "")}</p>
+        <span class="pcard-go">${I("arrow")}</span>
+      </div>
+    </a>`;
   }
 
   function renderReqSection(section) {
@@ -554,47 +691,80 @@ const App = (() => {
     return { must_have: "high", high_value: "medium", differentiator: "insufficient", optional: "insufficient" }[code] || "insufficient";
   }
 
-  function renderCareerKbDetail(d) {
-    const reqOrder = ["education", "experience", "language", "credential", "legal", "other"];
-    return `
-      <div class="kb-detail">
-        <a class="kb-back" href="#/catalog">← До списку професій</a>
-        <h1>${esc(d.identity.name_uk)}</h1>
-        <p class="kb-cat">${esc(d.identity.category_uk || "")}</p>
-        <p class="lead">${esc(d.overview.short_description_uk)}</p>
+  const DETAIL_TABS = [["about", "Про професію"], ["skills", "Навички"], ["education", "Освіта і розвиток"], ["market", "Ринок праці"], ["related", "Схожі професії"]];
+  let _dTab = "about", _dData = null, _dIllusIdx = 0;
 
+  async function screenCareerDetailPage(id) {
+    setLoading();
+    try {
+      _dData = await MnpApi.getCareerDetail(id);
+      _dTab = "about";
+      _dIllusIdx = (_catalogCache || []).findIndex((c) => c.id === id);
+      renderDetailPage();
+    } catch (e) { showError(e); }
+  }
+
+  function renderDetailPage() {
+    const d = _dData;
+    root.innerHTML = `
+      <div class="crumb"><a href="#/">Головна</a><span class="sep">›</span><a href="#/catalog">Професії</a><span class="sep">›</span><span class="cur">${esc(d.identity.name_uk)}</span></div>
+      <div class="hero-split" style="margin-bottom:0">
+        <div>
+          <h1 style="font-size:clamp(1.9rem,3vw,2.5rem)">${esc(d.identity.name_uk)}</h1>
+          <p class="lead">${esc(d.overview.short_description_uk)}</p>
+        </div>
+        <div class="illus-wrap">
+          <div class="illus-frame">${NvUI.illustration(CARD_ILLUS[Math.max(_dIllusIdx, 0) % CARD_ILLUS.length])}</div>
+        </div>
+      </div>
+      <div class="tabs-row" id="d-tabs">
+        ${DETAIL_TABS.map(([k, t]) => `<a href="#" data-tab="${k}" class="${k === _dTab ? "is-active" : ""}">${t}</a>`).join("")}
+      </div>
+      <div id="d-body"></div>
+      <h2 style="margin-top:2.5rem">Інші професії, які можуть вас зацікавити</h2>
+      <div class="pcard-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${(_catalogCache || []).filter((c) => c.id !== d.identity.id).slice(0, 3).map((c, i) => renderPcard(c, i + 1)).join("")}
+      </div>`;
+    document.querySelectorAll("#d-tabs a").forEach((a) => a.onclick = (e) => { e.preventDefault(); _dTab = a.dataset.tab; renderDetailBody(); document.querySelectorAll("#d-tabs a").forEach((x) => x.classList.toggle("is-active", x === a)); });
+    renderDetailBody();
+  }
+
+  function renderDetailBody() {
+    const d = _dData;
+    const body = document.getElementById("d-body");
+    if (_dTab === "about") {
+      body.innerHTML = `
+        <div class="hero-split" style="grid-template-columns:1.3fr 1fr;margin:1.5rem 0">
+          <div class="nv-panel" style="margin:0">
+            <h2 style="margin-top:0">Про професію</h2>
+            ${d.overview.long_description_uk ? `<p>${esc(d.overview.long_description_uk)}</p>` : `<p class="limitation-label">Розгорнутий опис готується</p>`}
+            ${d.pros_cons.advantages[0] ? `<div class="example-card" style="box-shadow:none;background:var(--bg-soft);padding:1.1rem 1.3rem;margin:1rem 0 0">«${esc(d.pros_cons.advantages[0])}»</div>` : ""}
+          </div>
+          <div class="nv-panel" style="margin:0">
+            <h2 style="margin-top:0">Що ви робитимете</h2>
+            <ul class="kb-list">
+              ${d.responsibilities.slice(0, 4).map((r) => `<li><span>${esc(r.title_uk)}</span></li>`).join("") || `<li><span class="muted">Дані готуються</span></li>`}
+            </ul>
+            <a class="btn btn-lg" href="#/profile" style="margin-top:.5rem">Перевірити, чи підходить мені →</a>
+          </div>
+        </div>
         <div class="kb-kpis">
           <div class="kb-kpi"><span class="kb-kpi-label">Складність входу</span><span class="kb-kpi-value">${esc(d.entry.difficulty_uk)}</span></div>
           <div class="kb-kpi"><span class="kb-kpi-label">Старт без досвіду</span><span class="kb-kpi-value">${esc(d.entry.without_experience_uk)}</span></div>
           <div class="kb-kpi"><span class="kb-kpi-label">Ринок праці</span><span class="kb-kpi-value kb-kpi-muted">${esc(d.market.status_uk)}</span></div>
-        </div>
-
-        <h2>${esc(d.overview.title_uk)}</h2>
-        ${d.overview.long_description_uk ? `<p>${esc(d.overview.long_description_uk)}</p>` : `<p class="limitation-label">Розгорнутий опис готується</p>`}
-
-        <h2>Основні обов'язки</h2>
-        <ul class="kb-list">
-          ${d.responsibilities.map((r) => `<li><span><strong>${esc(r.title_uk)}</strong>${r.description_uk ? ` — ${esc(r.description_uk)}` : ""}</span></li>`).join("")}
-        </ul>
-
-        <h2>Навички</h2>
+        </div>`;
+    } else if (_dTab === "skills") {
+      body.innerHTML = `
         ${renderSkillTable("Тверді навички", d.skills.hard)}
         ${renderSkillTable("М'які навички", d.skills.soft)}
         ${(!d.skills.hard.length && !d.skills.soft.length) ? `<p class="limitation-label">Навички готуються</p>` : ""}
-
-        ${d.knowledge.length ? `<h2>Знання</h2><div class="chips">${d.knowledge.map((k) => `<span class="chip">${esc(k.name_uk)}</span>`).join("")}</div>` : ""}
-
-        <h2>Вимоги та освіта</h2>
+        ${d.knowledge.length ? `<h2>Знання</h2><div class="chips">${d.knowledge.map((k) => `<span class="chip">${esc(k.name_uk)}</span>`).join("")}</div>` : ""}`;
+    } else if (_dTab === "education") {
+      const reqOrder = ["education", "experience", "language", "credential", "legal", "other"];
+      body.innerHTML = `
+        <h2 style="margin-top:0">Вимоги та освіта</h2>
         ${reqOrder.map((k) => renderReqSection(d.requirements[k])).join("")}
         <p class="limitation-label">«Бажана» — перевага, а не обов'язкова умова. Відсутність підтверджених даних не означає, що вимоги немає.</p>
-
-        <h2>Переваги та недоліки</h2>
-        <p class="limitation-label">Редакційна оцінка NAPRIAM, а не статистика.</p>
-        <div class="kb-proscons">
-          <div class="kb-pros"><h3>Переваги</h3><ul class="kb-list">${d.pros_cons.advantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
-          <div class="kb-cons"><h3>Недоліки</h3><ul class="kb-list">${d.pros_cons.disadvantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
-        </div>
-
         <h2>${esc(d.career_path.label_uk)}</h2>
         <p class="limitation-label">Типовий маршрут, а не гарантований шлях просування.</p>
         <ol class="kb-path">
@@ -604,28 +774,27 @@ const App = (() => {
               ${s.typical_experience_uk ? `<div class="kb-path-exp">${esc(s.typical_experience_uk)}</div>` : ""}
               ${s.description_uk ? `<div class="kb-path-desc">${esc(s.description_uk)}</div>` : ""}
             </li>`).join("")}
-        </ol>
-
-        <h2>Попит і зарплата</h2>
+        </ol>`;
+    } else if (_dTab === "market") {
+      body.innerHTML = `
+        <h2 style="margin-top:0">Попит і зарплата</h2>
         <p class="limitation-label">Дані ринку будуть додані пізніше. Ми не показуємо орієнтовних цифр, доки немає перевіреного джерела.</p>
-
-        ${d.related_careers.length ? `
-          <h2>Пов'язані професії</h2>
-          <div class="kb-related">
-            ${d.related_careers.map((r) => `
-              <a class="kb-related-item" href="#/catalog/${relatedId(r.code)}">
-                <strong>${esc(r.name_uk)}</strong>
-                <span class="catalog-item-cat">${esc(r.relation_uk)}</span>
-              </a>`).join("")}
-          </div>` : ""}
-
-        <div class="kb-cta">
-          <h2>Чи підходить вам ця професія?</h2>
-          <p>Персональний підбір і аналіз відповідності з'являться на наступному етапі. Зараз ви можете створити кар'єрний профіль, щоб бути готовими.</p>
-          <a href="#/profile" class="btn">Створити профіль</a>
-        </div>
-      </div>
-    `;
+        <h2>Переваги та недоліки</h2>
+        <p class="limitation-label">Редакційна оцінка Yellow Hub, а не статистика.</p>
+        <div class="kb-proscons">
+          <div class="kb-pros"><h3>Переваги</h3><ul class="kb-list">${d.pros_cons.advantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
+          <div class="kb-cons"><h3>Недоліки</h3><ul class="kb-list">${d.pros_cons.disadvantages.map((t) => `<li><span>${esc(t)}</span></li>`).join("") || "<li>—</li>"}</ul></div>
+        </div>`;
+    } else if (_dTab === "related") {
+      body.innerHTML = d.related_careers.length ? `
+        <div class="kb-related">
+          ${d.related_careers.map((r) => `
+            <a class="kb-related-item" href="#/catalog/${relatedId(r.code)}">
+              <strong>${esc(r.name_uk)}</strong>
+              <span class="catalog-item-cat">${esc(r.relation_uk)}</span>
+            </a>`).join("")}
+        </div>` : `<p class="limitation-label">Пов'язані професії ще не додані.</p>`;
+    }
   }
   function relatedId(code) {
     const hit = (_catalogCache || []).find((c) => c.code === code);
@@ -641,7 +810,11 @@ const App = (() => {
     if (path === "") return screenHome();
     if (path === "how") return screenHowItWorks();
     if (path === "about") return screenAbout();
-    if (path === "login") return screenLogin();
+    if (path === "market") return screenMarket();
+    if (path === "region") return screenRegion();
+    if (path === "login") return screenLoginHub();
+    if (path === "privacy") return screenPrivacy();
+    if (path === "terms") return screenTerms();
     if (path === "pricing") return screenPricing();
     if (path === "opportunities") return screenOpportunities();
     if (path === "catalog") return screenCatalog(param || null);
