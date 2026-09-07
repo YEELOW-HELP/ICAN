@@ -89,12 +89,12 @@ const MnpAdmin = (() => {
       ${field("adm-email", "Email", "", "type=email autocomplete=username")}
       ${field("adm-pass", "Пароль", "", "type=password autocomplete=current-password")}
       <button class="btn" id="adm-login-btn">Увійти</button>
-      <a href="#/catalog" class="btn secondary">Назад до каталогу</a>
+      <a href="#/admin/catalog" class="btn secondary">Назад до каталогу</a>
     `;
     document.getElementById("adm-login-btn").addEventListener("click", () => act(async () => {
       await MnpApi.adminLogin(val("adm-email").trim(), val("adm-pass"));
       notify("Вхід виконано");
-      location.hash = "#/catalog";
+      location.hash = "#/admin/catalog";
     }));
   }
 
@@ -116,9 +116,6 @@ const MnpAdmin = (() => {
       <input id="adm-cat-search" class="career-search" type="text" placeholder="Пошук професії або категорії...">
       <div id="adm-cat-list">${renderAdmCatalog(_admCache)}</div>
     `;
-    root().querySelector(".admin-logout:last-child").addEventListener("click", (e) => {
-      e.preventDefault(); MnpApi.adminLogout(); location.hash = "#/catalog";
-    });
     const s = document.getElementById("adm-cat-search");
     s.addEventListener("input", () => {
       const q = s.value.trim().toLowerCase();
@@ -157,7 +154,7 @@ const MnpAdmin = (() => {
       ${area("nc-short", "Короткий опис (укр)", "")}
       ${area("nc-long", "Повний опис (укр)", "")}
       <button class="btn" id="nc-save">Створити чернетку</button>
-      <a href="#/catalog" class="btn secondary">Скасувати</a>
+      <a href="#/admin/catalog" class="btn secondary">Скасувати</a>
     `;
     document.getElementById("nc-save").addEventListener("click", () => act(async () => {
       const created = await MnpApi.admin("/admin/careers", {
@@ -190,7 +187,7 @@ const MnpAdmin = (() => {
     try {
       ev = await MnpApi.admin(`/admin/careers/${careerId}`);
     } catch (e) {
-      root().innerHTML = `<div class="error-box">${esc(e.message)}</div><a href="#/catalog" class="btn">Каталог</a>`;
+      root().innerHTML = `<div class="error-box">${esc(e.message)}</div><a href="#/admin/catalog" class="btn">Каталог</a>`;
       return;
     }
     renderShell();
