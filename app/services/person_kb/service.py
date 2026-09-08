@@ -13,6 +13,7 @@ from app.db.models_career_card import MnpSkill, SkillStatus
 from app.db.models_person_kb import (
     CustomSkillStatus,
     MnpPerson,
+    MnpPersonAccess,
     MnpPersonActivity,
     MnpPersonCredential,
     MnpPersonDocument,
@@ -155,6 +156,9 @@ async def create_person(session: AsyncSession, *, first_name: str, source: Perso
                     else _coerce(f, fields[f]))
     session.add(person)
     await session.flush()
+    if actor_admin_id is not None:
+        session.add(MnpPersonAccess(person_id=person.id, admin_id=actor_admin_id,
+                                    is_creator=True, granted_by=actor_admin_id))
     await _audit(session, actor_admin_id=actor_admin_id, person_id=person.id, action="person_created",
                  after={"source": source.value, "first_name": first_name})
     await session.commit()

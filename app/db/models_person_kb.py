@@ -39,6 +39,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -236,6 +237,16 @@ class MnpPerson(Base):
 # --- shared columns via a mixin-ish helper (kept explicit for clarity) --
 def _fact_cols():  # not a mixin -- SQLAlchemy 2.0 typed columns don't mix cleanly
     return
+
+
+class MnpPersonAccess(Base):
+    """Access grants and immutable creator attribution for staff-created persons."""
+    __tablename__ = "mnp_person_access"
+    person_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("mnp_persons.id", ondelete="CASCADE"), primary_key=True)
+    admin_id: Mapped[int] = mapped_column(ForeignKey("admin_users.id"), primary_key=True)
+    is_creator: Mapped[bool] = mapped_column(Boolean, default=False)
+    granted_by: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class MnpPersonEducation(Base):

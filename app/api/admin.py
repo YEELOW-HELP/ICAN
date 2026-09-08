@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin
+from app.api.deps import get_privileged_admin as get_current_admin
 from app.core.security import create_access_token
 from app.db.models import AdminUser
 from app.db.session import get_session

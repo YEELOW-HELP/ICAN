@@ -70,7 +70,10 @@ export async function adminRequest<T>(path: string, init: RequestInit = {}): Pro
     ...init,
     headers: { ...jsonHeaders, ...init.headers, Authorization: `Bearer ${token}` },
   });
-  if (response.status === 401) localStorage.removeItem(sessionStorageKeys.admin);
+  if (response.status === 401) {
+    localStorage.removeItem(sessionStorageKeys.admin);
+    window.dispatchEvent(new Event("console-session-expired"));
+  }
   return decode<T>(response);
 }
 

@@ -172,6 +172,51 @@ Dev admin:
 
 `--reset` пересоздає dev DB після schema changes. `--serve --skip-seed` запускає сервер без reseed.
 
+### React frontend
+
+Найпростіший локальний запуск у VS Code: відкрийте кореневий `dev.py` і
+натисніть **Run**, або виберіть конфігурацію
+`ICAN: backend + frontend` у панелі **Run and Debug**. Скрипт сам запускає
+обидва процеси та відкриває браузер. Перший запуск також виконає
+`npm install`, якщо залежності frontend ще не встановлені.
+
+Новий React/Vite frontend живе окремо в `frontend/`. Для локальної
+розробки запустіть backend на `8099`, а в другому терміналі:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Vite відкриється на `http://127.0.0.1:5173/mnp/` і проксіює API до
+FastAPI. Production-збірка:
+
+```bash
+cd frontend
+npm run build
+```
+
+Вона створює `mnp_frontend_dist/`; FastAPI автоматично використовує цю
+збірку на `/mnp`. Якщо build відсутній, тимчасово залишається fallback на
+legacy `mnp_frontend/` до завершення міграції.
+
+### Ринок праці
+
+Сторінка `#/market` використовує офіційний відкритий набір актуальних
+вакансій Державної служби зайнятості з Data.gov.ua. Backend раз на добу
+перевіряє CKAN metadata та завантажує великий XML лише тоді, коли з'явився
+новий resource id. Імпорт потоковий; OpenAI/Anthropic не використовується.
+
+Публічний зріз: `GET /v1/mnp/market/overview?region=Харківська область`.
+Адміністратор також може запустити перевірку вручну:
+`POST /v1/mnp/admin/market/refresh` з admin Bearer token.
+
+Автооновлення налаштовується через `MARKET_DATA_AUTO_REFRESH` та
+`MARKET_DATA_REFRESH_HOURS`. Показуються лише вакансії, які детерміновано
+зіставлені з чинними назвами або aliases у Career KB; невідомі назви не
+створюють нових професій автоматично.
+
 ---
 
 ## Excel

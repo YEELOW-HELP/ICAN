@@ -17,6 +17,12 @@ from app.db import models_matching_mnp  # noqa: F401
 from app.db import models_person_kb  # noqa: F401
 
 
+@pytest.fixture(autouse=True)
+def test_jwt_secret(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "jwt_secret", "test-only-secret-for-isolated-test-databases")
+
+
 @pytest_asyncio.fixture
 async def session_factory():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")

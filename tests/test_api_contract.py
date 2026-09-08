@@ -14,6 +14,12 @@ from app.api.main import app
 _FRAMEWORK_ROUTES = {"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
 
 EXPECTED_ROUTES = {
+    ("GET", "/v1/mnp/admin/staff"),
+    ("POST", "/v1/mnp/admin/staff"),
+    ("PATCH", "/v1/mnp/admin/staff/{staff_id}"),
+    ("GET", "/v1/mnp/admin/persons/{person_id}/access"),
+    ("PUT", "/v1/mnp/admin/persons/{person_id}/access/{staff_id}"),
+    ("DELETE", "/v1/mnp/admin/persons/{person_id}/access/{staff_id}"),
     ("DELETE", "/crm/clients/{client_id}/files/{file_id}"),
     ("DELETE", "/crm/clients/{client_id}/languages/{lang_id}"),
     ("DELETE", "/crm/clients/{client_id}/skills/{skill_id}"),
@@ -77,6 +83,10 @@ EXPECTED_ROUTES = {
     ("POST", "/v1/mnp/questionnaire/career-capital"),
     ("POST", "/v1/mnp/questionnaire/career-intent"),
     ("POST", "/v1/mnp/session"),
+    # Verified regional labour-market data (Data.gov.ua / DCZ).
+    ("GET", "/v1/mnp/market/export.xlsx"),
+    ("GET", "/v1/mnp/market/overview"),
+    ("POST", "/v1/mnp/admin/market/refresh"),
     # MNP Career KB Editor V1 (app/api/mnp_admin.py) -- admin-only authoring
     # API. Every route requires an admin bearer token (get_current_admin).
     ("GET", "/v1/mnp/admin/careers"),

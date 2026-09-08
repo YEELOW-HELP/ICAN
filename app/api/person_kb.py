@@ -15,7 +15,7 @@ import uuid
 from fastapi import APIRouter, Body, Depends, File, Header, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin
+from app.services.person_kb.access import person_staff as get_current_admin, visible_persons
 from app.api.mnp import _check_upload_rate_limit
 from app.db.models import AdminUser
 from app.db.models_identity import IdentityUser
@@ -64,7 +64,7 @@ def _err(exc: Exception):
 @router.get("/admin/persons")
 async def admin_list(admin: AdminUser = Depends(get_current_admin),
                      session: AsyncSession = Depends(get_session)):
-    rows = await service.list_persons(session)
+    rows = (await session.scalars(visible_persons(admin))).all()
     return [person_list_row(p) for p in rows]
 
 

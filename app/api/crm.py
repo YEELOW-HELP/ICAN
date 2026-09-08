@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin
+from app.api.workspace import check_role_change
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.models import AdminRole, AdminUser
@@ -69,7 +70,7 @@ router = APIRouter(prefix="/crm", tags=["crm"])
 # ---------------- RBAC helpers ----------------
 
 def _require_roles(admin: AdminUser, *roles: AdminRole) -> None:
-    if admin.role not in roles:
+    if admin.role != AdminRole.SUPER_ADMIN and admin.role not in roles:
         raise HTTPException(status.HTTP_403_FORBIDDEN, f"This action requires one of: {[r.value for r in roles]}")
 
 
@@ -604,6 +605,10 @@ async def list_staff(session: AsyncSession = Depends(get_session), admin: AdminU
 @router.post("/users", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
 async def create_staff(payload: StaffCreateRequest, session: AsyncSession = Depends(get_session), admin: AdminUser = Depends(get_current_admin)):
     _require_roles(admin, AdminRole.ADMIN)
+    try:
+        check_role_change(admin, None, AdminRole(payload.role))
+    except ValueError:
+        raise HTTPException(422, "Невірна роль")
     existing = await session.execute(select(AdminUser).where(AdminUser.email == payload.email))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already in use")
@@ -624,6 +629,13 @@ async def update_staff(staff_id: int, payload: StaffUpdateRequest, session: Asyn
     staff = await session.get(AdminUser, staff_id)
     if staff is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Staff not found")
+
+    try:
+        check_role_change(admin, staff, AdminRole(payload.role) if payload.role else staff.role)
+    except ValueError:
+        raise HTTPException(422, "Невірна роль")
+    if staff.role == AdminRole.SUPER_ADMIN:
+        raise HTTPException(403, "Керуйте суперадміном через налаштування консолі")
 
     if payload.full_name is not None:
         staff.full_name = payload.full_name

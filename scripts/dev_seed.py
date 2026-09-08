@@ -117,11 +117,13 @@ def _stamp_alembic_head(db_path: Path) -> None:
 
 
 def _serve(db_path: Path) -> None:
-    os.environ["DATABASE_URL"] = _db_url(db_path)
+    from scripts.console_setup import configure_local, prepare_access
+    configure_local(db_path)
+    asyncio.run(prepare_access())
     import uvicorn
 
     print(f"\n  MNP frontend:  http://127.0.0.1:{DEV_PORT}/mnp/#/catalog")
-    print(f"  Career KB Editor: log in at /mnp/#/admin/login  ({DEV_ADMIN_EMAIL} / {DEV_ADMIN_PASSWORD})")
+    print("  Console: /mnp/#/admin/login. Personal superadmin: python -m scripts.console_setup")
     print(f"  API health:    http://127.0.0.1:{DEV_PORT}/health\n")
     uvicorn.run("app.api.main:app", host="127.0.0.1", port=DEV_PORT, log_level="info")
 
@@ -135,6 +137,8 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     db_path: Path = args.db.resolve()
+    from scripts.console_setup import configure_local
+    configure_local(db_path)
 
     if not args.skip_seed:
         print(f"Bootstrapping MNP dev DB at {db_path}")

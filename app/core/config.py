@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     anthropic_api_key: str = ""
     database_url: str = "postgresql+asyncpg://ican:ican@localhost:5432/ican"
+    # MongoDB connection is opt-in; existing SQL services are not silently
+    # redirected until their repositories have been migrated and verified.
+    mongodb_url: SecretStr = SecretStr("")
+    mongodb_database: str = "ican"
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000
@@ -63,6 +67,12 @@ class Settings(BaseSettings):
     # same known ephemeral-hosting caveat as app/services/crm/storage.py;
     # `storage_ref` is an opaque path, never raw bytes in the DB.
     mnp_resume_storage_dir: str = "./data/mnp_resumes"
+
+    # Official labour-market snapshots. The startup worker first performs a
+    # cheap CKAN metadata check and downloads the large XML only when its
+    # resource id changed. Disable explicitly in constrained deployments.
+    market_data_auto_refresh: bool = True
+    market_data_refresh_hours: int = 24
 
     @field_validator("anthropic_api_key")
     @classmethod

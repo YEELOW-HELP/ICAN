@@ -11,9 +11,9 @@ from app.schemas.profile import PROFILE_FIELDS
 
 
 async def authenticate_admin(session: AsyncSession, email: str, password: str) -> AdminUser | None:
-    result = await session.execute(select(AdminUser).where(AdminUser.email == email))
+    result = await session.execute(select(AdminUser).where(func.lower(AdminUser.email) == email.strip().lower()))
     admin = result.scalar_one_or_none()
-    if admin is None or not verify_password(password, admin.password_hash):
+    if admin is None or not admin.is_active or not verify_password(password, admin.password_hash):
         return None
     return admin
 

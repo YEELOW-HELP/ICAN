@@ -15,7 +15,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_admin
+from app.api.deps import get_privileged_admin as get_current_admin, get_current_admin as get_current_staff
 from app.db.models import AdminUser
 from app.db.models_career_kb_mnp import CareerLifecycleStatus, MnpCareer
 from app.db.session import get_session
@@ -58,8 +58,8 @@ async def _career(session: AsyncSession, career_id: uuid.UUID) -> MnpCareer:
 # whoami / catalog
 # ===========================================================================
 @router.get("/me")
-async def whoami(admin: AdminUser = Depends(get_current_admin)):
-    return {"id": admin.id, "email": admin.email, "role": admin.role.value}
+async def whoami(admin: AdminUser = Depends(get_current_staff)):
+    return {"id": admin.id, "email": admin.email, "role": admin.role.value, "full_name": admin.full_name}
 
 
 @router.get("/careers")

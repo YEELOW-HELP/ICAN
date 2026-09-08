@@ -19,10 +19,14 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(admin_id: int, role: str) -> str:
+    if not settings.jwt_secret:
+        raise RuntimeError("JWT_SECRET must be configured before staff can sign in")
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {"sub": str(admin_id), "role": role, "exp": expires_at}
     return jwt.encode(payload, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict:
+    if not settings.jwt_secret:
+        raise jwt.InvalidTokenError("JWT_SECRET is not configured")
     return jwt.decode(token, settings.jwt_secret, algorithms=[JWT_ALGORITHM])
