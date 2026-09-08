@@ -8,6 +8,7 @@ import argparse
 import getpass
 import os
 import secrets
+import sys
 import uuid
 from pathlib import Path
 
@@ -100,20 +101,27 @@ def main():
     from scripts.dev_seed import DEFAULT_DB_PATH
     if not DEFAULT_DB_PATH.exists():
         raise SystemExit("Спочатку запустіть dev.py для створення локальної бази")
-    configure_local(DEFAULT_DB_PATH)
+
+    ensure_superadmin(DEFAULT_DB_PATH, only_if_missing=args.ensure)
+
+
+def ensure_superadmin(db_path: Path, only_if_missing=True):
+    configure_local(db_path)
     asyncio.run(prepare_access())
-    if args.ensure and asyncio.run(has_superadmin()):
+    if only_if_missing and asyncio.run(has_superadmin()):
         return
+    print("\nПерше налаштування локального суперадміна.", flush=True)
     email = input("Ваш email суперадміна: ").strip().lower()
     if "@" not in email or len(email) > 255 or email == "admin@mnp.local":
         raise SystemExit("Вкажіть особистий email")
+    print("Пароль вводиться приховано: символи не відображатимуться. Завершіть введення клавішею Enter.", flush=True)
     password = getpass.getpass("Новий пароль (від 8 символів): ")
     if len(password) < 8 or len(password.encode("utf-8")) > 72:
         raise SystemExit("Пароль: від 8 символів, до 72 байтів")
     if password != getpass.getpass("Повторіть пароль: "):
         raise SystemExit("Паролі не збігаються")
     asyncio.run(provision(email, password))
-    print("Суперадміністратора налаштовано. Запустіть dev.py та увійдіть у консоль.")
+    print("Суперадміністратора налаштовано. Backend продовжує запуск.", flush=True)
 
 
 if __name__ == "__main__":

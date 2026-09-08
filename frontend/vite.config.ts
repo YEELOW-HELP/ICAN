@@ -5,7 +5,7 @@ export default defineConfig({
   base: "/mnp/",
   plugins: [react()],
   build: {
-    outDir: "../mnp_frontend_dist",
+    outDir: "dist",
     emptyOutDir: true,
   },
   server: {

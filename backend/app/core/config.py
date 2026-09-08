@@ -1,12 +1,13 @@
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.core.paths import BACKEND_ROOT, DATA_ROOT
 
 
 class Settings(BaseSettings):
     # hide_input_in_errors: a rejected value (e.g. a malformed
     # ANTHROPIC_API_KEY / JWT secret / DB URL) must never be echoed back
     # in the ValidationError text or logs.
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+    model_config = SettingsConfigDict(env_file=BACKEND_ROOT / ".env", extra="ignore", hide_input_in_errors=True)
 
     telegram_bot_token: str = ""
     anthropic_api_key: str = ""
@@ -36,7 +37,7 @@ class Settings(BaseSettings):
 
     # CRM client files — local disk by default (see app/services/crm/storage.py
     # for why, and its known limitation on ephemeral hosting filesystems).
-    file_storage_dir: str = "./data/client_files"
+    file_storage_dir: str = str(DATA_ROOT / "client_files")
     max_upload_size_mb: int = 15
 
     # Stage 1 (МОЖУ: Мій Напрям V1) -- whole-bot-mode switch. "legacy" keeps
@@ -66,7 +67,7 @@ class Settings(BaseSettings):
     # PRIVACY_V1 "Controls": file type/size validation). Local disk today,
     # same known ephemeral-hosting caveat as app/services/crm/storage.py;
     # `storage_ref` is an opaque path, never raw bytes in the DB.
-    mnp_resume_storage_dir: str = "./data/mnp_resumes"
+    mnp_resume_storage_dir: str = str(DATA_ROOT / "mnp_resumes")
 
     # Official labour-market snapshots. The startup worker first performs a
     # cheap CKAN metadata check and downloads the large XML only when its

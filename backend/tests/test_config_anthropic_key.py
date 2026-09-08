@@ -11,6 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.core.paths import DATA_ROOT
 
 
 def test_anthropic_api_key_empty_is_allowed():
@@ -48,6 +49,6 @@ def test_other_settings_still_load_alongside_the_validator():
     assert s.bot_flow == "legacy"
     assert s.max_assessment_questions == 20
     assert s.pending_answer_stale_after_seconds == 300
-    assert s.mnp_resume_storage_dir == "./data/mnp_resumes"
-    assert s.file_storage_dir == "./data/client_files"
+    assert s.mnp_resume_storage_dir == str(DATA_ROOT / "mnp_resumes")
+    assert s.file_storage_dir == str(DATA_ROOT / "client_files")
     assert s.max_upload_size_mb == 15

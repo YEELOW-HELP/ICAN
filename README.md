@@ -1,5 +1,24 @@
 # NAPRIAM / МОЖУ: Мій Напрям
 
+## Структура та запуск
+
+- `frontend/` — React + Vite + TypeScript; готова збірка в `frontend/dist/`.
+- `backend/` — FastAPI, бот, моделі, міграції, тести, інструменти й локальні дані.
+- `docs/` — документація, архітектура та архів вихідних вимог.
+
+Для backend відкрийте **`backend/run.py` → Run Python File in Terminal**
+або F5 → **ICAN: backend only**. Для frontend відкрийте термінал у
+`frontend/` і виконайте **`npm run dev`**. Кожен процес зупиняється
+через `Ctrl+C` у своєму терміналі. Старий `dev.py` залишено як необов’язковий
+спільний запуск для сумісності.
+Секрети тепер у `backend/.env`, локальна база — у
+`backend/data/dev/mnp_dev.sqlite`. Наявне Python-середовище `.venv/`
+залишається в корені; переносити його вручну не потрібно.
+
+[Повна карта папок і правила запуску](docs/architecture/REPOSITORY_LAYOUT.md).
+
+---
+
 **NAPRIAM — кар’єрний навігатор для України.** Продукт допомагає людині зібрати реальний цифровий кар’єрний профіль, зрозуміти доступні професії та поетапно перейти до персональних сценаріїв розвитку.
 
 Канонічний опис поточного стану: [`docs/product/CURRENT_SOURCE_OF_TRUTH.md`](docs/product/CURRENT_SOURCE_OF_TRUTH.md).
@@ -146,13 +165,35 @@ Future admin modules (Matching, Routes, Resources, Users, Consultations, Payment
 Локальний MNP/NAPRIAM можна підняти на SQLite без production Postgres:
 
 ```bash
+cd backend
 pip install -r requirements.txt
-python -m scripts.dev_seed --serve
+python run.py
 ```
 
-Сервер:
+Ця команда одразу запускає backend і не очікує вводу в терміналі. Створення
+особистого superadmin виконайте окремо з папки `backend`:
+
+```bash
+python -m scripts.console_setup --ensure
+```
+
+Або запустіть `python run.py --setup-admin`, якщо ваш термінал коректно приймає
+інтерактивний ввід.
+
+Backend:
 
 `http://127.0.0.1:8099`
+
+У другому терміналі відкрийте папку `frontend/` і запустіть стандартний Vite:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend відкриється на `http://127.0.0.1:5173/mnp/` і проксіює API до
+бекенду. Для зупинки натисніть `Ctrl+C` у відповідному терміналі.
 
 Основні маршрути:
 
@@ -165,23 +206,15 @@ python -m scripts.dev_seed --serve
 - Admin Person KB: `#/admin/persons`
 - Admin Career KB: `#/admin/catalog`
 
-Dev admin:
-
-- login: `admin@mnp.local`
-- password: `mnp-dev-admin`
+Для входу використовуйте особистого суперадміна, створеного під час
+першого запуску backend. Спільний демонстраційний вхід після цього вимикається.
 
 `--reset` пересоздає dev DB після schema changes. `--serve --skip-seed` запускає сервер без reseed.
 
 ### React frontend
 
-Найпростіший локальний запуск у VS Code: відкрийте кореневий `dev.py` і
-натисніть **Run**, або виберіть конфігурацію
-`ICAN: backend + frontend` у панелі **Run and Debug**. Скрипт сам запускає
-обидва процеси та відкриває браузер. Перший запуск також виконає
-`npm install`, якщо залежності frontend ще не встановлені.
-
 Новий React/Vite frontend живе окремо в `frontend/`. Для локальної
-розробки запустіть backend на `8099`, а в другому терміналі:
+розробки запустіть backend через `backend/run.py`, а в другому терміналі:
 
 ```bash
 cd frontend
@@ -197,9 +230,9 @@ cd frontend
 npm run build
 ```
 
-Вона створює `mnp_frontend_dist/`; FastAPI автоматично використовує цю
+Вона створює `frontend/dist/`; FastAPI автоматично використовує цю
 збірку на `/mnp`. Якщо build відсутній, тимчасово залишається fallback на
-legacy `mnp_frontend/` до завершення міграції.
+legacy `frontend/legacy/mnp/` до завершення перевірки функціонального покриття.
 
 ### Ринок праці
 
@@ -221,7 +254,7 @@ legacy `mnp_frontend/` до завершення міграції.
 
 ## Excel
 
-Career KB export:
+Career KB export (виконувати з `backend/`):
 
 ```bash
 MNP_DATABASE_URL="sqlite+aiosqlite:///./data/dev/mnp_dev.sqlite" python -m data_explorer.cli export-careers-excel
@@ -245,7 +278,9 @@ SQLite regression працює локально. Повна migration chain на
 
 ## Research / tooling
 
-`data_explorer/` містить ESCO, O*NET, Work.ua inventory, crosswalk, human lab та Excel tooling. Це **не production runtime**.
+`backend/data_explorer/` містить ESCO, O*NET, Work.ua inventory, crosswalk,
+human lab та Excel tooling. Це переважно допоміжні інструменти;
+CSV-довідник Work.ua також використовується наповненням Career KB.
 
 Career Data Audit / ESCO-O*NET mapping залишається research-напрямом і не ускладнює поточний V1 runtime.
 

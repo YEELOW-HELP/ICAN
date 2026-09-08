@@ -20,6 +20,7 @@ from app.db.session import get_session
 from app.db.session import async_session_factory
 from app.schemas.profile import ProfileOut
 from app.services import profile_service
+from app.core.paths import FRONTEND_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +66,12 @@ app.include_router(person_kb_router)
 app.include_router(market_router)
 app.include_router(workspace_router)
 
-_FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "admin_frontend"
+_FRONTEND_DIR = FRONTEND_ROOT / "legacy" / "admin"
 if _FRONTEND_DIR.is_dir():
     app.mount("/dashboard", StaticFiles(directory=_FRONTEND_DIR, html=True), name="dashboard")
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_MNP_REACT_DIST = _REPO_ROOT / "mnp_frontend_dist"
-_MNP_LEGACY_FRONTEND = _REPO_ROOT / "mnp_frontend"
+_MNP_REACT_DIST = FRONTEND_ROOT / "dist"
+_MNP_LEGACY_FRONTEND = FRONTEND_ROOT / "legacy" / "mnp"
 # The React/Vite application is the new frontend.  Keeping the legacy static
 # client as a fallback makes the migration reversible until feature parity is
 # confirmed in the consultant-workspace branch.

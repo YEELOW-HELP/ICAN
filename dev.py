@@ -21,6 +21,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 BACKEND_PORT = 8099
 FRONTEND_PORT = 5173
@@ -58,7 +59,7 @@ def _ensure_project_python() -> None:
     if any(importlib.util.find_spec(module) is None for module in required_modules):
         print("[setup] Встановлюю backend-залежності (потрібно лише один раз)…", flush=True)
         subprocess.run(
-            [str(project_python), "-m", "pip", "install", "-r", str(ROOT / "requirements.txt")],
+            [str(project_python), "-m", "pip", "install", "-r", str(BACKEND / "requirements.txt")],
             cwd=ROOT,
             check=True,
         )
@@ -93,11 +94,11 @@ def _prepare_frontend(npm: str) -> None:
 
 
 def _prepare_backend() -> None:
-    marker = ROOT / "data" / "dev" / ".seed-complete"
+    marker = BACKEND / "data" / "dev" / ".seed-complete"
     if marker.exists():
         return
     print("\n[setup] Створюю та наповнюю локальну базу (потрібно лише один раз)…", flush=True)
-    subprocess.run([sys.executable, "-m", "scripts.dev_seed"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-m", "scripts.dev_seed"], cwd=BACKEND, check=True)
     marker.parent.mkdir(parents=True, exist_ok=True)
     marker.write_text("ready\n", encoding="utf-8")
 
@@ -155,10 +156,10 @@ def main() -> None:
     _prepare_frontend(npm)
     _prepare_backend()
     print("[setup] Перевіряю обліковий запис власника…", flush=True)
-    subprocess.run([sys.executable, "-m", "scripts.console_setup", "--ensure"], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-m", "scripts.console_setup", "--ensure"], cwd=BACKEND, check=True)
 
     print("\n[start] FastAPI:     http://127.0.0.1:8099", flush=True)
-    backend = _spawn(_backend_args(), ROOT)
+    backend = _spawn(_backend_args(), BACKEND)
     print("[start] React/Vite: http://127.0.0.1:5173/mnp/", flush=True)
     frontend = _spawn([npm, "run", "dev", "--", "--host", "127.0.0.1"], FRONTEND)
     processes = [backend, frontend]

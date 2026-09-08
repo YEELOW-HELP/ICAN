@@ -22,10 +22,11 @@ ambiguous about which one broke.
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from pathlib import Path
 
 
 def _script_directory() -> ScriptDirectory:
-    config = Config("alembic.ini")
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     return ScriptDirectory.from_config(config)
 
 

@@ -33,7 +33,8 @@ def _table_report(cur, table: str, note: str = "") -> str:
         ex = "" if sample is None else str(sample[i])
         if len(ex) > 70:
             ex = ex[:67] + "…"
-        out.append(f"| `{c}` | {ex.replace('|', '\\|')} |")
+        escaped_example = ex.replace("|", "\\|")
+        out.append(f"| `{c}` | {escaped_example} |")
     out.append("")
     return "\n".join(out)
 

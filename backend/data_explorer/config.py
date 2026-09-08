@@ -26,7 +26,7 @@ HUMAN_LAB_EXAMPLES_DIR = REPO_ROOT / "data_explorer" / "human_lab" / "examples" 
 # kept OUTSIDE evals/golden/ so the existing AI-task schema test never sees it
 GOLDEN_OUT_DIR = REPO_ROOT / "evals" / "golden_data_explorer"
 
-DOCS_DIR = REPO_ROOT / "docs" / "data_explorer"
+DOCS_DIR = REPO_ROOT.parent / "docs" / "data_explorer"
 
 # --------------------------------------------------------------------------
 # Dataset version pins (checkpoint decision, MNP DATA EXPLORER V1)
