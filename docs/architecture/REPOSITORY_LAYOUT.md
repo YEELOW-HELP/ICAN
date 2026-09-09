@@ -23,7 +23,7 @@ ICAN/
 │   │   └── services/        логіка профілів, професій, Matching, CRM
 │   ├── scripts/             запуск, наповнення, налаштування власника
 │   ├── run.py               окремий запуск backend кнопкою у VS Code
-│   ├── migrations/          історія SQL-схеми
+│   ├── migrations/          архів історичної SQL-схеми для rollback
 │   ├── tests/               автоматичні перевірки
 │   ├── evals/               еталонні приклади
 │   ├── data_explorer/       довідники, аналіз, Excel-інструменти
@@ -33,8 +33,8 @@ ICAN/
 │   ├── .env.example         шаблон змінних
 │   ├── requirements.txt     Python-залежності програми
 │   ├── requirements-datalab.txt
-│   ├── alembic.ini
-│   └── docker-compose.yml   локальна PostgreSQL
+│   ├── alembic.ini          архівний SQL tooling
+│   └── docker-compose.yml   без локальної БД; MongoDB працює у хмарі
 ├── docs/
 │   ├── architecture/
 │   ├── product/
@@ -70,8 +70,9 @@ Backend не запускає npm і не відкриває браузер. `de
 необов’язковий спільний запуск для сумісності.
 Backend запускається з робочою папкою `backend/`, frontend — з `frontend/`.
 Вхід: `http://127.0.0.1:5173/mnp/#/admin/login`.
-Наявна локальна база та ключ підписування перенесені разом у `backend/data/dev/`.
-Не виконуйте `--reset` для звичайного запуску: він видаляє тестову базу.
+Локальний launcher читає `backend/.env` і працює з MongoDB. Стабільний
+локальний ключ підписування лежить у `backend/data/dev/`; у production
+обов'язково задається окремий `JWT_SECRET`.
 
 Ручні Python-команди (`python -m scripts...`, `alembic`, `data_explorer`)
 виконуються з `backend/` у віртуальному середовищі проєкту.
@@ -89,7 +90,8 @@ npm --prefix frontend run build
 ```
 
 React збирається в `frontend/dist/`; FastAPI віддає цю папку через `/mnp`.
-GitHub CI перевіряє Python, SQL-міграції на тестовому PostgreSQL та React-збірку.
+GitHub CI та старі SQL-тести ще збережені як регресійна/rollback-перевірка;
+production web runtime їх не імпортує і PostgreSQL не запускає.
 
 ## Хостинг
 
@@ -97,15 +99,9 @@ GitHub CI перевіряє Python, SQL-міграції на тестовом�
 FastAPI має віддавати також React і legacy-інтерфейси.
 Build: Python-залежності плюс `npm --prefix frontend ci` і
 `npm --prefix frontend run build`. `Procfile` переходить у `backend/`
-перед запуском міграцій, API або бота. Налаштування хмарного середовища
-не змінювалися автоматично, публікація не виконувалась.
-
-Для локального PostgreSQL з кореня: `docker compose -f backend/docker-compose.yml up -d`.
-Назву Compose-проєкту зафіксовано як `ican`, щоб перенесення файлу не
-створювало інший стандартний volume. Якщо раніше використовували власний
-параметр `-p`, продовжуйте використовувати саме його.
-`dev.py` як і раніше використовує SQLite. MongoDB-підключення підготовлене,
-але структурне перенесення не перемикає на нього зберігання CRM.
+перед запуском Mongo-only API. `Procfile` не запускає Alembic, asyncpg чи
+PostgreSQL. Налаштування хмарного середовища потрібно вказати на хостингу;
+публікація з цього робочого дерева не виконувалась.
 
 ## Збережені старі матеріали
 

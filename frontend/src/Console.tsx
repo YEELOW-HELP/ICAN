@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { adminLogin, adminRequest, ApiError } from "./api/client";
+import { adminBootstrapStatus, adminLogin, adminRequest, ApiError, bootstrapSuperAdmin } from "./api/client";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
 import { signedIn, signedOut, staffVerified } from "./app/store";
 import type { Person, PersonCore, PersonListItem, FactRow } from "./types";
@@ -38,13 +38,14 @@ export function ConsoleGate({children}:{children:ReactNode}) {
 
 export function ConsoleLogin(){
   const dispatch=useAppDispatch(),nav=useNavigate();
-  const [error,setError]=useState(""),[busy,setBusy]=useState(false),[show,setShow]=useState(false);
+  const [error,setError]=useState(""),[busy,setBusy]=useState(false),[show,setShow]=useState(false),[bootstrap,setBootstrap]=useState(false),[checking,setChecking]=useState(true);
+  useEffect(()=>{adminBootstrapStatus().then(x=>setBootstrap(x.registration_open)).catch(e=>setError(errText(e))).finally(()=>setChecking(false))},[]);
   const submit=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault();const form=new FormData(e.currentTarget);setBusy(true);setError("");
-    try {const data=await adminLogin(String(form.get("email")).trim(),String(form.get("password")));dispatch(signedIn({token:data.access_token,email:data.email}));nav("/admin/persons")}
+    try {const email=String(form.get("email")).trim(),password=String(form.get("password"));if(bootstrap)await bootstrapSuperAdmin(String(form.get("full_name")||"").trim(),email,password);const data=await adminLogin(email,password);dispatch(signedIn({token:data.access_token,email:data.email}));nav("/admin/persons")}
     catch(e){setError(e instanceof ApiError&&e.status===401?"Невірний email або пароль, або обліковий запис вимкнено.":errText(e))}finally{setBusy(false)}
   };
-  return <div className="console-auth"><section className="console-auth-story"><ConsoleBrand/><div><span className="console-kicker">ЛЮДИ. МОЖЛИВОСТІ. РЕЗУЛЬТАТ.</span><h1>Кожна зміна<br/>починається<br/><em>з людини.</em></h1><p>Клієнти, профілі та робота команди — в одному просторі.</p></div><small>Yellow Hub · МОЖУ</small></section><main className="console-auth-form"><div className="console-login"><span className="console-kicker">РАДІ БАЧИТИ ВАС</span><h1>Вхід у консоль</h1><p>Використайте робочий обліковий запис, щоб продовжити.</p><form onSubmit={submit} className="form"><label><span>Робочий email</span><input name="email" type="email" autoComplete="username" placeholder="name@example.com" required autoFocus/></label><label><span>Пароль</span><div className="password-field"><input name="password" type={show?"text":"password"} autoComplete="current-password" required/><button type="button" onClick={()=>setShow(!show)} aria-label={show?"Приховати пароль":"Показати пароль"}>{show?"Сховати":"Показати"}</button></div></label><Notice error={error}/><button disabled={busy} className="button wide">{busy?"Входимо…":"Увійти →"}</button></form><p className="console-login-help">Для отримання доступу зверніться до адміністратора команди.</p></div></main></div>
+  return <div className="console-auth"><section className="console-auth-story"><ConsoleBrand/><div><span className="console-kicker">ЛЮДИ. МОЖЛИВОСТІ. РЕЗУЛЬТАТ.</span><h1>Кожна зміна<br/>починається<br/><em>з людини.</em></h1><p>Клієнти, профілі та робота команди — в одному просторі.</p></div><small>Yellow Hub · МОЖУ</small></section><main className="console-auth-form"><div className="console-login"><span className="console-kicker">{bootstrap?"ПЕРШИЙ ЗАПУСК":"РАДІ БАЧИТИ ВАС"}</span><h1>{bootstrap?"Створення власника":"Вхід у консоль"}</h1><p>{bootstrap?"Створіть перший обліковий запис. Він автоматично отримає роль суперадміністратора.":"Використайте робочий обліковий запис, щоб продовжити."}</p>{checking?<p>Перевіряємо систему…</p>:<form onSubmit={submit} className="form">{bootstrap&&<label><span>Ваше ім’я</span><input name="full_name" required autoFocus/></label>}<label><span>Робочий email</span><input name="email" type="email" autoComplete="username" placeholder="name@example.com" required autoFocus={!bootstrap}/></label><label><span>Пароль (від 8 символів)</span><div className="password-field"><input name="password" minLength={8} type={show?"text":"password"} autoComplete={bootstrap?"new-password":"current-password"} required/><button type="button" onClick={()=>setShow(!show)} aria-label={show?"Приховати пароль":"Показати пароль"}>{show?"Сховати":"Показати"}</button></div></label><Notice error={error}/><button disabled={busy} className="button wide">{busy?"Зберігаємо…":bootstrap?"Створити суперадміна →":"Увійти →"}</button></form>}{!bootstrap&&!checking&&<p className="console-login-help">Для отримання доступу зверніться до адміністратора команди.</p>}</div></main></div>
 }
 
 export function ConsoleLayout(){

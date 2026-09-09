@@ -1,4 +1,4 @@
-# MongoDB: connection prepared, application migration not enabled
+# MongoDB runtime і перенесення даних
 
 Target database name: `ican`. Credentials belong only in the ignored `backend/.env`
 or hosting environment variables. Do not copy Telegram/OpenAI/webhook settings
@@ -8,19 +8,20 @@ from a different application just to enable database connectivity.
 
 - `MONGODB_URL` is a masked `SecretStr`; `MONGODB_DATABASE` defaults to `ican`.
 - `backend/app/db/mongo.py` provides a bounded async PyMongo connection with cleanup.
-- From `backend/`, `python -m scripts.check_mongodb` runs ping and lists collection names in the
-  selected database, but only reports the number of collections. No writes,
-  document reads, automatic migration, database creation or deletion.
-- Unit tests use fake clients and never connect to the cloud.
+- `app.mongo_runtime.main` — production web runtime без SQLAlchemy/asyncpg.
+- Авторизація, ролі, клієнти, доступ менеджерів, Person KB, Career KB,
+  ринкова статистика й Excel export читають та пишуть MongoDB.
+- `python -m scripts.migrate_sqlite_to_mongodb` переносить усі таблиці,
+  зберігаючи IDs і зовнішні посилання. Без `--replace` заповнені колекції
+  пропускаються; джерельний SQLite ніколи не видаляється.
 
 Driver reference: [PyMongo connection documentation](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/connect/).
 
-## Not switched yet
+## Cutover
 
-`dev.py` still runs the existing SQLite development environment. Other backend
-launches still use SQLAlchemy and `DATABASE_URL`. Merely configuring MongoDB
-does not migrate accounts or profiles. MongoDB has no second person model and
-there is no dual-write implementation.
+`backend/run.py` і `Procfile` запускають Mongo-only runtime. PostgreSQL service
+видалений з Docker Compose. Старі SQL модулі та міграції лишаються тільки як
+тимчасова rollback-історія і не імпортуються production web процесом.
 
 Before cutover, explicitly decide whether existing local/test records should
 be transferred or whether the cloud workspace starts empty. Never overwrite

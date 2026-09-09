@@ -3,7 +3,7 @@
 ## Структура та запуск
 
 - `frontend/` — React + Vite + TypeScript; готова збірка в `frontend/dist/`.
-- `backend/` — FastAPI, бот, моделі, міграції, тести, інструменти й локальні дані.
+- `backend/` — FastAPI, MongoDB runtime, моделі, тести та інструменти.
 - `docs/` — документація, архітектура та архів вихідних вимог.
 
 Для backend відкрийте **`backend/run.py` → Run Python File in Terminal**
@@ -11,8 +11,8 @@
 `frontend/` і виконайте **`npm run dev`**. Кожен процес зупиняється
 через `Ctrl+C` у своєму терміналі. Старий `dev.py` залишено як необов’язковий
 спільний запуск для сумісності.
-Секрети тепер у `backend/.env`, локальна база — у
-`backend/data/dev/mnp_dev.sqlite`. Наявне Python-середовище `.venv/`
+Секрети тепер у `backend/.env`; робоча база — MongoDB `ican`.
+SQLite-файл у `backend/data/dev/` збережений лише як джерело перенесених даних і rollback-копія. Наявне Python-середовище `.venv/`
 залишається в корені; переносити його вручну не потрібно.
 
 [Повна карта папок і правила запуску](docs/architecture/REPOSITORY_LAYOUT.md).

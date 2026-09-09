@@ -63,6 +63,17 @@ export async function adminLogin(email: string, password: string) {
   return data;
 }
 
+export async function adminBootstrapStatus() {
+  return fetchJson<{ registration_open: boolean }>("/admin/auth/bootstrap/status");
+}
+
+export async function bootstrapSuperAdmin(full_name: string, email: string, password: string) {
+  return fetchJson<{ id: number; email: string }>("/admin/auth/bootstrap", {
+    method: "POST", headers: jsonHeaders,
+    body: JSON.stringify({ full_name, email, password, role: "super_admin" }),
+  });
+}
+
 export async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(sessionStorageKeys.admin);
   if (!token) throw new ApiError("Потрібен вхід консультанта", 401);

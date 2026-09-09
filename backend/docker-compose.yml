@@ -1,17 +1,4 @@
-# Keep the original project/volume name after moving this file under backend/.
+# ICAN uses MongoDB Atlas. There is intentionally no local PostgreSQL service.
+# Run the API with `python run.py`; configure MONGODB_URL in backend/.env.
 name: ican
-
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: ican
-      POSTGRES_PASSWORD: ican
-      POSTGRES_DB: ican
-    ports:
-      - "5432:5432"
-    volumes:
-      - ican_pgdata:/var/lib/postgresql/data
-
-volumes:
-  ican_pgdata:
+services: {}

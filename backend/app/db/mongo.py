@@ -1,7 +1,7 @@
-"""Explicit MongoDB connection for the incremental storage migration.
+"""MongoDB connection used by scripts and maintenance commands.
 
-This module does not replace the SQLAlchemy session or mirror data to MongoDB.
-Clients are created inside their event loop and always closed by the caller.
+The web process owns its client in ``app.mongo_runtime.main`` so one pool lives
+for the whole application lifespan. Short scripts use this context manager.
 Never include driver exception text in logs: it may contain connection details.
 """
 from contextlib import asynccontextmanager

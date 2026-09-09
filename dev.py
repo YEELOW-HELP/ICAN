@@ -55,7 +55,7 @@ def _ensure_project_python() -> None:
     if Path(sys.executable).resolve() != project_python.resolve():
         os.execv(str(project_python), [str(project_python), str(Path(__file__).resolve()), *sys.argv[1:]])
 
-    required_modules = ("fastapi", "sqlalchemy", "openpyxl")
+    required_modules = ("fastapi", "pymongo", "openpyxl")
     if any(importlib.util.find_spec(module) is None for module in required_modules):
         print("[setup] Встановлюю backend-залежності (потрібно лише один раз)…", flush=True)
         subprocess.run(
@@ -93,18 +93,8 @@ def _prepare_frontend(npm: str) -> None:
     subprocess.run([npm, "install"], cwd=FRONTEND, check=True)
 
 
-def _prepare_backend() -> None:
-    marker = BACKEND / "data" / "dev" / ".seed-complete"
-    if marker.exists():
-        return
-    print("\n[setup] Створюю та наповнюю локальну базу (потрібно лише один раз)…", flush=True)
-    subprocess.run([sys.executable, "-m", "scripts.dev_seed"], cwd=BACKEND, check=True)
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text("ready\n", encoding="utf-8")
-
-
 def _backend_args() -> list[str]:
-    return [sys.executable, "-m", "scripts.dev_seed", "--serve", "--skip-seed"]
+    return [sys.executable, "run.py"]
 
 
 def _spawn(args: list[str], cwd: Path) -> subprocess.Popen:
@@ -154,10 +144,6 @@ def main() -> None:
     _require_free_ports()
     npm = _npm_command()
     _prepare_frontend(npm)
-    _prepare_backend()
-    print("[setup] Перевіряю обліковий запис власника…", flush=True)
-    subprocess.run([sys.executable, "-m", "scripts.console_setup", "--ensure"], cwd=BACKEND, check=True)
-
     print("\n[start] FastAPI:     http://127.0.0.1:8099", flush=True)
     backend = _spawn(_backend_args(), BACKEND)
     print("[start] React/Vite: http://127.0.0.1:5173/mnp/", flush=True)

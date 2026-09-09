@@ -11,11 +11,12 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     anthropic_api_key: str = ""
-    database_url: str = "postgresql+asyncpg://ican:ican@localhost:5432/ican"
-    # MongoDB connection is opt-in; existing SQL services are not silently
-    # redirected until their repositories have been migrated and verified.
+    # MongoDB is the only database used by the web runtime.
     mongodb_url: SecretStr = SecretStr("")
     mongodb_database: str = "ican"
+    # Read only by the archived SQL modules/tests during rollback validation.
+    # The production entry point never imports those modules.
+    database_url: str = f"sqlite+aiosqlite:///{(DATA_ROOT / 'dev' / 'mnp_dev.sqlite').as_posix()}"
 
     api_host: str = "0.0.0.0"
     api_port: int = 8000
