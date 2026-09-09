@@ -162,38 +162,128 @@ Future admin modules (Matching, Routes, Resources, Users, Consultations, Payment
 
 ## Швидкий старт
 
-Локальний MNP/NAPRIAM можна підняти на SQLite без production Postgres:
+### 1. Необхідні програми
+
+Перед першим запуском встановіть:
+
+- Python 3.11 або 3.12;
+- Node.js 20 або новіший;
+- Git;
+- доступ до MongoDB Atlas або іншого MongoDB-сервера.
+
+### 2. Створення `backend/.env`
+
+Файл `backend/.env.example` — це безпечний шаблон. Його не потрібно
+видаляти або перейменовувати: створіть поруч копію з назвою `.env`.
+
+PowerShell із кореня репозиторію:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Linux/macOS:
 
 ```bash
+cp backend/.env.example backend/.env
+```
+
+Або через VS Code: скопіюйте `backend/.env.example`, вставте копію в папку
+`backend/` і перейменуйте копію на `.env`.
+
+Відкрийте `backend/.env` і заповніть щонайменше:
+
+```env
+MONGODB_URL=mongodb+srv://alioshkin75:RiseUp2002@riseup.erzxo.mongodb.net/
+MONGODB_DATABASE=ican
+JWT_SECRET=ICAN2026
+CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,https://ican-frontend-mu.vercel.app
+```
+
+Згенерувати `JWT_SECRET` можна командою:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Не публікуйте `backend/.env` і не надсилайте його в чат. Він уже внесений
+до `.gitignore`. `backend/.env.example` зберігається в репозиторії без
+справжніх паролів і ключів.
+
+### 3. Запуск backend
+
+Відкрийте перший термінал у корені репозиторію:
+
+```powershell
 cd backend
-pip install -r requirements.txt
 python run.py
 ```
 
-Ця команда одразу запускає backend і не очікує вводу в терміналі. Створення
-особистого superadmin виконайте окремо з папки `backend`:
-
-```bash
-python -m scripts.console_setup --ensure
-```
-
-Або запустіть `python run.py --setup-admin`, якщо ваш термінал коректно приймає
-інтерактивний ввід.
-
-Backend:
+`run.py` автоматично створить кореневе середовище `.venv`, встановить
+відсутні залежності та запустить FastAPI на:
 
 `http://127.0.0.1:8099`
 
-У другому терміналі відкрийте папку `frontend/` і запустіть стандартний Vite:
+Перевірка backend:
 
-```bash
+`http://127.0.0.1:8099/health`
+
+Термінал із backend потрібно залишити відкритим. Для зупинки натисніть
+`Ctrl+C` саме в цьому терміналі.
+
+### 4. Запуск frontend
+
+Не зупиняючи backend, відкрийте другий термінал у корені репозиторію:
+
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend відкриється на `http://127.0.0.1:5173/mnp/` і проксіює API до
-бекенду. Для зупинки натисніть `Ctrl+C` у відповідному терміналі.
+`npm install` обов'язково виконується після першого клонування або зміни
+залежностей. Під час наступних запусків достатньо:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Frontend відкриється на:
+
+`http://127.0.0.1:5173/mnp/`
+
+Vite локально проксіює API-запити на `http://127.0.0.1:8099`. Термінал із
+frontend також залишайте відкритим; `Ctrl+C` зупиняє лише frontend.
+
+### 5. Перший вхід
+
+Відкрийте:
+
+`http://127.0.0.1:5173/mnp/#/admin/login`
+
+Якщо в MongoDB ще немає працівників, форма запропонує створити першого
+користувача. Перший зареєстрований користувач автоматично стає
+суперадміністратором. Наступні облікові записи створюються відповідно до
+правил ролей у консолі.
+
+### 6. Типові проблеми
+
+- `MONGODB_URL is required` — не створено `backend/.env` або не заповнено URL;
+- `JWT_SECRET is required` — у `backend/.env` немає `JWT_SECRET`;
+- порт `8099` зайнятий — зупиніть старий backend через `Ctrl+C` або PM2;
+- порт `5173` зайнятий — зупиніть попередній Vite-процес;
+- `Failed to fetch` — переконайтеся, що backend працює і `/health` повертає
+  `{"status":"ok"}`.
+
+### 7. Production-збірка frontend
+
+```powershell
+cd frontend
+npm run build
+```
+
+Готові файли з'являться у `frontend/dist/`.
 
 Основні маршрути:
 
@@ -206,33 +296,8 @@ Frontend відкриється на `http://127.0.0.1:5173/mnp/` і прокс�
 - Admin Person KB: `#/admin/persons`
 - Admin Career KB: `#/admin/catalog`
 
-Для входу використовуйте особистого суперадміна, створеного під час
-першого запуску backend. Спільний демонстраційний вхід після цього вимикається.
-
-`--reset` пересоздає dev DB після schema changes. `--serve --skip-seed` запускає сервер без reseed.
-
-### React frontend
-
-Новий React/Vite frontend живе окремо в `frontend/`. Для локальної
-розробки запустіть backend через `backend/run.py`, а в другому терміналі:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Vite відкриється на `http://127.0.0.1:5173/mnp/` і проксіює API до
-FastAPI. Production-збірка:
-
-```bash
-cd frontend
-npm run build
-```
-
-Вона створює `frontend/dist/`; FastAPI автоматично використовує цю
-збірку на `/mnp`. Якщо build відсутній, тимчасово залишається fallback на
-legacy `frontend/legacy/mnp/` до завершення перевірки функціонального покриття.
+Для входу використовуйте особистого суперадміна, створеного під час першого
+запуску. Спільний демонстраційний вхід після цього не використовується.
 
 ### Ринок праці
 
