@@ -11,6 +11,7 @@ from pymongo.server_api import ServerApi
 
 from app.core.config import settings
 from app.core.paths import FRONTEND_ROOT
+from app.mongo_runtime.admin_match import router as admin_match_router
 from app.mongo_runtime.auth import router as auth_router
 from app.mongo_runtime.careers import router as careers_router
 from app.mongo_runtime.market import router as market_router
@@ -60,6 +61,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173", "http
 app.include_router(auth_router)
 app.include_router(persons_router)
 app.include_router(careers_router)
+app.include_router(admin_match_router)
 app.include_router(market_router)
 
 
