@@ -6,6 +6,7 @@ import { store } from "./app/store";
 import { AdminFeatureSwitch } from "./AdminFeatureSwitch";
 import "./styles.css";
 import "./console.css";
+import "./admin-match.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
