@@ -33,6 +33,11 @@ class StaffUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class StaffPasswordReset(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    new_password: str = Field(min_length=8, max_length=72)
+
+
 def staff_view(staff: dict):
     return {"id": staff["_id"], "email": staff["email"],
             "full_name": staff.get("full_name"), "role": staff["role"],
@@ -81,7 +86,7 @@ async def login(payload: Login, db: Database):
     staff = await db.admin_users.find_one({"email": payload.email.strip().lower(), "is_active": {"$ne": False}})
     if not staff or not verify_password(payload.password, staff["password_hash"]):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    return {"access_token": create_access_token(staff["_id"], staff["role"]),
+    return {"access_token": create_access_token(staff["_id"], staff["role"], int(staff.get("token_version", 0))),
             "token_type": "bearer", "email": staff["email"], "role": staff["role"]}
 
 
@@ -135,3 +140,27 @@ async def update_staff(staff_id: int, payload: StaffUpdate, db: Database,
                                     "action": "staff_updated", "actor_admin_id": actor["_id"],
                                     "changes": list(changes), "created_at": now()})
     return staff_view(await db.admin_users.find_one({"_id": staff_id}))
+
+
+@router.put("/v1/mnp/admin/staff/{staff_id}/password")
+async def reset_staff_password(staff_id: int, payload: StaffPasswordReset, db: Database,
+                               actor=Depends(current_staff)):
+    if actor["role"] != SUPER_ADMIN:
+        raise HTTPException(403, "Лише суперадміністратор може змінювати паролі")
+    target = await db.admin_users.find_one({"_id": staff_id})
+    if not target:
+        raise HTTPException(404, "Працівника не знайдено")
+    await db.admin_users.update_one(
+        {"_id": staff_id},
+        {"$set": {
+            "password_hash": hash_password(payload.new_password),
+            "password_changed_at": now(),
+            "password_changed_by": actor["_id"],
+        }, "$inc": {"token_version": 1}},
+    )
+    await db.audit_logs.insert_one({
+        "entity_type": "staff", "entity_id": str(staff_id),
+        "action": "staff_password_reset", "actor_admin_id": actor["_id"],
+        "created_at": now(),
+    })
+    return {"detail": "Пароль змінено", "reauthentication_required": target["_id"] == actor["_id"]}

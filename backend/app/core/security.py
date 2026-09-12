@@ -18,11 +18,11 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
-def create_access_token(admin_id: int, role: str) -> str:
+def create_access_token(admin_id: int, role: str, token_version: int = 0) -> str:
     if not settings.jwt_secret:
         raise RuntimeError("JWT_SECRET must be configured before staff can sign in")
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": str(admin_id), "role": role, "exp": expires_at}
+    payload = {"sub": str(admin_id), "role": role, "ver": token_version, "exp": expires_at}
     return jwt.encode(payload, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
 

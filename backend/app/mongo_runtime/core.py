@@ -72,6 +72,8 @@ async def current_staff(
     staff = await db.admin_users.find_one({"_id": staff_id, "is_active": {"$ne": False}})
     if not staff or staff.get("role") not in STAFF_ROLES:
         raise HTTPException(401, "Staff account no longer exists")
+    if int(payload.get("ver", 0)) != int(staff.get("token_version", 0)):
+        raise HTTPException(401, "Session expired after password change")
     return staff
 
 

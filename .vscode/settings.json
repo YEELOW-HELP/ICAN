@@ -1,8 +1,9 @@
 {
   "code-runner.runInTerminal": true,
+  "code-runner.showRunIconInEditorTitleMenu": false,
   "code-runner.preserveFocus": false,
   "python.terminal.activateEnvironment": true,
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "python.envFile": "${workspaceFolder}/backend/.env",
   "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
   "python.testing.pytestEnabled": true,
