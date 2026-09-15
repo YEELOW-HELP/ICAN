@@ -1,18 +1,26 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+from datetime import timedelta
+from io import BytesIO
 from typing import Any
+from urllib.parse import quote
+from zipfile import BadZipFile, ZipFile
 
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.core.config import settings
 from app.mongo_runtime.auth import staff_view
+from app.mongo_runtime import cv_analysis, dropbox_storage
 from app.mongo_runtime.core import (
     ADMIN, MANAGER, SUPER_ADMIN, Database, current_person_session, current_staff,
     new_id, new_web_session, now, privileged_staff,
 )
 
 router = APIRouter(prefix="/v1/mnp")
+logger = logging.getLogger(__name__)
 
 STATUS_UK = {"draft": "Чернетка", "active": "Активний", "archived": "В архіві"}
 SOURCE_UK = {"self_service": "Самостійно", "consultant": "Консультант", "imported": "Імпорт"}
@@ -146,6 +154,243 @@ async def upload_cv(file: UploadFile = File(...), db: Database = None,
     })
     await db.mnp_file_blobs.insert_one({"_id": document_id, "content": content})
     return {"id": document_id, "filename": file.filename}
+
+
+def _validated_cv(file: UploadFile, content: bytes) -> tuple[str, str]:
+    filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    if not filename or len(filename) > 255 or "." not in filename:
+        raise HTTPException(422, "Некоректна назва CV")
+    extension = filename.rsplit(".", 1)[-1].lower()
+    if extension not in {"pdf", "doc", "docx"}:
+        raise HTTPException(422, "Підтримуються PDF, DOC і DOCX")
+    if not content:
+        raise HTTPException(422, "Файл порожній")
+    if extension == "pdf" and not content.startswith(b"%PDF-"):
+        raise HTTPException(422, "Файл не схожий на PDF")
+    if extension == "doc" and not content.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
+        raise HTTPException(422, "Файл не схожий на DOC")
+    if extension == "docx":
+        try:
+            with ZipFile(BytesIO(content)) as archive:
+                if "word/document.xml" not in archive.namelist():
+                    raise HTTPException(422, "Файл не схожий на DOCX")
+        except BadZipFile as exc:
+            raise HTTPException(422, "Файл не схожий на DOCX") from exc
+    return filename, extension
+
+
+@router.post("/admin/persons/{person_id}/documents/cv", status_code=201)
+async def admin_upload_cv(person_id: str, file: UploadFile = File(...), db: Database = None,
+                          staff=Depends(current_staff)):
+    # Check object-level access before reading the file or contacting Dropbox.
+    person = await _staff_person(db, person_id, staff)
+    content = await file.read(settings.max_upload_size_mb * 1024 * 1024 + 1)
+    if len(content) > settings.max_upload_size_mb * 1024 * 1024:
+        raise HTTPException(413, f"Файл завеликий (максимум {settings.max_upload_size_mb} МБ)")
+    filename, extension = _validated_cv(file, content)
+    document_id = new_id()
+    try:
+        file_id = await dropbox_storage.upload_cv(
+            document_id=document_id, person_id=str(person["_id"]),
+            extension=extension, content=content,
+        )
+    except dropbox_storage.DropboxStorageError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    try:
+        await db.mnp_person_documents.insert_one({
+            "_id": document_id, "person_id": str(person["_id"]), "document_type": "cv",
+            "filename": filename, "mime_type": file.content_type, "file_size": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(), "storage_provider": "dropbox",
+            "storage_ref": file_id, "uploaded_by_staff_id": staff["_id"], "created_at": now(),
+        })
+    except Exception:
+        try:
+            await dropbox_storage.delete_cv(file_id)
+        except dropbox_storage.DropboxStorageError:
+            logger.error("Dropbox CV rollback failed for document %s", document_id)
+        raise
+    await db.mnp_persons.update_one({"_id": person["_id"]}, {"$set": {"updated_at": now()}})
+    return await _person_view(db, await db.mnp_persons.find_one({"_id": person["_id"]}))
+
+
+@router.get("/admin/persons/{person_id}/documents/{document_id}/download")
+async def admin_download_document(person_id: str, document_id: str, db: Database,
+                                  staff=Depends(current_staff)):
+    person = await _staff_person(db, person_id, staff)
+    document = await db.mnp_person_documents.find_one({
+        "_id": document_id, "person_id": str(person["_id"]),
+    })
+    if not document:
+        raise HTTPException(404, "Документ не знайдено")
+    content = await _document_bytes(db, document)
+    filename = str(document.get("filename") or "cv.pdf").replace("\\", "/").rsplit("/", 1)[-1]
+    extension = filename.rsplit(".", 1)[-1].lower()
+    media_type = {"pdf": "application/pdf", "doc": "application/msword",
+                  "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}.get(
+                      extension, "application/octet-stream")
+    return Response(content=content, media_type=media_type, headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+    })
+
+
+async def _document_bytes(db, document: dict) -> bytes:
+    if document.get("storage_provider") == "dropbox":
+        try:
+            return await dropbox_storage.download_cv(document["storage_ref"])
+        except dropbox_storage.DropboxStorageError as exc:
+            raise HTTPException(503, str(exc)) from exc
+    blob = await db.mnp_file_blobs.find_one({"_id": document["_id"]})
+    if not blob:
+        raise HTTPException(404, "Файл документа не знайдено")
+    return blob["content"]
+
+
+def _require_ai_permission(payload: dict) -> None:
+    if not settings.cv_analysis_enabled:
+        raise HTTPException(503, "AI-аналіз вимкнено на сервері")
+    if payload.get("permission_confirmed") is not True:
+        raise HTTPException(422, "Підтвердіть дозвіл на AI-обробку даних клієнта")
+
+
+async def _check_analysis_quota(db, person_id: str) -> None:
+    query = {"person_id": person_id, "analyzed_at": {"$gte": now() - timedelta(days=1)}}
+    recent = await db.mnp_ai_analysis_events.count_documents(query)
+    if recent >= settings.cv_analysis_daily_limit:
+        raise HTTPException(429, "Денний ліміт AI-аналізу для цього клієнта вичерпано")
+
+
+async def _assign_analysis_tags(db, *, person_id: str, proposal: dict,
+                                source: str, source_id: str) -> dict:
+    """Save only existing taxonomy skills as unconfirmed, evidence-linked facts."""
+    current = [row async for row in db[FACTS["skills"]].find({"person_id": person_id})]
+    existing = {str(row["canonical_skill_id"]) for row in current
+                if row.get("canonical_skill_id")}
+    existing_names = {" ".join(str(row.get("raw_input") or "").casefold().split())
+                      for row in current}
+    matched = []
+    seen = set()
+    added = 0
+    for suggestion in proposal.get("skills") or []:
+        skill_id = suggestion.get("canonical_skill_id")
+        evidence = str(suggestion.get("evidence") or "").strip()
+        if not skill_id or not evidence:
+            continue
+        skill = await db.mnp_skills.find_one({"_id": skill_id})
+        if not skill or skill.get("status") == "archived":
+            continue
+        if str(skill_id) in seen:
+            continue
+        seen.add(str(skill_id))
+        name = skill.get("canonical_name_uk") or skill.get("canonical_name_en") or suggestion["name"]
+        matched.append({"id": str(skill_id), "name": name})
+        if (str(skill_id) in existing
+                or " ".join(str(name).casefold().split()) in existing_names
+                or " ".join(str(suggestion["name"]).casefold().split()) in existing_names):
+            continue
+        await db[FACTS["skills"]].insert_one({
+            "_id": new_id(), "person_id": person_id,
+            "canonical_skill_id": skill_id, "raw_input": suggestion["name"],
+            "custom_status": "canonical", "proficiency": None,
+            "evidence_state": "system_detected", "source": f"ai_{source}_analysis",
+            "analysis_source_id": source_id, "evidence_excerpt": evidence,
+            "supporting_document_id": source_id if source == "cv" else None,
+            "created_at": now(), "updated_at": now(),
+        })
+        existing.add(str(skill_id))
+        added += 1
+    if added:
+        await db.mnp_persons.update_one({"_id": person_id}, {"$set": {"updated_at": now()}})
+    return {"detected_tags": matched, "new_tags_count": added}
+
+
+@router.post("/admin/persons/{person_id}/documents/{document_id}/analyze")
+async def admin_analyze_cv(person_id: str, document_id: str, payload: dict = Body(...), db: Database = None,
+                           staff=Depends(current_staff)):
+    person = await _staff_person(db, person_id, staff)
+    _require_ai_permission(payload)
+    document = await db.mnp_person_documents.find_one({
+        "_id": document_id, "person_id": str(person["_id"]), "document_type": "cv",
+    })
+    if not document:
+        raise HTTPException(404, "CV не знайдено")
+    cached = await db.mnp_cv_analyses.find_one({"_id": document_id})
+    if (cached and cached.get("sha256") == document.get("sha256")
+            and cached.get("prompt_version") == cv_analysis.PROMPT_VERSION
+            and cached.get("model") == settings.cv_analysis_model):
+        tags = await _assign_analysis_tags(db, person_id=person_id, proposal=cached["proposal"],
+                                           source="cv", source_id=document_id)
+        return {"cached": True, **tags, **{key: cached[key] for key in (
+            "document_id", "proposal", "model", "prompt_version", "input_tokens", "output_tokens")}}
+    await _check_analysis_quota(db, str(person["_id"]))
+    content = await _document_bytes(db, document)
+    try:
+        proposal, trace = await cv_analysis.analyze_cv(
+            db, content=content, filename=document["filename"])
+    except cv_analysis.CvAnalysisError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    record = {"_id": document_id, "document_id": document_id,
+              "person_id": str(person["_id"]), "sha256": document.get("sha256"),
+              "proposal": proposal.model_dump(), "model": settings.cv_analysis_model,
+              "prompt_version": cv_analysis.PROMPT_VERSION,
+              "input_tokens": trace.input_tokens, "output_tokens": trace.output_tokens,
+              "trace_id": trace.trace_id, "analyzed_at": now(),
+              "permission_confirmed_by_staff_id": staff["_id"]}
+    await db.mnp_ai_analysis_events.insert_one({
+        "_id": new_id(), "person_id": str(person["_id"]), "source": "cv",
+        "source_id": document_id, "analyzed_at": record["analyzed_at"],
+        "staff_id": staff["_id"], "input_tokens": trace.input_tokens,
+        "output_tokens": trace.output_tokens,
+    })
+    await db.mnp_cv_analyses.replace_one({"_id": document_id}, record, upsert=True)
+    tags = await _assign_analysis_tags(db, person_id=person_id, proposal=record["proposal"],
+                                       source="cv", source_id=document_id)
+    return {"cached": False, **tags, **{key: record[key] for key in (
+        "document_id", "proposal", "model", "prompt_version", "input_tokens", "output_tokens")}}
+
+
+@router.post("/admin/persons/{person_id}/analysis/questionnaire")
+async def admin_analyze_questionnaire(person_id: str, payload: dict = Body(...),
+                                      db: Database = None, staff=Depends(current_staff)):
+    person = await _staff_person(db, person_id, staff)
+    _require_ai_permission(payload)
+    profile = await _person_view(db, person)
+    try:
+        excerpt = await cv_analysis.questionnaire_excerpt(db, profile)
+    except cv_analysis.CvAnalysisError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    profile_hash = hashlib.sha256(excerpt.encode("utf-8")).hexdigest()
+    cached = await db.mnp_questionnaire_analyses.find_one({"_id": person_id})
+    if (cached and cached.get("profile_hash") == profile_hash
+            and cached.get("prompt_version") == cv_analysis.QUESTIONNAIRE_PROMPT_VERSION
+            and cached.get("model") == settings.cv_analysis_model):
+        tags = await _assign_analysis_tags(db, person_id=person_id, proposal=cached["proposal"],
+                                           source="questionnaire", source_id=person_id)
+        return {"cached": True, **tags, **{key: cached[key] for key in (
+            "proposal", "model", "prompt_version", "input_tokens", "output_tokens")}}
+    await _check_analysis_quota(db, person_id)
+    try:
+        proposal, trace = await cv_analysis.analyze_questionnaire(db, excerpt=excerpt)
+    except cv_analysis.CvAnalysisError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    record = {"_id": person_id, "person_id": person_id, "profile_hash": profile_hash,
+              "proposal": proposal.model_dump(), "model": settings.cv_analysis_model,
+              "prompt_version": cv_analysis.QUESTIONNAIRE_PROMPT_VERSION,
+              "input_tokens": trace.input_tokens, "output_tokens": trace.output_tokens,
+              "trace_id": trace.trace_id, "analyzed_at": now(),
+              "permission_confirmed_by_staff_id": staff["_id"]}
+    await db.mnp_ai_analysis_events.insert_one({
+        "_id": new_id(), "person_id": person_id, "source": "questionnaire",
+        "source_id": person_id, "analyzed_at": record["analyzed_at"],
+        "staff_id": staff["_id"], "input_tokens": trace.input_tokens,
+        "output_tokens": trace.output_tokens,
+    })
+    await db.mnp_questionnaire_analyses.replace_one({"_id": person_id}, record, upsert=True)
+    tags = await _assign_analysis_tags(db, person_id=person_id, proposal=record["proposal"],
+                                       source="questionnaire", source_id=person_id)
+    return {"cached": False, **tags, **{key: record[key] for key in (
+        "proposal", "model", "prompt_version", "input_tokens", "output_tokens")}}
 
 
 @router.get("/admin/persons")

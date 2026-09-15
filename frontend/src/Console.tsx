@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { adminBootstrapStatus, adminLogin, adminRequest, ApiError, bootstrapSuperAdmin } from "./api/client";
+import { adminBootstrapStatus, adminDownload, adminLogin, adminRequest, ApiError, bootstrapSuperAdmin } from "./api/client";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
 import { signedIn, signedOut, staffVerified } from "./app/store";
 import type { Person, PersonCore, PersonListItem, FactRow } from "./types";
@@ -79,7 +79,7 @@ function FactsEditor({person,block,onSaved}:{person:Person;block:Block;onSaved:(
   const [editing,setEditing]=useState<string|null>(null),[values,setValues]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const rows=(person as unknown as Record<string,FactRow[]>)[block.key]||[];
   const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");const payload:Record<string,unknown>={};for(const [key,,type]of block.fields)if(key in values)payload[key]=values[key]===""?null:type==="number"?Number(values[key]):values[key];try{onSaved(await adminRequest<Person>(`/admin/persons/${person.id}/${block.key}${editing&&editing!=="new"?`/${editing}`:""}`,{method:editing==="new"?"POST":"PATCH",body:JSON.stringify(payload)}));setEditing(null)}catch(e){setError(errText(e))}finally{setBusy(false)}};
-  return <div className="panel console-editor"><div className="page-title compact"><h2>{block.title}</h2><button className="button secondary" onClick={()=>{setEditing("new");setValues({});setError("")}}>+ Додати запис</button></div><Notice error={error}/>{editing&&<form className="form console-fact-form" onSubmit={submit}><div className="form-grid">{block.fields.map(([key,label,type])=><label key={key}><span>{label}</span>{type==="textarea"?<textarea value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>:type==="level"?<select value={values[key]||"unknown"} onChange={e=>setValues({...values,[key]:e.target.value})}>{["unknown","native","a1","a2","b1","b2","c1","c2"].map(x=><option key={x} value={x}>{x==="unknown"?"Не вказано":x==="native"?"Рідна":x.toUpperCase()}</option>)}</select>:<input type={type||"text"} required={label.includes("*")} value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>}</label>)}</div><div className="console-form-actions"><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Скасувати</button><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти запис"}</button></div></form>}<div className="console-facts">{rows.map(row=><article key={row.id}><div>{block.fields.filter(([key])=>row[key]!=null&&row[key]!=="").map(([key,label])=><div key={key}><small>{label.replace(" *","")}</small><p>{String(row[key])}</p></div>)}</div><button className="button secondary small" onClick={()=>{setEditing(row.id);setValues(Object.fromEntries(block.fields.map(([key])=>[key,String(row[key]??"")])));setError("")}}>Редагувати</button></article>)}</div>{!rows.length&&!editing&&<div className="console-empty"><p>Записів ще немає. Додайте інформацію зі слів клієнта.</p></div>}</div>
+  return <div className="panel console-editor"><div className="page-title compact"><h2>{block.title}</h2><button className="button secondary" onClick={()=>{setEditing("new");setValues({});setError("")}}>+ Додати запис</button></div><Notice error={error}/>{editing&&<form className="form console-fact-form" onSubmit={submit}><div className="form-grid">{block.fields.map(([key,label,type])=><label key={key}><span>{label}</span>{type==="textarea"?<textarea value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>:type==="level"?<select value={values[key]||"unknown"} onChange={e=>setValues({...values,[key]:e.target.value})}>{["unknown","native","a1","a2","b1","b2","c1","c2"].map(x=><option key={x} value={x}>{x==="unknown"?"Не вказано":x==="native"?"Рідна":x.toUpperCase()}</option>)}</select>:<input type={type||"text"} required={label.includes("*")} value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>}</label>)}</div><div className="console-form-actions"><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Скасувати</button><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти запис"}</button></div></form>}<div className="console-facts">{rows.map(row=><article key={row.id}><div>{block.fields.filter(([key])=>row[key]!=null&&row[key]!=="").map(([key,label])=><div key={key}><small>{label.replace(" *","")}</small><p>{String(row[key])}</p></div>)}{block.key==="skills"&&row.evidence_state==="system_detected"&&<small>Знайдено ШІ · потребує підтвердження{row.evidence_excerpt?` · «${String(row.evidence_excerpt)}»`:""}</small>}</div><button className="button secondary small" onClick={()=>{setEditing(row.id);setValues(Object.fromEntries(block.fields.map(([key])=>[key,String(row[key]??"")])));setError("")}}>Редагувати</button></article>)}</div>{!rows.length&&!editing&&<div className="console-empty"><p>Записів ще немає. Додайте інформацію зі слів клієнта.</p></div>}</div>
 }
 
 function AccessPanel({personId}:{personId:string}){
@@ -96,6 +96,83 @@ function MobilityEditor({person,onSaved}:{person:Person;onSaved:(p:Person)=>void
   return <form className="panel form console-editor" onSubmit={save}><h2>Формат роботи та мобільність</h2><div className="form-grid">{[["has_driver_license","Посвідчення водія"],["has_car","Власне авто"],["willing_to_relocate","Готовність до переїзду"]].map(([key,label])=><label key={key}><span>{label}</span><select value={String(values[key]||"unknown")} onChange={e=>setValues({...values,[key]:e.target.value})}><option value="unknown">Не вказано</option><option value="yes">Так</option><option value="no">Ні</option></select></label>)}<label><span>Категорії водійського посвідчення</span><input value={String(values.driver_license_categories||"")} onChange={e=>setValues({...values,driver_license_categories:e.target.value})}/></label><label><span>Формат роботи</span><select value={String(values.work_format||"unknown")} onChange={e=>setValues({...values,work_format:e.target.value})}>{[["unknown","Не вказано"],["onsite","На місці / в офісі"],["remote","Віддалено"],["hybrid","Гібрид"],["any","Будь-який"]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label></div><Notice error={error}/><div className="console-form-actions"><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти зміни"}</button></div></form>
 }
 
+type CvAnalysisResult = {
+  cached:boolean;
+  input_tokens:number;
+  output_tokens:number;
+  detected_tags:{id:string;name:string}[];
+  new_tags_count:number;
+  proposal:{
+    primary_role:string;alternative_roles:string[];
+    skills:{name:string;evidence:string;canonical_skill_id:string|null}[];
+    search_queries:string[];work_format:string;employment_type:string;
+    languages:string[];summary:string;
+  };
+};
+
+function DocumentsPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}){
+  const [error,setError]=useState(""),[busy,setBusy]=useState(false),[downloading,setDownloading]=useState<string|null>(null);
+  const upload=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault();const form=e.currentTarget,input=form.elements.namedItem("cv") as HTMLInputElement;
+    const file=input.files?.[0];if(!file)return;
+    setError("");setBusy(true);
+    try{
+      const body=new FormData();body.append("file",file);
+      onSaved(await adminRequest<Person>(`/admin/persons/${person.id}/documents/cv`,{method:"POST",body}));
+      form.reset();
+    }catch(e){setError(errText(e))}finally{setBusy(false)}
+  };
+  const download=async(row:FactRow)=>{
+    setError("");setDownloading(row.id);
+    try{
+      const blob=await adminDownload(`/admin/persons/${person.id}/documents/${row.id}/download`);
+      const url=URL.createObjectURL(blob),link=document.createElement("a");
+      link.href=url;link.download=String(row.filename||"cv");document.body.appendChild(link);link.click();link.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){setError(errText(e))}finally{setDownloading(null)}
+  };
+  return <div className="panel console-editor">
+    <h2>Документи клієнта</h2>
+    <p className="muted">Прикріпіть CV у форматі PDF, DOC або DOCX до 15 МБ. Файл зберігатиметься приватно в Dropbox. Для AI-аналізу потрібен PDF із текстом або DOCX.</p>
+    <Notice error={error}/>
+    <form className="form" onSubmit={upload}><label><span>Файл CV</span><input name="cv" type="file" accept=".pdf,.doc,.docx" required/></label><div className="console-form-actions"><button className="button" disabled={busy}>{busy?"Завантажуємо…":"Прикріпити CV"}</button></div></form>
+    <div className="console-facts">{person.documents.map(row=><div className="console-access-row" key={row.id}><b>{String(row.filename||"Документ")}</b><button className="button secondary small" disabled={downloading===row.id} onClick={()=>void download(row)}>{downloading===row.id?"Готуємо…":"Завантажити"}</button></div>)}</div>
+    {!person.documents.length&&<p className="muted">Збережених документів поки немає.</p>}
+  </div>;
+}
+
+function AnalysisPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}){
+  const [source,setSource]=useState<"cv"|"questionnaire"|null>(null);
+  const [selectedCv,setSelectedCv]=useState("");
+  const [permissionConfirmed,setPermissionConfirmed]=useState(false);
+  const [result,setResult]=useState<CvAnalysisResult|null>(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  const cvs=person.documents.filter(row=>row.document_type==="cv"&&!String(row.filename||"").toLowerCase().endsWith(".doc"));
+  const choose=(value:"cv"|"questionnaire")=>{setSource(value);setResult(null);setError("")};
+  const run=async()=>{
+    if(!source||!permissionConfirmed)return;
+    const documentId=cvs.some(row=>row.id===selectedCv)?selectedCv:cvs[0]?.id;
+    if(source==="cv"&&!documentId){setError("Спочатку прикріпіть PDF або DOCX у вкладці «Документи»");return}
+    setBusy(true);setError("");setResult(null);
+    try{
+      const path=source==="cv"?`/admin/persons/${person.id}/documents/${documentId}/analyze`:`/admin/persons/${person.id}/analysis/questionnaire`;
+      const analysis=await adminRequest<CvAnalysisResult>(path,{method:"POST",body:JSON.stringify({permission_confirmed:true})});
+      setResult(analysis);
+      if(analysis.new_tags_count)onSaved(await adminRequest<Person>(`/admin/persons/${person.id}`));
+    }catch(e){setError(errText(e))}finally{setBusy(false)}
+  };
+  return <div className="panel console-editor">
+    <h2>Проаналізувати клієнта</h2>
+    <p className="muted">Оберіть джерело даних для ШІ. Навички, знайдені в наявному довіднику та підтверджені текстом, додадуться до профілю як непідтверджені теги. Інші пропозиції залишаться чернеткою.</p>
+    <div className="console-row-actions"><button type="button" className={`button ${source==="cv"?"":"secondary"}`} onClick={()=>choose("cv")}>CV</button><button type="button" className={`button ${source==="questionnaire"?"":"secondary"}`} onClick={()=>choose("questionnaire")}>Анкету</button></div>
+    {source==="cv"&&(cvs.length?<label><span>Прикріплений CV</span><select value={cvs.some(row=>row.id===selectedCv)?selectedCv:cvs[0].id} onChange={e=>setSelectedCv(e.target.value)}>{cvs.map(row=><option key={row.id} value={row.id}>{String(row.filename||"CV")}</option>)}</select></label>:<p className="muted">Немає PDF або DOCX. Прикріпіть файл у вкладці «Документи».</p>)}
+    {source==="questionnaire"&&<p className="muted">Буде використано збережені дані анкети: досвід, освіту, навички, мови та побажання щодо роботи. Контакти, дата народження й нотатки працівника не надсилаються.</p>}
+    {source&&<><p className="muted">Дані вибраного джерела надсилаються сервісу Anthropic для аналізу.</p><label><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)}/> Підтверджую, що маю дозвіл на AI-обробку даних клієнта.</label><div className="console-form-actions"><button className="button" disabled={busy||!permissionConfirmed||(source==="cv"&&!cvs.length)} onClick={()=>void run()}>{busy?"Аналізуємо…":"Надіслати на аналіз"}</button></div></>}
+    <Notice error={error}/>
+    {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.detected_tags.length>0&&<p><b>Теги з довідника:</b> {result.detected_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}. Перегляньте їх у вкладці «Навички».</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Теги ШІ не є підтвердженими фактами. Інші пропозиції не записуються в профіль. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
+  </div>;
+}
+
 export function ConsolePerson(){
   const {id}=useParams(),role=useAppSelector(s=>s.auth.role);
   const [person,setPerson]=useState<Person|null>(null),[core,setCore]=useState<Partial<PersonCore>>({}),[tab,setTab]=useState("core"),[error,setError]=useState(""),[saved,setSaved]=useState(false),[busy,setBusy]=useState(false);
@@ -103,8 +180,8 @@ export function ConsolePerson(){
   useEffect(()=>{setPerson(null);setError("");adminRequest<Person>(`/admin/persons/${id}`).then(p=>{setPerson(p);setCore(p.core)}).catch(e=>setError(errText(e)))},[id]);
   const save=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setSaved(false);setError("");try{const payload=Object.fromEntries(coreFields.map(([key])=>[key,core[key as keyof PersonCore]??null]));accept(await adminRequest<Person>(`/admin/persons/${id}`,{method:"PATCH",body:JSON.stringify({...payload,notes:core.notes})}))}catch(e){setError(errText(e))}finally{setBusy(false)}};
   if(!person)return error?<Notice error={error}/>:<p className="loading">Відкриваємо профіль…</p>;
-  const tabs=[["core","Основне"],...blocks.map(b=>[b.key,b.title]),["mobility","Мобільність"],["documents","Документи"],...(role!=="manager"?[["access","Доступ"]]:[])];const block=blocks.find(b=>b.key===tab);
-  return <section><Link className="back" to="/admin/persons">← До клієнтів</Link><div className="page-title console-profile-title"><div className="console-person-link"><span className="console-avatar large">{person.core.first_name[0]}</span><div><h1>{person.core.first_name} {person.core.last_name}</h1><p>{person.core.city||"Місто не вказано"} · {person.core.phone||"Телефон не вказано"}</p></div></div><span className={`status ${person.core.status}`}>{person.core.status_uk}</span></div><div className="tabs">{tabs.map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>{setTab(key);setSaved(false);setError("")}}>{label}</button>)}</div><Notice error={error}/>{saved&&<div className="success" role="status">Зміни збережено</div>}{tab==="core"&&<form className="panel form console-editor" onSubmit={save}><h2>Контактна інформація</h2><CoreFields value={core} onChange={setCore}/><label><span>Нотатки</span><textarea rows={5} value={core.notes||""} onChange={e=>setCore({...core,notes:e.target.value})}/></label><div className="console-form-actions"><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти зміни"}</button></div></form>}{block&&<FactsEditor key={block.key} person={person} block={block} onSaved={accept}/>} {tab==="mobility"&&<MobilityEditor person={person} onSaved={accept}/>} {tab==="access"&&<AccessPanel personId={person.id}/>} {tab==="documents"&&<div className="panel"><h2>Документи клієнта</h2>{person.documents.length?person.documents.map(d=><div className="console-access-row" key={d.id}><b>{String(d.filename||d.document_type_uk||"Документ")}</b></div>):<p className="muted">Збережених документів поки немає.</p>}</div>}</section>
+  const tabs=[["core","Основне"],...blocks.map(b=>[b.key,b.title]),["mobility","Мобільність"],["documents","Документи"],["analysis","Проаналізувати"],...(role!=="manager"?[["access","Доступ"]]:[])];const block=blocks.find(b=>b.key===tab);
+  return <section><Link className="back" to="/admin/persons">← До клієнтів</Link><div className="page-title console-profile-title"><div className="console-person-link"><span className="console-avatar large">{person.core.first_name[0]}</span><div><h1>{person.core.first_name} {person.core.last_name}</h1><p>{person.core.city||"Місто не вказано"} · {person.core.phone||"Телефон не вказано"}</p></div></div><span className={`status ${person.core.status}`}>{person.core.status_uk}</span></div><div className="tabs">{tabs.map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>{setTab(key);setSaved(false);setError("")}}>{label}</button>)}</div><Notice error={error}/>{saved&&<div className="success" role="status">Зміни збережено</div>}{tab==="core"&&<form className="panel form console-editor" onSubmit={save}><h2>Контактна інформація</h2><CoreFields value={core} onChange={setCore}/><label><span>Нотатки</span><textarea rows={5} value={core.notes||""} onChange={e=>setCore({...core,notes:e.target.value})}/></label><div className="console-form-actions"><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти зміни"}</button></div></form>}{block&&<FactsEditor key={block.key} person={person} block={block} onSaved={accept}/>} {tab==="mobility"&&<MobilityEditor person={person} onSaved={accept}/>} {tab==="access"&&<AccessPanel personId={person.id}/>} {tab==="documents"&&<DocumentsPanel person={person} onSaved={accept}/>} {tab==="analysis"&&<AnalysisPanel key={person.id} person={person} onSaved={accept}/>}</section>
 }
 
 export function ConsoleTeam(){
