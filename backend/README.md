@@ -25,7 +25,8 @@ Backend підключається лише до MongoDB з `MONGODB_URL`. Як�
 (непідтверджені теги). Ручні навички не перезаписуються, повторний аналіз
 не створює дублікати. Інші AI-пропозиції не записуються в профіль.
 Для хостингу обов'язково задайте `MONGODB_URL`, `MONGODB_DATABASE=ican`
-та довгий стабільний `JWT_SECRET`.
+та довгий стабільний `JWT_SECRET`. У `CORS_ORIGINS` вкажіть точну адресу
+фронтенду без кінцевого `/`, наприклад `https://ican-frontend-mnu.vercel.app`.
 
 Команди `python -m scripts.check_mongodb`,
 `python -m scripts.migrate_sqlite_to_mongodb` та `python -m data_explorer.cli ...` виконуються з цієї папки

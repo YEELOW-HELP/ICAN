@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
+    cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
 
     # Guardrails against runaway Claude API spend if the agent never reaches
     # ready_for_confirmation (e.g. a confused loop of clarifying questions).

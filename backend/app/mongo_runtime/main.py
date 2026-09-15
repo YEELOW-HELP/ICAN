@@ -58,7 +58,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ICAN MongoDB API", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+cors_origins = [origin.strip().rstrip("/") for origin in settings.cors_origins.split(",") if origin.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=cors_origins,
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(auth_router)
 app.include_router(persons_router)
