@@ -63,6 +63,10 @@ class Database:
         self.mnp_ai_analysis_events = Collection()
         self.mnp_skills = Collection([
             {"_id": "skill-1", "canonical_name_uk": "Excel", "status": "active"},
+            {"_id": "skill-2", "canonical_name_uk": "Облік у 1С", "status": "active"},
+        ])
+        self.mnp_skill_aliases = Collection([
+            {"_id": "alias-1", "skill_id": "skill-2", "alias": "1С", "status": "active"},
         ])
 
     def __getitem__(self, name):
@@ -223,7 +227,7 @@ async def test_ai_extracts_supported_skill_and_matches_taxonomy(monkeypatch):
     monkeypatch.setattr(settings, "openai_api_key", SecretStr("test-key"))
     monkeypatch.setattr(cv_analysis, "extract_text", lambda *_args: (
         "Досвід роботи\nАналітик даних. Використовував Excel щодня.\n"
-        "Навички\nExcel, SQL\nКонтакт: candidate@example.com"
+            "Навички\nExcel, 1С, SQL\nКонтакт: candidate@example.com"
     ))
 
     class Gateway:
@@ -234,6 +238,7 @@ async def test_ai_extracts_supported_skill_and_matches_taxonomy(monkeypatch):
             return SimpleNamespace(tool_input={
                 "primary_role": "Аналітик даних", "alternative_roles": [],
                 "skills": [{"name": "Excel", "evidence": "Excel"},
+                           {"name": "1С", "evidence": "1С"},
                            {"name": "Python", "evidence": "Python"}],
                 "search_queries": ["аналітик даних"], "work_format": "",
                 "employment_type": "", "languages": [], "summary": "Досвід аналізу даних",
@@ -243,7 +248,8 @@ async def test_ai_extracts_supported_skill_and_matches_taxonomy(monkeypatch):
         Database(), content=b"unused", filename="cv.pdf", gateway=Gateway(),
     )
     assert proposal.primary_role == "Аналітик даних"
-    assert [(s.name, s.canonical_skill_id) for s in proposal.skills] == [("Excel", "skill-1")]
+    assert [(s.name, s.canonical_skill_id) for s in proposal.skills] == [
+        ("Excel", "skill-1"), ("1С", "skill-2")]
     assert trace.input_tokens == 100
 
 

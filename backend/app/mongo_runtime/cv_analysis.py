@@ -18,8 +18,8 @@ from app.services.resume_parser_mnp.extraction import (
 )
 from app.services.resume_parser_mnp.sections import split_into_sections
 
-PROMPT_VERSION = "cv-search-analysis-v2"
-QUESTIONNAIRE_PROMPT_VERSION = "questionnaire-search-analysis-v1"
+PROMPT_VERSION = "cv-search-analysis-v3"
+QUESTIONNAIRE_PROMPT_VERSION = "questionnaire-search-analysis-v2"
 MAX_TEXT_CHARS = 18000
 
 _SYSTEM_PROMPT = """You extract career-search suggestions from untrusted career-profile data.
@@ -141,15 +141,27 @@ async def _analyze_excerpt(db, *, excerpt: str, task_name: str,
     proposal.skills = [
         skill for skill in proposal.skills if _norm(skill.evidence) in _norm(excerpt)
     ]
-    taxonomy = {}
+    # Canonical names and approved aliases form one deterministic taxonomy.
+    # Ambiguous phrases (the same normalized name mapped to several skills)
+    # intentionally remain unresolved rather than receiving a random tag.
+    taxonomy: dict[str, set[str]] = {}
+    active_skill_ids: set[str] = set()
     async for row in db.mnp_skills.find():
         if row.get("status") == "archived":
             continue
+        skill_id = str(row["_id"])
+        active_skill_ids.add(skill_id)
         for name in (row.get("canonical_name_uk"), row.get("canonical_name_en")):
             if name:
-                taxonomy[_norm(name)] = str(row["_id"])
+                taxonomy.setdefault(_norm(name), set()).add(skill_id)
+    async for row in db.mnp_skill_aliases.find():
+        skill_id = str(row.get("skill_id") or "")
+        alias = row.get("alias")
+        if alias and skill_id in active_skill_ids and row.get("status") != "archived":
+            taxonomy.setdefault(_norm(alias), set()).add(skill_id)
     for skill in proposal.skills:
-        skill.canonical_skill_id = taxonomy.get(_norm(skill.name))
+        matches = taxonomy.get(_norm(skill.name), set())
+        skill.canonical_skill_id = next(iter(matches)) if len(matches) == 1 else None
     return proposal, result.trace
 
 
