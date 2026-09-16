@@ -106,6 +106,12 @@
 @media(prefers-reduced-motion:reduce) { .client-profile * { transition: none!important; } }
 
 /* Create client: the same visual language as the saved profile. */
+.console-shell .console-person-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.console-shell .status.case { background: #e8edf9; color: #435d95; }
+.console-shell .client-create .create-status-field { max-width: 260px; margin-top: 24px; }
+.console-shell .create-status-field select { width: 100%; font-size: 13px; min-height: 43px; background: #fcfdfb; }
+@media(max-width:760px) { .console-shell .console-person-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media(max-width:600px) { .console-shell .client-create .create-status-field { max-width: none; } }
 .console-shell main > .client-create { max-width: 1160px; }
 .client-create .profile-header { margin-bottom: 26px; }
 .create-avatar svg { width: 30px; height: 30px; }

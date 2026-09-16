@@ -22,7 +22,15 @@ from app.mongo_runtime.core import (
 router = APIRouter(prefix="/v1/mnp")
 logger = logging.getLogger(__name__)
 
-STATUS_UK = {"draft": "Чернетка", "active": "Активний", "archived": "В архіві"}
+STATUS_UK = {"case": "КЕЙС", "draft": "Чернетка", "active": "Активний", "archived": "В архіві"}
+
+
+def _validate_person_status(value: Any) -> str:
+    if not isinstance(value, str) or value not in STATUS_UK:
+        raise HTTPException(422, "Оберіть статус: КЕЙС, Чернетка, Активний або В архіві")
+    return value
+
+
 SOURCE_UK = {"self_service": "Самостійно", "consultant": "Консультант", "imported": "Імпорт"}
 FACTS = {
     "educations": "mnp_person_educations",
@@ -578,8 +586,9 @@ async def create_person(payload: dict = Body(...), db: Database = None,
     values = _clean(payload, CORE_FIELDS | MOBILITY_FIELDS)
     if not str(values.get("first_name") or "").strip():
         raise HTTPException(422, "Вкажіть ім’я")
+    status = _validate_person_status(payload.get("status", "case"))
     person_id = new_id()
-    person = {"_id": person_id, **values, "status": "draft", "source": "consultant",
+    person = {"_id": person_id, **values, "status": status, "source": "consultant",
               "profile_version": 1, "created_at": now(), "updated_at": now(),
               "access_admin_ids": [staff["_id"]]}
     await db.mnp_persons.insert_one(person)
@@ -600,6 +609,8 @@ async def update_person(person_id: str, payload: dict = Body(...), db: Database 
                         staff=Depends(current_staff)):
     await _staff_person(db, person_id, staff)
     changes = _clean(payload, CORE_FIELDS | MOBILITY_FIELDS | {"status"})
+    if "status" in changes:
+        changes["status"] = _validate_person_status(changes["status"])
     changes["updated_at"] = now()
     await db.mnp_persons.update_one({"_id": person_id}, {"$set": changes})
     return await _person_view(db, await db.mnp_persons.find_one({"_id": person_id}))

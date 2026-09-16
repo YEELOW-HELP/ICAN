@@ -76,6 +76,57 @@ class Database:
         return self.collections[name]
 
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("selected", [None, "case", "draft", "active", "archived"])
+async def test_create_person_status_round_trip(selected):
+    db = Database()
+    db.mnp_person_access = Collection()
+    payload = {"first_name": "Олена"}
+    if selected is not None:
+        payload["status"] = selected
+    manager = {"_id": 7, "role": MANAGER}
+    created = await persons.create_person(payload, db, manager)
+    expected = selected or "case"
+    assert created["core"]["status"] == expected
+    assert created["core"]["status_uk"] == persons.STATUS_UK[expected]
+    assert db.mnp_persons.rows[created["id"]]["status"] == expected
+    loaded = await persons.get_person(created["id"], db, manager)
+    assert loaded["core"]["status"] == expected
+    assert db.mnp_persons.rows["person-1"]["status"] == "active"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid", ["invalid", "", None, [], {}])
+async def test_invalid_person_status_is_rejected_before_writes(invalid):
+    db = Database()
+    db.mnp_person_access = Collection()
+    manager = {"_id": 7, "role": MANAGER}
+    with pytest.raises(HTTPException) as create_error:
+        await persons.create_person({"first_name": "Олена", "status": invalid}, db, manager)
+    assert create_error.value.status_code == 422
+    assert len(db.mnp_persons.rows) == 1
+    assert not db.mnp_person_access.rows
+    with pytest.raises(HTTPException) as update_error:
+        await persons.update_person("person-1", {"status": invalid}, db, manager)
+    assert update_error.value.status_code == 422
+    assert db.mnp_persons.rows["person-1"]["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_status_patch_preserves_scope_and_partial_update():
+    db = Database()
+    manager = {"_id": 7, "role": MANAGER}
+    changed = await persons.update_person("person-1", {"status": "case"}, db, manager)
+    assert changed["core"]["status_uk"] == "КЕЙС"
+    changed = await persons.update_person("person-1", {"city": "Дніпро"}, db, manager)
+    assert changed["core"]["status"] == "case"
+    with pytest.raises(HTTPException) as denied:
+        await persons.update_person("person-1", {"status": "active"}, db, {"_id": 8, "role": MANAGER})
+    assert denied.value.status_code == 404
+    assert db.mnp_persons.rows["person-1"]["status"] == "case"
+
+
 @pytest.mark.asyncio
 async def test_dropbox_upload_refreshes_token_and_uses_private_file_id(monkeypatch):
     monkeypatch.setattr(settings, "dropbox_root", "/ican/cv")
