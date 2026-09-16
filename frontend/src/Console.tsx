@@ -65,7 +65,45 @@ export function ConsolePersons(){
 
 const coreFields=[['first_name',"Ім’я",'text'],['last_name','Прізвище','text'],['phone','Телефон','tel'],['email','Email','email'],['city','Місто','text'],['region','Область','text'],['country','Країна','text'],['date_of_birth','Дата народження','date'],['telegram_username','Telegram','text']];
 function CoreFields({value,onChange,only}:{only?:string[];value:Partial<PersonCore>;onChange:(v:Partial<PersonCore>)=>void}){return <div className="form-grid">{coreFields.filter(([key])=>!only||only.includes(key)).map(([key,label,type])=><label key={key}><span>{label}{key==="first_name"?" *":""}</span><input type={type} required={key==="first_name"} value={String(value[key as keyof PersonCore]??"")} onChange={e=>onChange({...value,[key]:e.target.value})}/></label>)}</div>}
-export function ConsoleCreate(){const nav=useNavigate();const [core,setCore]=useState<Partial<PersonCore>>({first_name:""}),[error,setError]=useState(""),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");try{const p=await adminRequest<Person>("/admin/persons",{method:"POST",body:JSON.stringify(core)});nav(`/admin/persons/${p.id}`)}catch(e){setError(errText(e))}finally{setBusy(false)}};return <section><Link className="back" to="/admin/persons">← До клієнтів</Link><div className="page-title"><div><h1>Новий клієнт</h1><p>Для початку достатньо імені. Решту можна доповнити пізніше.</p></div></div><form className="panel form console-editor" onSubmit={submit}><CoreFields value={core} onChange={setCore}/><Notice error={error}/><div className="console-form-actions"><Link className="button secondary" to="/admin/persons">Скасувати</Link><button disabled={busy} className="button">{busy?"Створюємо…":"Створити профіль →"}</button></div></form></section>}
+export function ConsoleCreate(){
+  const nav=useNavigate();
+  const [core,setCore]=useState<Partial<PersonCore>>({first_name:""}),[error,setError]=useState(""),[busy,setBusy]=useState(false);
+  const submit=async(e:FormEvent)=>{
+    e.preventDefault();if(busy)return;setBusy(true);setError("");
+    try{const p=await adminRequest<Person>("/admin/persons",{method:"POST",body:JSON.stringify(core)});nav("/admin/persons/"+p.id)}
+    catch(e){setError(errText(e))}finally{setBusy(false)}
+  };
+  return <section className="client-profile client-create">
+    <div className="profile-breadcrumb"><Link className="back" to="/admin/persons">← Клієнти</Link><span>/</span><span>Новий клієнт</span></div>
+    <header className="profile-header">
+      <div className="profile-identity"><span className="profile-avatar create-avatar"><ProfileIcon name="user"/></span><div className="profile-heading"><span className="console-kicker">НОВЕ ЗНАЙОМСТВО</span><h1>Додати клієнта</h1><p className="create-intro">Перший крок до нових можливостей.</p></div></div>
+      <span className="create-required-hint"><span aria-hidden="true">*</span> Лише ім’я обов’язкове</span>
+    </header>
+    <div className="profile-overview create-overview">
+      <form className="panel form profile-contact-card" onSubmit={submit} aria-label="Новий клієнт">
+        <div className="profile-card-heading"><span className="profile-section-icon"><ProfileIcon name="user"/></span><div><h2>Основна інформація</h2><p>Заповніть те, що вже знаєте про людину</p></div></div>
+        <fieldset disabled={busy}><legend><span className="create-section-number">01</span> Особисті дані</legend><CoreFields only={["first_name","last_name","date_of_birth"]} value={core} onChange={setCore}/></fieldset>
+        <fieldset disabled={busy}><legend><span className="create-section-number">02</span> Як зв’язатися</legend><CoreFields only={["phone","email","telegram_username"]} value={core} onChange={setCore}/></fieldset>
+        <fieldset disabled={busy}><legend><span className="create-section-number">03</span> Місце проживання</legend><CoreFields only={["city","region","country"]} value={core} onChange={setCore}/></fieldset>
+        <Notice error={error}/>
+        <div className="console-form-actions profile-form-footer create-form-footer"><Link className="create-cancel" to="/admin/persons">Скасувати</Link><button type="submit" disabled={busy} className="button">{busy?"Створюємо…":"Створити профіль"}{!busy&&<ProfileIcon name="arrow"/>}</button></div>
+      </form>
+      <aside className="profile-sidebar create-sidebar">
+        <section className="create-guide">
+          <span className="create-guide-icon"><ProfileIcon name="spark"/></span>
+          <h2>Почніть з імені</h2><p>Не потрібно знати все одразу. Контакти, досвід та інші деталі можна додати в будь-який момент.</p>
+          <div className="create-guide-divider"/>
+          <h3>Що далі?</h3>
+          <ol className="create-next-steps">
+            <li><span className="profile-section-icon"><ProfileIcon name="user"/></span><div><b>Доповніть профіль</b><p>Досвід, освіта, навички та побажання до роботи.</p></div></li>
+            <li><span className="profile-section-icon"><ProfileIcon name="file"/></span><div><b>Прикріпіть CV</b><p>Якщо є резюме, збережіть його в картці клієнта.</p></div></li>
+            <li><span className="profile-section-icon"><ProfileIcon name="tag"/></span><div><b>Визначте теги</b><p>Аналіз анкети або CV допоможе підготувати профіль до пошуку вакансій.</p></div></li>
+          </ol>
+        </section>
+      </aside>
+    </div>
+  </section>;
+}
 
 type Block={key:string;title:string;fields:[string,string,string?][]};
 const blocks:Block[]=[
