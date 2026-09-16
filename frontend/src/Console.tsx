@@ -101,8 +101,10 @@ type CvAnalysisResult = {
   input_tokens:number;
   output_tokens:number;
   detected_tags:{id:string;name:string}[];
+  inferred_tags:{id:string;name:string}[];
   person_tags:{skill_id:string;name:string;skill_type?:string|null}[];
   new_tags_count:number;
+  tagging:{minimum:number;total:number;complete:boolean;career:{id:string;name:string}|null};
   proposal:{
     primary_role:string;alternative_roles:string[];
     skills:{name:string;evidence:string;canonical_skill_id:string|null}[];
@@ -164,13 +166,13 @@ function AnalysisPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}
   };
   return <div className="panel console-editor">
     <h2>Проаналізувати клієнта</h2>
-    <p className="muted">Оберіть джерело даних для ШІ. Навички, знайдені в наявному довіднику та підтверджені текстом, додадуться до профілю як непідтверджені теги. Інші пропозиції залишаться чернеткою.</p>
+    <p className="muted">Оберіть джерело даних для ШІ. Система збере щонайменше 5 канонічних тегів із довідника: спочатку підтверджені текстом навички, а якщо їх недостатньо — найважливіші вимоги найближчої професії.</p>
     <div className="console-row-actions"><button type="button" className={`button ${source==="cv"?"":"secondary"}`} onClick={()=>choose("cv")}>CV</button><button type="button" className={`button ${source==="questionnaire"?"":"secondary"}`} onClick={()=>choose("questionnaire")}>Анкету</button></div>
     {source==="cv"&&(cvs.length?<label><span>Прикріплений CV</span><select value={cvs.some(row=>row.id===selectedCv)?selectedCv:cvs[0].id} onChange={e=>setSelectedCv(e.target.value)}>{cvs.map(row=><option key={row.id} value={row.id}>{String(row.filename||"CV")}</option>)}</select></label>:<p className="muted">Немає PDF або DOCX. Прикріпіть файл у вкладці «Документи».</p>)}
     {source==="questionnaire"&&<p className="muted">Буде використано збережені дані анкети: досвід, освіту, навички, мови та побажання щодо роботи. Контакти, дата народження й нотатки працівника не надсилаються.</p>}
     {source&&<><p className="muted">Дані вибраного джерела надсилаються сервісу OpenAI для аналізу.</p><label><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)}/> Підтверджую, що маю дозвіл на AI-обробку даних клієнта.</label><div className="console-form-actions"><button className="button" disabled={busy||!permissionConfirmed||(source==="cv"&&!cvs.length)} onClick={()=>void run()}>{busy?"Аналізуємо…":"Надіслати на аналіз"}</button></div></>}
     <Notice error={error}/>
-    {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.person_tags.length>0&&<p><b>Теги людини:</b> {result.person_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}. Вони закріплені безпосередньо в полі <code>mnp_persons.tags</code>.</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Теги ШІ не є підтвердженими фактами. Інші пропозиції не записуються в профіль. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
+    {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.person_tags.length>0&&<p><b>Теги людини ({result.tagging.total}):</b> {result.person_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}.</p>}{result.inferred_tags.length>0&&<p><b>Добрано з вимог професії{result.tagging.career?` «${result.tagging.career.name}»`:""}:</b> {result.inferred_tags.map(t=>t.name).join(", ")}</p>}{!result.tagging.complete&&<p className="error"><b>Недостатньо тегів:</b> знайдено {result.tagging.total} із мінімальних {result.tagging.minimum}. Перевірте назву професії та наповнення її вимог у базі.</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Усі теги взяті з канонічного довідника. Теги, добрані з вимог професії, є припущеннями та потребують перевірки. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
   </div>;
 }
 

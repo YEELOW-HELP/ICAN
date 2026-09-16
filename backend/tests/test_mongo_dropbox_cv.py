@@ -68,6 +68,9 @@ class Database:
         self.mnp_skill_aliases = Collection([
             {"_id": "alias-1", "skill_id": "skill-2", "alias": "1С", "status": "active"},
         ])
+        self.mnp_careers = Collection()
+        self.mnp_career_aliases = Collection()
+        self.mnp_career_skill_requirements = Collection()
 
     def __getitem__(self, name):
         return self.collections[name]
@@ -406,6 +409,51 @@ async def test_cv_analysis_assigns_only_existing_canonical_tags_without_duplicat
     assert db.mnp_persons.rows["person-1"]["tags"] == [
         {"skill_id": "skill-1", "name": "Excel", "skill_type": None},
     ]
+
+
+@pytest.mark.asyncio
+async def test_analysis_fills_minimum_five_tags_from_matching_career(monkeypatch):
+    monkeypatch.setattr(settings, "cv_analysis_enabled", True)
+    db = Database()
+    db.mnp_skills.rows.update({
+        f"skill-{number}": {
+            "_id": f"skill-{number}", "canonical_name_uk": name,
+            "status": "active", "skill_type": "functional",
+        }
+        for number, name in ((3, "Фінансовий аналіз"), (4, "Звітність"),
+                             (5, "Бюджетування"), (6, "Прогнозування"))
+    })
+    db.mnp_careers.rows["career-1"] = {
+        "_id": "career-1", "canonical_name_uk": "Фінансовий аналітик", "status": "active",
+    }
+    for number, importance in ((1, "critical"), (3, "high"), (4, "high"),
+                               (5, "medium"), (6, "medium")):
+        db.mnp_career_skill_requirements.rows[f"rel-{number}"] = {
+            "_id": f"rel-{number}", "career_id": "career-1",
+            "skill_id": f"skill-{number}", "importance": importance,
+            "requirement_type": "must_have", "review_status": "approved",
+        }
+
+    result = await persons._assign_analysis_tags(
+        db, person_id="person-1", source="questionnaire", source_id="person-1",
+        proposal={
+            "primary_role": "Фінансовий аналітик", "alternative_roles": [],
+            "skills": [{"name": "Excel", "evidence": "Excel",
+                        "canonical_skill_id": "skill-1"}],
+        },
+    )
+
+    assert result["tagging"] == {
+        "minimum": 5, "total": 5, "complete": True,
+        "career": {"id": "career-1", "name": "Фінансовий аналітик"},
+    }
+    assert result["new_tags_count"] == 5
+    assert len(result["inferred_tags"]) == 4
+    assert len(db.mnp_persons.rows["person-1"]["tags"]) == 5
+    inferred_rows = [row for row in db.collections["mnp_person_skills_v1"].rows.values()
+                     if row.get("evidence_state") == "system_inferred"]
+    assert len(inferred_rows) == 4
+    assert all(row["inferred_from_career_id"] == "career-1" for row in inferred_rows)
 
 
 @pytest.mark.asyncio

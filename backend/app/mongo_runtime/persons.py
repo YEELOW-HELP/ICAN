@@ -40,6 +40,11 @@ MOBILITY_FIELDS = {
     "has_driver_license", "driver_license_categories", "has_car", "willing_to_relocate",
     "work_geography", "work_format",
 }
+MIN_SEARCH_TAGS = 5
+
+
+def _norm_label(value: Any) -> str:
+    return " ".join(str(value or "").casefold().split())
 
 
 def _clean(data: dict[str, Any], allowed: set[str]) -> dict[str, Any]:
@@ -291,6 +296,92 @@ async def _sync_person_tags(db, person_id: str) -> list[dict]:
     return tags
 
 
+async def _career_requirement_tags(db, *, proposal: dict,
+                                   known_skill_ids: set[str]) -> tuple[dict | None, list[dict]]:
+    """Choose the closest catalog career and return its strongest canonical skills.
+
+    Role names/aliases are the primary signal. Existing evidence-backed skills are
+    only a deterministic tie-breaker. Nothing outside the canonical taxonomy is
+    ever returned.
+    """
+    careers = [row async for row in db.mnp_careers.find()
+               if row.get("status") != "archived"]
+    if not careers:
+        return None, []
+    names: dict[str, set[str]] = {str(row["_id"]): set() for row in careers}
+    for row in careers:
+        career_id = str(row["_id"])
+        for value in (row.get("canonical_name_uk"), row.get("canonical_name_en")):
+            if _norm_label(value):
+                names[career_id].add(_norm_label(value))
+    async for row in db.mnp_career_aliases.find():
+        career_id = str(row.get("career_id") or "")
+        if career_id in names and row.get("status") != "archived" and _norm_label(row.get("alias")):
+            names[career_id].add(_norm_label(row["alias"]))
+
+    relations: dict[str, list[dict]] = {str(row["_id"]): [] for row in careers}
+    async for row in db.mnp_career_skill_requirements.find():
+        career_id = str(row.get("career_id") or "")
+        if (career_id in relations and row.get("status") != "archived"
+                and row.get("review_status") != "rejected"):
+            relations[career_id].append(row)
+
+    roles = [_norm_label(proposal.get("primary_role"))]
+    roles.extend(_norm_label(value) for value in proposal.get("alternative_roles") or [])
+    roles = [value for value in roles if value]
+    importance = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+    def role_score(career_id: str) -> float:
+        best = 0.0
+        for role_index, role in enumerate(roles):
+            role_tokens = set(role.split())
+            for label in names[career_id]:
+                if role == label:
+                    best = max(best, 1000 - role_index * 20)
+                    continue
+                if len(role) >= 5 and len(label) >= 5 and (role in label or label in role):
+                    best = max(best, 700 - role_index * 20)
+                    continue
+                label_tokens = set(label.split())
+                overlap = len(role_tokens & label_tokens) / max(len(role_tokens | label_tokens), 1)
+                if overlap >= .5:
+                    best = max(best, 400 * overlap - role_index * 10)
+        return best
+
+    ranked = []
+    for career in careers:
+        career_id = str(career["_id"])
+        overlap_score = sum(
+            importance.get(str(row.get("importance") or "medium"), 2)
+            for row in relations[career_id]
+            if str(row.get("skill_id") or "") in known_skill_ids
+        )
+        title_score = role_score(career_id)
+        if title_score or overlap_score:
+            ranked.append((title_score, overlap_score,
+                           _norm_label(career.get("canonical_name_uk")), career))
+    if not ranked:
+        return None, []
+    ranked.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    career = ranked[0][3]
+    career_id = str(career["_id"])
+    requirement_rank = {"must_have": 0, "high_value": 1, "differentiator": 2, "optional": 3}
+    ordered = sorted(relations[career_id], key=lambda row: (
+        -importance.get(str(row.get("importance") or "medium"), 2),
+        requirement_rank.get(str(row.get("requirement_type") or "high_value"), 4),
+        -float(row.get("confidence") or 0), str(row.get("skill_id") or ""),
+    ))
+    candidates = []
+    for relation in ordered:
+        skill_id = str(relation.get("skill_id") or "")
+        if not skill_id or skill_id in known_skill_ids:
+            continue
+        skill = await db.mnp_skills.find_one({"_id": skill_id})
+        if skill and skill.get("status") != "archived":
+            candidates.append({"skill": skill, "relation": relation})
+    return career, candidates
+
+
 async def _assign_analysis_tags(db, *, person_id: str, proposal: dict,
                                 source: str, source_id: str) -> dict:
     """Save only existing taxonomy skills as unconfirmed, evidence-linked facts."""
@@ -330,9 +421,51 @@ async def _assign_analysis_tags(db, *, person_id: str, proposal: dict,
         })
         existing.add(str(skill_id))
         added += 1
+    inferred = []
     person_tags = await _sync_person_tags(db, person_id)
-    return {"detected_tags": matched, "new_tags_count": added,
-            "person_tags": person_tags}
+    career = None
+    if len(person_tags) < MIN_SEARCH_TAGS:
+        career, candidates = await _career_requirement_tags(
+            db, proposal=proposal,
+            known_skill_ids={str(tag["skill_id"]) for tag in person_tags},
+        )
+        for candidate in candidates:
+            if len(person_tags) + len(inferred) >= MIN_SEARCH_TAGS:
+                break
+            skill = candidate["skill"]
+            skill_id = str(skill["_id"])
+            name = skill.get("canonical_name_uk") or skill.get("canonical_name_en") or skill_id
+            career_name = (career.get("canonical_name_uk") or career.get("canonical_name_en")
+                           or proposal.get("primary_role") or "")
+            await db[FACTS["skills"]].insert_one({
+                "_id": new_id(), "person_id": person_id,
+                "canonical_skill_id": skill_id, "raw_input": name,
+                "custom_status": "canonical", "proficiency": None,
+                "evidence_state": "system_inferred", "source": f"ai_{source}_analysis",
+                "analysis_source_id": source_id,
+                "evidence_excerpt": f"Вимога професії «{career_name}»",
+                "inferred_from_career_id": str(career["_id"]),
+                "supporting_document_id": source_id if source == "cv" else None,
+                "created_at": now(), "updated_at": now(),
+            })
+            inferred.append({"id": skill_id, "name": name})
+            added += 1
+        if inferred:
+            person_tags = await _sync_person_tags(db, person_id)
+    return {
+        "detected_tags": matched,
+        "inferred_tags": inferred,
+        "new_tags_count": added,
+        "person_tags": person_tags,
+        "tagging": {
+            "minimum": MIN_SEARCH_TAGS,
+            "total": len(person_tags),
+            "complete": len(person_tags) >= MIN_SEARCH_TAGS,
+            "career": ({"id": str(career["_id"]),
+                        "name": career.get("canonical_name_uk") or career.get("canonical_name_en")}
+                       if career else None),
+        },
+    }
 
 
 @router.post("/admin/persons/{person_id}/documents/{document_id}/analyze")
