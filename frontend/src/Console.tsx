@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import "./profile.css";
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { adminBootstrapStatus, adminDownload, adminLogin, adminRequest, ApiError, bootstrapSuperAdmin } from "./api/client";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
@@ -63,7 +64,7 @@ export function ConsolePersons(){
 }
 
 const coreFields=[['first_name',"Ім’я",'text'],['last_name','Прізвище','text'],['phone','Телефон','tel'],['email','Email','email'],['city','Місто','text'],['region','Область','text'],['country','Країна','text'],['date_of_birth','Дата народження','date'],['telegram_username','Telegram','text']];
-function CoreFields({value,onChange}:{value:Partial<PersonCore>;onChange:(v:Partial<PersonCore>)=>void}){return <div className="form-grid">{coreFields.map(([key,label,type])=><label key={key}><span>{label}{key==="first_name"?" *":""}</span><input type={type} required={key==="first_name"} value={String(value[key as keyof PersonCore]??"")} onChange={e=>onChange({...value,[key]:e.target.value})}/></label>)}</div>}
+function CoreFields({value,onChange,only}:{only?:string[];value:Partial<PersonCore>;onChange:(v:Partial<PersonCore>)=>void}){return <div className="form-grid">{coreFields.filter(([key])=>!only||only.includes(key)).map(([key,label,type])=><label key={key}><span>{label}{key==="first_name"?" *":""}</span><input type={type} required={key==="first_name"} value={String(value[key as keyof PersonCore]??"")} onChange={e=>onChange({...value,[key]:e.target.value})}/></label>)}</div>}
 export function ConsoleCreate(){const nav=useNavigate();const [core,setCore]=useState<Partial<PersonCore>>({first_name:""}),[error,setError]=useState(""),[busy,setBusy]=useState(false);const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");try{const p=await adminRequest<Person>("/admin/persons",{method:"POST",body:JSON.stringify(core)});nav(`/admin/persons/${p.id}`)}catch(e){setError(errText(e))}finally{setBusy(false)}};return <section><Link className="back" to="/admin/persons">← До клієнтів</Link><div className="page-title"><div><h1>Новий клієнт</h1><p>Для початку достатньо імені. Решту можна доповнити пізніше.</p></div></div><form className="panel form console-editor" onSubmit={submit}><CoreFields value={core} onChange={setCore}/><Notice error={error}/><div className="console-form-actions"><Link className="button secondary" to="/admin/persons">Скасувати</Link><button disabled={busy} className="button">{busy?"Створюємо…":"Створити профіль →"}</button></div></form></section>}
 
 type Block={key:string;title:string;fields:[string,string,string?][]};
@@ -79,7 +80,7 @@ function FactsEditor({person,block,onSaved}:{person:Person;block:Block;onSaved:(
   const [editing,setEditing]=useState<string|null>(null),[values,setValues]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const rows=(person as unknown as Record<string,FactRow[]>)[block.key]||[];
   const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");const payload:Record<string,unknown>={};for(const [key,,type]of block.fields)if(key in values)payload[key]=values[key]===""?null:type==="number"?Number(values[key]):values[key];try{onSaved(await adminRequest<Person>(`/admin/persons/${person.id}/${block.key}${editing&&editing!=="new"?`/${editing}`:""}`,{method:editing==="new"?"POST":"PATCH",body:JSON.stringify(payload)}));setEditing(null)}catch(e){setError(errText(e))}finally{setBusy(false)}};
-  return <div className="panel console-editor"><div className="page-title compact"><h2>{block.title}</h2><button className="button secondary" onClick={()=>{setEditing("new");setValues({});setError("")}}>+ Додати запис</button></div><Notice error={error}/>{block.key==="skills"&&<section className="console-person-tags"><div><h3>Теги для пошуку</h3><p>Закріплені за людиною канонічні теги, за якими підбиратимуться професії та вакансії.</p></div>{person.tags.length?<div className="console-tag-list">{person.tags.map(tag=><span key={tag.skill_id}>{tag.name}</span>)}</div>:<p className="console-no-tags">Тегів поки немає. Вони з’являться після успішного AI-аналізу або ручного підтвердження.</p>}</section>}{editing&&<form className="form console-fact-form" onSubmit={submit}><div className="form-grid">{block.fields.map(([key,label,type])=><label key={key}><span>{label}</span>{type==="textarea"?<textarea value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>:type==="level"?<select value={values[key]||"unknown"} onChange={e=>setValues({...values,[key]:e.target.value})}>{["unknown","native","a1","a2","b1","b2","c1","c2"].map(x=><option key={x} value={x}>{x==="unknown"?"Не вказано":x==="native"?"Рідна":x.toUpperCase()}</option>)}</select>:<input type={type||"text"} required={label.includes("*")} value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>}</label>)}</div><div className="console-form-actions"><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Скасувати</button><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти запис"}</button></div></form>}<div className="console-facts">{rows.map(row=><article key={row.id}><div>{block.fields.filter(([key])=>row[key]!=null&&row[key]!=="").map(([key,label])=><div key={key}><small>{label.replace(" *","")}</small><p>{String(row[key])}</p></div>)}{block.key==="skills"&&row.evidence_state==="system_detected"&&<small>Знайдено ШІ · потребує підтвердження{row.evidence_excerpt?` · «${String(row.evidence_excerpt)}»`:""}</small>}</div><button className="button secondary small" onClick={()=>{setEditing(row.id);setValues(Object.fromEntries(block.fields.map(([key])=>[key,String(row[key]??"")])));setError("")}}>Редагувати</button></article>)}</div>{!rows.length&&!editing&&<div className="console-empty"><p>Записів ще немає. Додайте інформацію зі слів клієнта.</p></div>}</div>
+  return <div className="panel console-editor"><div className="page-title compact"><h2>{block.title}</h2><button className="button secondary" onClick={()=>{setEditing("new");setValues({});setError("")}}>+ Додати запис</button></div><Notice error={error}/>{block.key==="skills"&&<PersonTags person={person}/>}{editing&&<form className="form console-fact-form" onSubmit={submit}><div className="form-grid">{block.fields.map(([key,label,type])=><label key={key}><span>{label}</span>{type==="textarea"?<textarea value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>:type==="level"?<select value={values[key]||"unknown"} onChange={e=>setValues({...values,[key]:e.target.value})}>{["unknown","native","a1","a2","b1","b2","c1","c2"].map(x=><option key={x} value={x}>{x==="unknown"?"Не вказано":x==="native"?"Рідна":x.toUpperCase()}</option>)}</select>:<input type={type||"text"} required={label.includes("*")} value={values[key]||""} onChange={e=>setValues({...values,[key]:e.target.value})}/>}</label>)}</div><div className="console-form-actions"><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Скасувати</button><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти запис"}</button></div></form>}<div className="console-facts">{rows.map(row=><article key={row.id}><div>{block.fields.filter(([key])=>row[key]!=null&&row[key]!=="").map(([key,label])=><div key={key}><small>{label.replace(" *","")}</small><p>{String(row[key])}</p></div>)}{block.key==="skills"&&row.evidence_state==="system_detected"&&<small>Знайдено ШІ · потребує підтвердження{row.evidence_excerpt?` · «${String(row.evidence_excerpt)}»`:""}</small>}</div><button className="button secondary small" onClick={()=>{setEditing(row.id);setValues(Object.fromEntries(block.fields.map(([key])=>[key,String(row[key]??"")])));setError("")}}>Редагувати</button></article>)}</div>{!rows.length&&!editing&&<div className="console-empty"><p>Записів ще немає. Додайте інформацію зі слів клієнта.</p></div>}</div>
 }
 
 function AccessPanel({personId}:{personId:string}){
@@ -167,33 +168,96 @@ function AnalysisPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}
   return <div className="panel console-editor">
     <h2>Проаналізувати клієнта</h2>
     <p className="muted">Оберіть джерело даних для ШІ. Система збере щонайменше 5 канонічних тегів із довідника: спочатку підтверджені текстом навички, а якщо їх недостатньо — найважливіші вимоги найближчої професії.</p>
-    <div className="console-row-actions"><button type="button" className={`button ${source==="cv"?"":"secondary"}`} onClick={()=>choose("cv")}>CV</button><button type="button" className={`button ${source==="questionnaire"?"":"secondary"}`} onClick={()=>choose("questionnaire")}>Анкету</button></div>
+    <div className="profile-analysis-choices"><button type="button" className={source==="questionnaire"?"selected":""} aria-pressed={source==="questionnaire"} disabled={busy} onClick={()=>choose("questionnaire")}><ProfileIcon name="user"/><b>Анкета</b><span>Збережений досвід, освіта й навички</span></button><button type="button" className={source==="cv"?"selected":""} aria-pressed={source==="cv"} disabled={busy} onClick={()=>choose("cv")}><ProfileIcon name="file"/><b>Резюме / CV</b><span>Один із прикріплених документів</span></button></div>
     {source==="cv"&&(cvs.length?<label><span>Прикріплений CV</span><select value={cvs.some(row=>row.id===selectedCv)?selectedCv:cvs[0].id} onChange={e=>setSelectedCv(e.target.value)}>{cvs.map(row=><option key={row.id} value={row.id}>{String(row.filename||"CV")}</option>)}</select></label>:<p className="muted">Немає PDF або DOCX. Прикріпіть файл у вкладці «Документи».</p>)}
     {source==="questionnaire"&&<p className="muted">Буде використано збережені дані анкети: досвід, освіту, навички, мови та побажання щодо роботи. Контакти, дата народження й нотатки працівника не надсилаються.</p>}
-    {source&&<><p className="muted">Дані вибраного джерела надсилаються сервісу OpenAI для аналізу.</p><label><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)}/> Підтверджую, що маю дозвіл на AI-обробку даних клієнта.</label><div className="console-form-actions"><button className="button" disabled={busy||!permissionConfirmed||(source==="cv"&&!cvs.length)} onClick={()=>void run()}>{busy?"Аналізуємо…":"Надіслати на аналіз"}</button></div></>}
+    {source&&<><p className="muted">Дані вибраного джерела надсилаються сервісу OpenAI для аналізу.</p><label className="profile-analysis-consent"><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)}/> Підтверджую, що маю дозвіл на AI-обробку даних клієнта.</label><div className="console-form-actions"><button className="button" disabled={busy||!permissionConfirmed||(source==="cv"&&!cvs.length)} onClick={()=>void run()}>{busy?"Аналізуємо…":"Надіслати на аналіз"}</button></div></>}
     <Notice error={error}/>
     {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.person_tags.length>0&&<p><b>Теги людини ({result.tagging.total}):</b> {result.person_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}.</p>}{result.inferred_tags.length>0&&<p><b>Добрано з вимог професії{result.tagging.career?` «${result.tagging.career.name}»`:""}:</b> {result.inferred_tags.map(t=>t.name).join(", ")}</p>}{!result.tagging.complete&&<p className="error"><b>Недостатньо тегів:</b> знайдено {result.tagging.total} із мінімальних {result.tagging.minimum}. Перевірте назву професії та наповнення її вимог у базі.</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Усі теги взяті з канонічного довідника. Теги, добрані з вимог професії, є припущеннями та потребують перевірки. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
   </div>;
 }
 
+function ProfileIcon({name}:{name:"spark"|"user"|"pin"|"file"|"tag"|"arrow"}){
+  const paths={
+    spark:"m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3Z",
+    user:"M20 21v-2a7 7 0 0 0-14 0v2M13 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+    pin:"M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+    file:"M14 2H5v20h14V7l-5-5ZM14 2v6h5M8 12h8M8 16h6",
+    tag:"M3 3h8l10 10-8 8L3 11V3ZM7 7h.01",
+    arrow:"M5 12h14m-5-5 5 5-5 5",
+  };
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
+}
+
 function PersonTags({person}:{person:Person}){
-  return <section className="console-person-tags"><div><h3>Теги для пошуку</h3><p>Канонічні теги, за якими підбиратимуться професії та вакансії.</p></div>{person.tags.length?<div className="console-tag-list">{person.tags.map(tag=><span key={tag.skill_id}>{tag.name}</span>)}</div>:<p className="console-no-tags">Тегів поки немає. Вони з’являться після успішного AI-аналізу або ручного підтвердження.</p>}</section>
+  const tags=person.tags||[];
+  return <section className="console-person-tags">
+    <div className="profile-card-heading"><span className="profile-section-icon"><ProfileIcon name="tag"/></span><h3>Теги для пошуку</h3><span className="profile-count">{tags.length}</span></div>
+    <p>Навички та орієнтири для підбору вакансій.</p>
+    {tags.length?<div className="console-tag-list">{tags.map(tag=><span key={tag.skill_id}>{tag.name}</span>)}</div>:<p className="console-no-tags">Проаналізуйте анкету або CV, щоб додати теги до профілю.</p>}
+    {!!tags.length&&<div className="profile-tag-footnote">Добрані за професією теги потребують перевірки.</div>}
+  </section>;
 }
 
 function AnalysisModal({person,onSaved,onClose}:{person:Person;onSaved:(p:Person)=>void;onClose:()=>void}){
-  useEffect(()=>{const close=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose()};window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close)},[onClose]);
-  return <div className="console-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}><div className="console-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-title"><div className="console-modal-head"><div><span className="console-kicker">AI-АНАЛІЗ</span><h2 id="analysis-title">Проаналізувати клієнта</h2></div><button type="button" className="console-modal-close" onClick={onClose} aria-label="Закрити">×</button></div><AnalysisPanel key={person.id} person={person} onSaved={onSaved}/></div></div>
+  const dialog=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{const element=dialog.current;element?.showModal();return()=>element?.close()},[]);
+  return <dialog ref={dialog} className="console-modal profile-analysis-modal" aria-labelledby="analysis-title" onCancel={onClose} onClick={event=>{if(event.target===event.currentTarget){const rect=event.currentTarget.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)onClose()}}}>
+    <div className="console-modal-head"><div><span className="console-kicker">ПРОФІЛЬ КЛІЄНТА</span><h2 id="analysis-title">Аналіз анкети або CV</h2></div><button type="button" className="console-modal-close" onClick={onClose} aria-label="Закрити вікно аналізу">×</button></div>
+    <AnalysisPanel key={person.id} person={person} onSaved={onSaved}/>
+  </dialog>;
 }
 
 export function ConsolePerson(){
   const {id}=useParams(),role=useAppSelector(s=>s.auth.role);
   const [person,setPerson]=useState<Person|null>(null),[core,setCore]=useState<Partial<PersonCore>>({}),[tab,setTab]=useState("core"),[error,setError]=useState(""),[saved,setSaved]=useState(false),[busy,setBusy]=useState(false),[analysisOpen,setAnalysisOpen]=useState(false);
   const accept=(p:Person)=>{setPerson(p);setCore(p.core);setSaved(true);setError("")};
-  useEffect(()=>{setPerson(null);setError("");adminRequest<Person>(`/admin/persons/${id}`).then(p=>{setPerson(p);setCore(p.core)}).catch(e=>setError(errText(e)))},[id]);
-  const save=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setSaved(false);setError("");try{const payload=Object.fromEntries(coreFields.map(([key])=>[key,core[key as keyof PersonCore]??null]));accept(await adminRequest<Person>(`/admin/persons/${id}`,{method:"PATCH",body:JSON.stringify({...payload,notes:core.notes})}))}catch(e){setError(errText(e))}finally{setBusy(false)}};
+  const acceptAnalysis=(p:Person)=>{setPerson(p);setSaved(true);setError("")};
+  const editCore=(value:Partial<PersonCore>)=>{setCore(value);setSaved(false)};
+  useEffect(()=>{if(!saved)return;const timeout=window.setTimeout(()=>setSaved(false),4000);return()=>window.clearTimeout(timeout)},[saved]);
+  useEffect(()=>{setPerson(null);setError("");setAnalysisOpen(false);setTab("core");adminRequest<Person>("/admin/persons/"+id).then(p=>{setPerson(p);setCore(p.core)}).catch(e=>setError(errText(e)))},[id]);
+  const save=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setSaved(false);setError("");try{const payload=Object.fromEntries(coreFields.map(([key])=>[key,core[key as keyof PersonCore]??null]));accept(await adminRequest<Person>("/admin/persons/"+id,{method:"PATCH",body:JSON.stringify({...payload,notes:core.notes})}))}catch(e){setError(errText(e))}finally{setBusy(false)}};
   if(!person)return error?<Notice error={error}/>:<p className="loading">Відкриваємо профіль…</p>;
-  const tabs=[["core","Основне"],...blocks.map(b=>[b.key,b.title]),["mobility","Мобільність"],["documents","Документи"],...(role!=="manager"?[["access","Доступ"]]:[])];const block=blocks.find(b=>b.key===tab);
-  return <section><Link className="back" to="/admin/persons">← До клієнтів</Link><div className="page-title console-profile-title"><div className="console-person-link"><span className="console-avatar large">{person.core.first_name[0]}</span><div><h1>{person.core.first_name} {person.core.last_name}</h1><p>{person.core.city||"Місто не вказано"} · {person.core.phone||"Телефон не вказано"}</p></div></div><div className="console-profile-actions"><button className="button" type="button" onClick={()=>setAnalysisOpen(true)}>✦ Проаналізувати</button><span className={`status ${person.core.status}`}>{person.core.status_uk}</span></div></div><div className="tabs">{tabs.map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>{setTab(key);setSaved(false);setError("")}}>{label}</button>)}</div><Notice error={error}/>{saved&&<div className="success" role="status">Зміни збережено</div>}{tab==="core"&&<form className="panel form console-editor" onSubmit={save}><h2>Контактна інформація</h2><PersonTags person={person}/><CoreFields value={core} onChange={setCore}/><label><span>Нотатки</span><textarea rows={5} value={core.notes||""} onChange={e=>setCore({...core,notes:e.target.value})}/></label><div className="console-form-actions"><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти зміни"}</button></div></form>}{block&&<FactsEditor key={block.key} person={person} block={block} onSaved={accept}/>} {tab==="mobility"&&<MobilityEditor person={person} onSaved={accept}/>} {tab==="access"&&<AccessPanel personId={person.id}/>} {tab==="documents"&&<DocumentsPanel person={person} onSaved={accept}/>} {analysisOpen&&<AnalysisModal person={person} onSaved={accept} onClose={()=>setAnalysisOpen(false)}/>}</section>
+  const tabs=[["core","Основне"],...blocks.map(b=>[b.key,b.title]),["mobility","Мобільність"],["documents","Документи"],...(role!=="manager"?[["access","Доступ"]]:[])];
+  const block=blocks.find(b=>b.key===tab);
+  const documents=person.documents||[];
+  return <section className="client-profile">
+    <div className="profile-breadcrumb"><Link className="back" to="/admin/persons">← Клієнти</Link><span>/</span><span>Картка клієнта</span></div>
+    <header className="profile-header">
+      <div className="profile-identity">
+        <span className="profile-avatar">{person.core.first_name?.[0]}{person.core.last_name?.[0]}</span>
+        <div className="profile-heading"><span className="console-kicker">ПРОФІЛЬ КЛІЄНТА</span><h1>{person.core.first_name} {person.core.last_name}</h1><div className="profile-meta"><span><ProfileIcon name="pin"/>{person.core.city||"Місто не вказано"}</span>{person.core.phone&&<a href={"tel:"+person.core.phone.replace(/[^\d+]/g,"")}>{person.core.phone}</a>}</div></div>
+      </div>
+      <div className="profile-header-action"><button className="button" type="button" onClick={()=>setAnalysisOpen(true)}><ProfileIcon name="spark"/>Проаналізувати</button><small>Додати теги з анкети або CV</small></div>
+    </header>
+    <nav className="tabs profile-tabs" aria-label="Розділи профілю">{tabs.map(([key,label])=><button type="button" key={key} aria-current={tab===key?"page":undefined} className={tab===key?"active":""} onClick={()=>{setTab(key);setSaved(false);setError("")}}>{label}{key==="documents"&&documents.length>0&&<span className="profile-tab-count">{documents.length}</span>}</button>)}</nav>
+    <Notice error={error}/>
+    <div className="profile-save-notice" role="status">{saved&&<span>✓ Зміни збережено</span>}</div>
+    {tab==="core"&&<div className="profile-overview">
+      <form className="panel form profile-contact-card" onSubmit={save}>
+        <div className="profile-card-heading"><span className="profile-section-icon"><ProfileIcon name="user"/></span><div><h2>Особисті дані</h2><p>Контакти та основна інформація про клієнта</p></div></div>
+        <fieldset><legend>Про людину</legend><CoreFields only={["first_name","last_name","date_of_birth"]} value={core} onChange={editCore}/></fieldset>
+        <fieldset><legend>Контакти</legend><CoreFields only={["phone","email","telegram_username"]} value={core} onChange={editCore}/></fieldset>
+        <fieldset><legend>Місце проживання</legend><CoreFields only={["city","region","country"]} value={core} onChange={editCore}/></fieldset>
+        <label className="profile-notes"><span>Нотатки для команди</span><textarea rows={3} placeholder="Що важливо врахувати під час роботи з клієнтом…" value={core.notes||""} onChange={e=>editCore({...core,notes:e.target.value})}/></label>
+        <div className="console-form-actions profile-form-footer"><small>Збережіть зміни перед аналізом анкети</small><button className="button" disabled={busy}>{busy?"Зберігаємо…":"Зберегти зміни"}</button></div>
+      </form>
+      <aside className="profile-sidebar">
+        <PersonTags person={person}/>
+        <section className="profile-doc-card">
+          <div className="profile-card-heading"><span className="profile-section-icon"><ProfileIcon name="file"/></span><h3>CV та документи</h3><span className="profile-count">{documents.length}</span></div>
+          <p>{documents.length?"Файли, прикріплені до профілю клієнта.":"Додайте резюме, щоб мати досвід клієнта під рукою."}</p>
+          {documents.length>0&&<ul>{documents.slice(0,3).map(doc=><li key={doc.id}><ProfileIcon name="file"/><span>{String(doc.filename||"Документ")}</span></li>)}</ul>}
+          <button className="profile-text-action" type="button" onClick={()=>setTab("documents")}>{documents.length?"Переглянути документи":"Прикріпити CV"}<ProfileIcon name="arrow"/></button>
+        </section>
+      </aside>
+    </div>}
+    {block&&<FactsEditor key={block.key} person={person} block={block} onSaved={accept}/>}
+    {tab==="mobility"&&<MobilityEditor person={person} onSaved={accept}/>}
+    {tab==="access"&&<AccessPanel personId={person.id}/>}
+    {tab==="documents"&&<DocumentsPanel person={person} onSaved={accept}/>}
+    {analysisOpen&&<AnalysisModal person={person} onSaved={acceptAnalysis} onClose={()=>setAnalysisOpen(false)}/>}
+  </section>;
 }
 
 export function ConsoleTeam(){
