@@ -53,6 +53,9 @@ def _view_fact(row: dict) -> dict:
 
 
 async def _person_view(db, person: dict) -> dict:
+    fresh = await db.mnp_persons.find_one({"_id": person["_id"]})
+    if fresh:
+        person = fresh
     person_id = str(person["_id"])
     facts: dict[str, list] = {}
     for public_name, collection in FACTS.items():
@@ -72,6 +75,7 @@ async def _person_view(db, person: dict) -> dict:
         },
         "mobility": {key: person.get(key) for key in MOBILITY_FIELDS},
         **facts,
+        "tags": person.get("tags", []),
         "documents": documents,
         "created_at": person.get("created_at"), "updated_at": person.get("updated_at"),
     }
@@ -261,6 +265,32 @@ async def _check_analysis_quota(db, person_id: str) -> None:
         raise HTTPException(429, "Денний ліміт AI-аналізу для цього клієнта вичерпано")
 
 
+async def _sync_person_tags(db, person_id: str) -> list[dict]:
+    """Materialize canonical search tags directly on the person document."""
+    skill_ids = []
+    seen = set()
+    async for row in db[FACTS["skills"]].find({"person_id": person_id}):
+        skill_id = str(row.get("canonical_skill_id") or "")
+        if skill_id and skill_id not in seen:
+            seen.add(skill_id)
+            skill_ids.append(skill_id)
+    tags = []
+    for skill_id in skill_ids:
+        skill = await db.mnp_skills.find_one({"_id": skill_id})
+        if not skill or skill.get("status") == "archived":
+            continue
+        tags.append({
+            "skill_id": skill_id,
+            "name": skill.get("canonical_name_uk") or skill.get("canonical_name_en") or skill_id,
+            "skill_type": skill.get("skill_type"),
+        })
+    tags.sort(key=lambda item: str(item["name"]).casefold())
+    await db.mnp_persons.update_one(
+        {"_id": person_id}, {"$set": {"tags": tags, "updated_at": now()}},
+    )
+    return tags
+
+
 async def _assign_analysis_tags(db, *, person_id: str, proposal: dict,
                                 source: str, source_id: str) -> dict:
     """Save only existing taxonomy skills as unconfirmed, evidence-linked facts."""
@@ -300,9 +330,9 @@ async def _assign_analysis_tags(db, *, person_id: str, proposal: dict,
         })
         existing.add(str(skill_id))
         added += 1
-    if added:
-        await db.mnp_persons.update_one({"_id": person_id}, {"$set": {"updated_at": now()}})
-    return {"detected_tags": matched, "new_tags_count": added}
+    person_tags = await _sync_person_tags(db, person_id)
+    return {"detected_tags": matched, "new_tags_count": added,
+            "person_tags": person_tags}
 
 
 @router.post("/admin/persons/{person_id}/documents/{document_id}/analyze")
@@ -456,6 +486,8 @@ def _fact_routes(prefix: str, staff_mode: bool) -> None:
         row = {"_id": new_id(), "person_id": str(person["_id"]), **payload,
                "created_at": now(), "updated_at": now()}
         await db[FACTS[fact_type]].insert_one(row)
+        if fact_type == "skills":
+            await _sync_person_tags(db, str(person["_id"]))
         await db.mnp_persons.update_one({"_id": person["_id"]}, {"$set": {"updated_at": now()}})
         return await _person_view(db, await db.mnp_persons.find_one({"_id": person["_id"]}))
 
@@ -469,6 +501,8 @@ def _fact_routes(prefix: str, staff_mode: bool) -> None:
         )
         if not result.matched_count:
             raise HTTPException(404, "Запис не знайдено")
+        if fact_type == "skills":
+            await _sync_person_tags(db, str(person["_id"]))
         return await _person_view(db, person)
 
     async def remove(person_id: str, fact_type: str, fact_id: str, db, actor):
@@ -478,6 +512,8 @@ def _fact_routes(prefix: str, staff_mode: bool) -> None:
         result = await db[FACTS[fact_type]].delete_one({"_id": fact_id, "person_id": str(person["_id"])})
         if not result.deleted_count:
             raise HTTPException(404, "Запис не знайдено")
+        if fact_type == "skills":
+            await _sync_person_tags(db, str(person["_id"]))
         return await _person_view(db, person)
 
     router.add_api_route(prefix + "/{person_id}/{fact_type}", add, methods=["POST"], dependencies=[],
@@ -496,6 +532,8 @@ async def admin_add_fact(person_id: str, fact_type: str, payload: dict = Body(..
     person = await _staff_person(db, person_id, staff)
     await db[FACTS[fact_type]].insert_one({"_id": new_id(), "person_id": person_id, **payload,
                                            "created_at": now(), "updated_at": now()})
+    if fact_type == "skills":
+        await _sync_person_tags(db, person_id)
     return await _person_view(db, person)
 
 
@@ -507,6 +545,8 @@ async def admin_edit_fact(person_id: str, fact_type: str, fact_id: str, payload:
     result = await db[FACTS[fact_type]].update_one({"_id": fact_id, "person_id": person_id},
                                                    {"$set": {**payload, "updated_at": now()}})
     if not result.matched_count: raise HTTPException(404, "Запис не знайдено")
+    if fact_type == "skills":
+        await _sync_person_tags(db, person_id)
     return await _person_view(db, person)
 
 
@@ -516,6 +556,8 @@ async def admin_delete_fact(person_id: str, fact_type: str, fact_id: str, db: Da
     person = await _staff_person(db, person_id, staff)
     if fact_type not in FACTS: raise HTTPException(404, "Невідомий розділ")
     await db[FACTS[fact_type]].delete_one({"_id": fact_id, "person_id": person_id})
+    if fact_type == "skills":
+        await _sync_person_tags(db, person_id)
     return await _person_view(db, person)
 
 

@@ -35,6 +35,7 @@ export type Person = {
   identity_user_id?: string | null;
   core: PersonCore;
   mobility: Record<string, unknown>;
+  tags: {skill_id:string; name:string; skill_type?:string|null}[];
   educations: FactRow[];
   credentials: FactRow[];
   experiences: FactRow[];

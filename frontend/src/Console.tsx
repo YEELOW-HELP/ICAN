@@ -101,6 +101,7 @@ type CvAnalysisResult = {
   input_tokens:number;
   output_tokens:number;
   detected_tags:{id:string;name:string}[];
+  person_tags:{skill_id:string;name:string;skill_type?:string|null}[];
   new_tags_count:number;
   proposal:{
     primary_role:string;alternative_roles:string[];
@@ -158,7 +159,7 @@ function AnalysisPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}
       const path=source==="cv"?`/admin/persons/${person.id}/documents/${documentId}/analyze`:`/admin/persons/${person.id}/analysis/questionnaire`;
       const analysis=await adminRequest<CvAnalysisResult>(path,{method:"POST",body:JSON.stringify({permission_confirmed:true})});
       setResult(analysis);
-      if(analysis.new_tags_count)onSaved(await adminRequest<Person>(`/admin/persons/${person.id}`));
+      onSaved(await adminRequest<Person>(`/admin/persons/${person.id}`));
     }catch(e){setError(errText(e))}finally{setBusy(false)}
   };
   return <div className="panel console-editor">
@@ -169,7 +170,7 @@ function AnalysisPanel({person,onSaved}:{person:Person;onSaved:(p:Person)=>void}
     {source==="questionnaire"&&<p className="muted">Буде використано збережені дані анкети: досвід, освіту, навички, мови та побажання щодо роботи. Контакти, дата народження й нотатки працівника не надсилаються.</p>}
     {source&&<><p className="muted">Дані вибраного джерела надсилаються сервісу OpenAI для аналізу.</p><label><input type="checkbox" checked={permissionConfirmed} onChange={e=>setPermissionConfirmed(e.target.checked)}/> Підтверджую, що маю дозвіл на AI-обробку даних клієнта.</label><div className="console-form-actions"><button className="button" disabled={busy||!permissionConfirmed||(source==="cv"&&!cvs.length)} onClick={()=>void run()}>{busy?"Аналізуємо…":"Надіслати на аналіз"}</button></div></>}
     <Notice error={error}/>
-    {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.detected_tags.length>0&&<p><b>Теги з довідника:</b> {result.detected_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}. Перегляньте їх у вкладці «Навички».</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Теги ШІ не є підтвердженими фактами. Інші пропозиції не записуються в профіль. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
+    {result&&<div className="console-fact-form"><h3>Результат аналізу {result.cached&&<small>· із кешу</small>}</h3><p><b>Основна посада:</b> {result.proposal.primary_role||"Не визначено"}</p>{result.proposal.alternative_roles.length>0&&<p><b>Суміжні посади:</b> {result.proposal.alternative_roles.join(", ")}</p>}{result.person_tags.length>0&&<p><b>Теги людини:</b> {result.person_tags.map(t=>t.name).join(", ")} · нових: {result.new_tags_count}. Вони закріплені безпосередньо в полі <code>mnp_persons.tags</code>.</p>}{result.proposal.skills.some(s=>!s.canonical_skill_id)&&<p><b>Потребують звірки:</b> {result.proposal.skills.filter(s=>!s.canonical_skill_id).map(s=>s.name).join(", ")}</p>}{result.proposal.search_queries.length>0&&<p><b>Запити для пошуку:</b> {result.proposal.search_queries.join("; ")}</p>}{result.proposal.work_format&&<p><b>Формат:</b> {result.proposal.work_format}</p>}{result.proposal.summary&&<p>{result.proposal.summary}</p>}<small>Теги ШІ не є підтвердженими фактами. Інші пропозиції не записуються в профіль. Токени: {result.input_tokens} вхідних / {result.output_tokens} вихідних.</small></div>}
   </div>;
 }
 

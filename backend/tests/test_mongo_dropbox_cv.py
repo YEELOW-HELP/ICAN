@@ -403,6 +403,9 @@ async def test_cv_analysis_assigns_only_existing_canonical_tags_without_duplicat
     assert rows[1]["evidence_state"] == "system_detected"
     assert rows[1]["supporting_document_id"] == "doc-1"
     assert rows[1]["evidence_excerpt"] == "Excel"
+    assert db.mnp_persons.rows["person-1"]["tags"] == [
+        {"skill_id": "skill-1", "name": "Excel", "skill_type": None},
+    ]
 
 
 @pytest.mark.asyncio
