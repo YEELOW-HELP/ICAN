@@ -23,6 +23,17 @@ def test_anthropic_api_key_accepts_ascii_value():
     assert Settings(anthropic_api_key="sk-ant-test-123").anthropic_api_key == "sk-ant-test-123"
 
 
+def test_openai_api_key_and_requested_model_are_supported():
+    settings = Settings(_env_file=None, openai_api_key="sk-test", openai_model="gpt-5.6-luna")
+    assert settings.openai_api_key.get_secret_value() == "sk-test"
+    assert settings.openai_model == "gpt-5.6-luna"
+
+
+def test_unknown_openai_model_is_rejected():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, openai_model="made-up-model")
+
+
 def test_anthropic_api_key_rejects_non_ascii_without_leaking_secret():
     secret = "sk-ant-тест-secret"
     with pytest.raises(ValidationError) as exc_info:

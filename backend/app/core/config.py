@@ -11,7 +11,8 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     anthropic_api_key: str = ""
-    cv_analysis_model: str = "claude-sonnet-5"
+    openai_api_key: SecretStr = SecretStr("")
+    openai_model: str = "gpt-5.6-luna"
     cv_analysis_enabled: bool = False
     cv_analysis_daily_limit: int = Field(default=5, ge=1, le=100)
     # MongoDB is the only database used by the web runtime.
@@ -107,11 +108,21 @@ class Settings(BaseSettings):
             raise ValueError("ANTHROPIC_API_KEY must contain ASCII characters only")
         return value
 
-    @field_validator("cv_analysis_model")
+    @field_validator("openai_api_key", mode="before")
     @classmethod
-    def _validate_cv_analysis_model(cls, value: str) -> str:
-        if value not in {"claude-sonnet-5", "claude-haiku-4-5-20251001"}:
-            raise ValueError("CV_ANALYSIS_MODEL is not in the allowed model list")
+    def _validate_openai_api_key(cls, value) -> str:
+        raw = value.get_secret_value() if isinstance(value, SecretStr) else str(value or "")
+        if raw != raw.strip():
+            raise ValueError("OPENAI_API_KEY must not contain leading or trailing whitespace")
+        if not raw.isascii():
+            raise ValueError("OPENAI_API_KEY must contain ASCII characters only")
+        return raw
+
+    @field_validator("openai_model")
+    @classmethod
+    def _validate_openai_model(cls, value: str) -> str:
+        if value not in {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"}:
+            raise ValueError("OPENAI_MODEL is not in the allowed model list")
         return value
 
 

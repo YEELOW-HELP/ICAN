@@ -14,7 +14,7 @@ Backend підключається лише до MongoDB з `MONGODB_URL`. Як�
 `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` і `DROPBOX_REFRESH_TOKEN` (також на
 сервері). Dropbox app має мати права `files.content.write` та
 `files.content.read`; файли зберігаються приватно, без shared links.
-Для кнопки «Проаналізувати» окремо потрібен `ANTHROPIC_API_KEY` на
+Для кнопки «Проаналізувати» окремо потрібен `OPENAI_API_KEY` на
 бекенді та `CV_ANALYSIS_ENABLED=true`. У картці клієнта кнопка
 «Проаналізувати» дає вибір між прикріпленим CV і заповненою анкетою.
 Аналіз CV працює з PDF із текстовим шаром і DOCX; старий DOC можна

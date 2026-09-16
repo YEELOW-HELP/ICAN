@@ -11,7 +11,7 @@ import re
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.ai_gateway import AIGateway
+from app.ai_gateway import AIGateway, OpenAIToolGateway
 from app.core.config import settings
 from app.services.resume_parser_mnp.extraction import (
     CorruptFileError, NoTextLayerError, UnsupportedDocumentError, extract_text,
@@ -120,12 +120,12 @@ def _norm(value: str) -> str:
 async def _analyze_excerpt(db, *, excerpt: str, task_name: str,
                            prompt_version: str,
                            gateway: AIGateway | None = None) -> tuple[CvSearchProposal, object]:
-    if not settings.anthropic_api_key:
-        raise CvAnalysisError("На бекенді не налаштовано ANTHROPIC_API_KEY", 503)
+    if not settings.openai_api_key.get_secret_value():
+        raise CvAnalysisError("На бекенді не налаштовано OPENAI_API_KEY", 503)
     try:
-        result = await (gateway or AIGateway()).call_tool(
+        result = await (gateway or OpenAIToolGateway()).call_tool(
             task_name=task_name, prompt_version=prompt_version,
-            model=settings.cv_analysis_model, system=_SYSTEM_PROMPT,
+            model=settings.openai_model, system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": f"<profile_data>\n{excerpt}\n</profile_data>"}],
             tools=[_TOOL], tool_choice={"type": "tool", "name": "analyze_profile"},
             max_tokens=1800,
@@ -155,8 +155,8 @@ async def _analyze_excerpt(db, *, excerpt: str, task_name: str,
 
 async def analyze_cv(db, *, content: bytes, filename: str,
                      gateway: AIGateway | None = None) -> tuple[CvSearchProposal, object]:
-    if not settings.anthropic_api_key:
-        raise CvAnalysisError("На бекенді не налаштовано ANTHROPIC_API_KEY", 503)
+    if not settings.openai_api_key.get_secret_value():
+        raise CvAnalysisError("На бекенді не налаштовано OPENAI_API_KEY", 503)
     return await _analyze_excerpt(
         db, excerpt=_career_excerpt(content, filename), task_name="cv_search_analysis",
         prompt_version=PROMPT_VERSION, gateway=gateway,
@@ -211,8 +211,8 @@ async def questionnaire_excerpt(db, profile: dict) -> str:
 
 async def analyze_questionnaire(db, *, excerpt: str,
                                 gateway: AIGateway | None = None) -> tuple[CvSearchProposal, object]:
-    if not settings.anthropic_api_key:
-        raise CvAnalysisError("На бекенді не налаштовано ANTHROPIC_API_KEY", 503)
+    if not settings.openai_api_key.get_secret_value():
+        raise CvAnalysisError("На бекенді не налаштовано OPENAI_API_KEY", 503)
     return await _analyze_excerpt(
         db, excerpt=excerpt, task_name="questionnaire_search_analysis",
         prompt_version=QUESTIONNAIRE_PROMPT_VERSION, gateway=gateway,

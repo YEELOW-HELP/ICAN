@@ -21,12 +21,14 @@ that lands.
 from __future__ import annotations
 
 import logging
+import json
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
 from anthropic import AsyncAnthropic
+import httpx
 
 from app.core.config import settings
 
@@ -37,6 +39,7 @@ logger = logging.getLogger("app.ai_gateway")
 _PRICE_PER_MTOK_USD: dict[str, tuple[float, float]] = {
     # model: (input, output)
     "claude-sonnet-5": (3.0, 15.0),
+    "gpt-5.6-luna": (0.20, 1.20),
 }
 
 
@@ -163,6 +166,82 @@ class AIGateway:
             raw_content=content,
             trace=trace,
         )
+
+
+class OpenAIToolGateway:
+    """Responses API adapter preserving the gateway's tool-call contract."""
+
+    def __init__(self, client: httpx.AsyncClient | None = None) -> None:
+        self._client = client
+
+    async def call_tool(
+        self, *, task_name: str, prompt_version: str, model: str, system: str,
+        messages: list[dict[str, str]], tools: list[dict[str, Any]],
+        tool_choice: dict[str, Any], max_tokens: int,
+    ) -> GatewayResult:
+        trace_id = str(uuid.uuid4())
+        started = time.monotonic()
+        function_name = tool_choice["name"]
+        openai_tools = [{
+            "type": "function", "name": tool["name"],
+            "description": tool.get("description", ""),
+            "parameters": tool.get("input_schema", {"type": "object"}),
+        } for tool in tools]
+        payload = {
+            "model": model, "instructions": system, "input": messages,
+            "tools": openai_tools,
+            "tool_choice": {"type": "function", "name": function_name},
+            "max_output_tokens": max_tokens,
+            "reasoning": {"effort": "low"},
+            "store": False,
+        }
+        headers = {"Authorization": f"Bearer {settings.openai_api_key.get_secret_value()}"}
+        try:
+            if self._client is not None:
+                response = await self._client.post(
+                    "https://api.openai.com/v1/responses", json=payload, headers=headers)
+            else:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    response = await client.post(
+                        "https://api.openai.com/v1/responses", json=payload,
+                        headers=headers,
+                    )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            latency_ms = (time.monotonic() - started) * 1000
+            logger.error(
+                "ai_gateway_call_failed task=%s prompt_version=%s provider=openai model=%s "
+                "trace_id=%s latency_ms=%.1f exception_type=%s retry_count=0",
+                task_name, prompt_version, model, trace_id, latency_ms, type(exc).__name__,
+            )
+            raise
+
+        output = data.get("output") or []
+        call = next((item for item in output
+                     if item.get("type") == "function_call" and item.get("name") == function_name), None)
+        tool_input = None
+        if call is not None:
+            tool_input = json.loads(call.get("arguments") or "{}")
+        usage = data.get("usage") or {}
+        input_tokens = int(usage.get("input_tokens") or 0)
+        output_tokens = int(usage.get("output_tokens") or 0)
+        status = data.get("status")
+        trace = GatewayTrace(
+            trace_id=trace_id, task_name=task_name, provider="openai", model=model,
+            prompt_version=prompt_version, input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=(time.monotonic() - started) * 1000,
+            estimated_cost_usd=_estimate_cost_usd(model, input_tokens, output_tokens),
+            retry_count=0, stop_reason=status,
+        )
+        logger.info(
+            "ai_gateway_call task=%s prompt_version=%s provider=openai model=%s trace_id=%s "
+            "input_tokens=%d output_tokens=%d latency_ms=%.1f estimated_cost_usd=%s stop_reason=%s",
+            task_name, prompt_version, model, trace_id, input_tokens, output_tokens,
+            trace.latency_ms, trace.estimated_cost_usd, status,
+        )
+        return GatewayResult(tool_input=tool_input, raw_content=output, trace=trace)
 
 
 def _estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float | None:

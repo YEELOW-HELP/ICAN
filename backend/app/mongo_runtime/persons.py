@@ -318,7 +318,7 @@ async def admin_analyze_cv(person_id: str, document_id: str, payload: dict = Bod
     cached = await db.mnp_cv_analyses.find_one({"_id": document_id})
     if (cached and cached.get("sha256") == document.get("sha256")
             and cached.get("prompt_version") == cv_analysis.PROMPT_VERSION
-            and cached.get("model") == settings.cv_analysis_model):
+            and cached.get("model") == settings.openai_model):
         tags = await _assign_analysis_tags(db, person_id=person_id, proposal=cached["proposal"],
                                            source="cv", source_id=document_id)
         return {"cached": True, **tags, **{key: cached[key] for key in (
@@ -332,7 +332,7 @@ async def admin_analyze_cv(person_id: str, document_id: str, payload: dict = Bod
         raise HTTPException(exc.status_code, str(exc)) from exc
     record = {"_id": document_id, "document_id": document_id,
               "person_id": str(person["_id"]), "sha256": document.get("sha256"),
-              "proposal": proposal.model_dump(), "model": settings.cv_analysis_model,
+              "proposal": proposal.model_dump(), "model": settings.openai_model,
               "prompt_version": cv_analysis.PROMPT_VERSION,
               "input_tokens": trace.input_tokens, "output_tokens": trace.output_tokens,
               "trace_id": trace.trace_id, "analyzed_at": now(),
@@ -364,7 +364,7 @@ async def admin_analyze_questionnaire(person_id: str, payload: dict = Body(...),
     cached = await db.mnp_questionnaire_analyses.find_one({"_id": person_id})
     if (cached and cached.get("profile_hash") == profile_hash
             and cached.get("prompt_version") == cv_analysis.QUESTIONNAIRE_PROMPT_VERSION
-            and cached.get("model") == settings.cv_analysis_model):
+            and cached.get("model") == settings.openai_model):
         tags = await _assign_analysis_tags(db, person_id=person_id, proposal=cached["proposal"],
                                            source="questionnaire", source_id=person_id)
         return {"cached": True, **tags, **{key: cached[key] for key in (
@@ -375,7 +375,7 @@ async def admin_analyze_questionnaire(person_id: str, payload: dict = Body(...),
     except cv_analysis.CvAnalysisError as exc:
         raise HTTPException(exc.status_code, str(exc)) from exc
     record = {"_id": person_id, "person_id": person_id, "profile_hash": profile_hash,
-              "proposal": proposal.model_dump(), "model": settings.cv_analysis_model,
+              "proposal": proposal.model_dump(), "model": settings.openai_model,
               "prompt_version": cv_analysis.QUESTIONNAIRE_PROMPT_VERSION,
               "input_tokens": trace.input_tokens, "output_tokens": trace.output_tokens,
               "trace_id": trace.trace_id, "analyzed_at": now(),

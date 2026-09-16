@@ -4,8 +4,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import httpx
+from pydantic import SecretStr
 
-from app.ai_gateway import AIGateway
+from app.ai_gateway import AIGateway, OpenAIToolGateway
+from app.core.config import settings
 
 
 def _client(content, stop_reason="tool_use", usage=None):
@@ -155,3 +158,38 @@ async def test_provider_exception_is_reraised_logged_and_not_retried(caplog):
 
     # never log prompt/message content, tool payloads, or secrets
     assert "some secret candidate message" not in message
+
+
+async def test_openai_gateway_forces_function_and_reads_responses_api(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test-openai-key"))
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer test-openai-key"
+        payload = __import__("json").loads(request.content)
+        assert payload["model"] == "gpt-5.6-luna"
+        assert payload["tool_choice"] == {"type": "function", "name": "analyze_profile"}
+        assert payload["tools"][0]["parameters"]["type"] == "object"
+        assert payload["store"] is False
+        return httpx.Response(200, json={
+            "status": "completed",
+            "output": [{"type": "function_call", "name": "analyze_profile",
+                        "arguments": "{\"primary_role\":\"Аналітик\"}"}],
+            "usage": {"input_tokens": 100, "output_tokens": 25},
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await OpenAIToolGateway(client=client).call_tool(
+            task_name="cv_search_analysis", prompt_version="v1",
+            model="gpt-5.6-luna", system="system",
+            messages=[{"role": "user", "content": "profile"}],
+            tools=[{"name": "analyze_profile", "description": "Analyze",
+                    "input_schema": {"type": "object", "properties": {}}}],
+            tool_choice={"type": "tool", "name": "analyze_profile"},
+            max_tokens=1800,
+        )
+    assert result.tool_input == {"primary_role": "Аналітик"}
+    assert result.trace.provider == "openai"
+    assert result.trace.model == "gpt-5.6-luna"
+    assert result.trace.input_tokens == 100
+    assert result.trace.output_tokens == 25
+    assert result.trace.estimated_cost_usd == pytest.approx(0.00005)

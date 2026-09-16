@@ -220,7 +220,7 @@ async def test_multipart_api_keeps_scope_and_file_private(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_ai_extracts_supported_skill_and_matches_taxonomy(monkeypatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr("test-key"))
     monkeypatch.setattr(cv_analysis, "extract_text", lambda *_args: (
         "Досвід роботи\nАналітик даних. Використовував Excel щодня.\n"
         "Навички\nExcel, SQL\nКонтакт: candidate@example.com"
@@ -289,7 +289,7 @@ async def test_analysis_is_cached_and_manager_scope_is_checked_first(monkeypatch
 
 @pytest.mark.asyncio
 async def test_missing_ai_key_does_not_send_cv(monkeypatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    monkeypatch.setattr(settings, "openai_api_key", SecretStr(""))
     with pytest.raises(cv_analysis.CvAnalysisError) as error:
         await cv_analysis.analyze_cv(Database(), content=b"%PDF-saved", filename="cv.pdf")
     assert error.value.status_code == 503
