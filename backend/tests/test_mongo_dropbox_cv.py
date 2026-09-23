@@ -153,7 +153,9 @@ async def test_invalid_person_status_is_rejected_before_writes(invalid):
     assert len(db.mnp_persons.rows) == 1
     assert not db.mnp_person_access.rows
     with pytest.raises(HTTPException) as update_error:
-        await persons.update_person("person-1", {"status": invalid}, db, manager)
+        await persons.update_person(
+            "person-1", {"status": invalid}, db, {"_id": 1, "role": SUPER_ADMIN},
+        )
     assert update_error.value.status_code == 422
     assert db.mnp_persons.rows["person-1"]["status"] == "active"
 
@@ -162,12 +164,20 @@ async def test_invalid_person_status_is_rejected_before_writes(invalid):
 async def test_status_patch_preserves_scope_and_partial_update():
     db = Database()
     manager = {"_id": 7, "role": MANAGER}
-    changed = await persons.update_person("person-1", {"status": "case"}, db, manager)
+    superadmin = {"_id": 1, "role": SUPER_ADMIN}
+    changed = await persons.update_person("person-1", {"status": "case"}, db, superadmin)
     assert changed["core"]["status_uk"] == "КЕЙС"
+    assert db.mnp_persons.rows["person-1"]["status_updated_by_staff_id"] == 1
     changed = await persons.update_person("person-1", {"city": "Дніпро"}, db, manager)
     assert changed["core"]["status"] == "case"
+    for role in (MANAGER, ADMIN):
+        with pytest.raises(HTTPException) as forbidden:
+            await persons.update_person("person-1", {"status": "active"}, db, {
+                "_id": 7, "role": role,
+            })
+        assert forbidden.value.status_code == 403
     with pytest.raises(HTTPException) as denied:
-        await persons.update_person("person-1", {"status": "active"}, db, {"_id": 8, "role": MANAGER})
+        await persons.update_person("person-1", {"city": "Харків"}, db, {"_id": 8, "role": MANAGER})
     assert denied.value.status_code == 404
     assert db.mnp_persons.rows["person-1"]["status"] == "case"
 

@@ -851,7 +851,8 @@ async def list_persons(db: Database, staff=Depends(current_staff)):
             "phone": person.get("phone"), "email": person.get("email"),
             "telegram_username": person.get("telegram_username"), "city": person.get("city"),
             "status": status, "status_uk": STATUS_UK.get(status, status),
-            "source": person.get("source"), "updated_at": person.get("updated_at"),
+            "source": person.get("source"),
+            "created_at": person.get("created_at"), "updated_at": person.get("updated_at"),
             "responsible": responsible,
             "workflow_stage": _workflow_stage(person),
             "workflow_stage_uk": WORKFLOW_STAGE_UK[_workflow_stage(person)],
@@ -947,7 +948,11 @@ async def update_person(person_id: str, payload: dict = Body(...), db: Database 
     _prepare_contacts(changes)
     _validate_referral(changes, current)
     if "status" in changes:
+        if staff.get("role") != SUPER_ADMIN:
+            raise HTTPException(403, "Змінювати статус клієнта може лише суперадміністратор")
         changes["status"] = _validate_person_status(changes["status"])
+        changes["status_updated_by_staff_id"] = staff["_id"]
+        changes["status_updated_at"] = now()
     changes["updated_at"] = now()
     await db.mnp_persons.update_one({"_id": person_id}, {"$set": changes})
     return await _person_view(db, await db.mnp_persons.find_one({"_id": person_id}))

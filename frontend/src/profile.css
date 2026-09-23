@@ -165,6 +165,16 @@
 .simplified-profile .profile-header { padding: 26px 28px; background: #fff; border: 1px solid #e2e6df; border-top: 3px solid #f4cc48; border-radius: 18px; margin-bottom: 20px; }
 .profile-heading-label { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .profile-heading-label .status { padding: 4px 8px; font-size: 9px; }
+.profile-status-control { position: relative; display: inline-flex; border-radius: 8px; }
+.profile-status-control select { width: auto; min-height: 28px; padding: 4px 28px 4px 9px; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 9px; font-weight: 750; cursor: pointer; text-transform: uppercase; }
+.profile-status-control.case { background: #e8edf9; color: #435d95; }
+.profile-status-control.draft { background: #fff2b8; color: #7e6411; }
+.profile-status-control.active { background: #ddf3e8; color: #247052; }
+.profile-status-control.archived { background: #eceeeb; color: #676e65; }
+.profile-status-control select:disabled { cursor: progress; opacity: .65; }
+.profile-header-stage { margin: 0; }
+.profile-created-at { padding-left: 16px; border-left: 1px solid #dfe4dc; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .simplified-profile .profile-avatar { background: #f7f1d9; border-color: #ebe2bc; border-radius: 50%; }
 .simplified-profile .profile-heading h1 { font-size: clamp(23px,2vw,30px); }
 .simplified-profile .profile-navigation { padding: 0 2px; }
@@ -189,7 +199,12 @@
 .profile-section-surface > .profile-card-heading { margin-bottom: 20px; }
 .profile-workflow-quick-card { border-top: 3px solid #e7bb28; background: linear-gradient(180deg,#fffdf5 0,#fff 115px); }
 .profile-workflow-quick-card .profile-card-heading > div { min-width: 0; }
-.profile-workflow-quick-card .profile-workflow-stage { flex-shrink: 0; margin: 0 0 0 auto; }
+.quick-card-status-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 14px 0 18px; padding: 14px 0; border-top: 1px solid #ecefe7; border-bottom: 1px solid #ecefe7; }
+.quick-card-status-row > div { display: grid; gap: 4px; }
+.quick-card-status-row > div > span { color: #4c5944; font-size: 12px; font-weight: 700; }
+.quick-card-status-row > div > small { color: #899183; font-size: 10px; line-height: 1.45; }
+.quick-card-status-row > .status { flex-shrink: 0; }
+.quick-card-status-row .profile-status-control select { min-height: 31px; font-size: 10px; }
 .quick-workflow-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #ecefe7; }
 .quick-workflow-actions small { color: #858d7f; font-size: 10px; line-height: 1.5; }
 .profile-section-surface .profile-fold { border-radius: 10px; background: #fafbf8; border-color: #e8ece2; margin-top: 10px; }
@@ -298,7 +313,7 @@
   .profile-heading-label { gap: 8px; }
   .profile-section-surface, .console-shell .simplified-profile .profile-contact-summary { padding: 18px; border-radius: 14px; }
   .profile-workflow-quick-card .profile-card-heading { align-items: flex-start; flex-wrap: wrap; }
-  .profile-workflow-quick-card .profile-workflow-stage { margin-left: 43px; }
+  .quick-card-status-row { align-items: flex-start; flex-direction: column; }
   .quick-workflow-actions { align-items: stretch; flex-direction: column; }
   .quick-workflow-actions .button { width: 100%; }
   .console-shell .simplified-profile .profile-tabs { gap: 12px; }
@@ -381,6 +396,15 @@
 .workflow-table-cell { display: grid; gap: 5px; min-width: 170px; }
 .workflow-table-cell b { font-size: 12px; font-weight: 650; }
 .workflow-stage-label { width: fit-content; padding: 4px 7px; border-radius: 7px; background: #eef1e8; color: #536047; font-size: 10px; font-weight: 700; }
+.workflow-stage-select { width: auto; min-width: 170px; min-height: 36px; padding: 7px 32px 7px 10px; border: 1px solid #dce3d5; border-radius: 9px; background-color: #f5f8f1; color: #465440; font-size: 11px; font-weight: 700; cursor: pointer; }
+.workflow-stage-select:hover { border-color: #c1cdb5; background-color: #fff; }
+.workflow-stage-select:focus { border-color: #d7aa12; box-shadow: 0 0 0 3px rgba(232,185,24,.14); outline: 0; }
+.workflow-stage-select:disabled { cursor: progress; opacity: .6; }
+.list-close-modal { width: min(480px,100%); }
+.list-close-modal .console-modal-head p { margin: 7px 0 0; color: #727c6b; font-size: 12px; }
+.list-close-form { margin-top: 22px; }
+.list-close-form textarea { min-height: 105px; resize: vertical; }
+.list-close-form .console-form-actions { margin-top: 6px; }
 .workflow-table-cell small { margin: 0; color: #808879; line-height: 1.45; }
 .workflow-table-cell .needs-contact-label { color: #936b00; font-weight: 650; }
 .duplicate-warning { display: grid; gap: 10px; margin-top: 13px; padding: 14px; border: 1px solid #e5c969; border-radius: 11px; background: #fff8dd; color: #5b4c1d; }
