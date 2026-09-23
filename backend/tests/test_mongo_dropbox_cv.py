@@ -1,5 +1,6 @@
 """Dropbox CV upload: provider contract, staff scope and safe document view."""
 
+from datetime import timedelta
 from io import BytesIO
 import json
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from pydantic import SecretStr
 
 from app.core.config import settings
 from app.mongo_runtime import cv_analysis, dropbox_storage, persons
-from app.mongo_runtime.core import ADMIN, MANAGER, current_staff, database
+from app.mongo_runtime.core import ADMIN, MANAGER, SUPER_ADMIN, current_staff, database
 from app.mongo_runtime.main import app
 
 
@@ -19,34 +20,70 @@ class Collection:
     def __init__(self, rows=()):
         self.rows = {row["_id"]: dict(row) for row in rows}
 
+    @staticmethod
+    def _matches(row, query):
+        for key, expected in query.items():
+            actual = row.get(key)
+            if key == "access_admin_ids":
+                if expected not in (actual or []):
+                    return False
+            elif isinstance(actual, list) and not isinstance(expected, dict):
+                if expected not in actual:
+                    return False
+            elif isinstance(expected, dict) and "$ne" in expected:
+                if actual == expected["$ne"]:
+                    return False
+            elif isinstance(expected, dict) and "$gte" in expected:
+                if actual is None or actual < expected["$gte"]:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
     async def find_one(self, query):
         for row in self.rows.values():
-            if all(row.get(key) == value if key != "access_admin_ids"
-                   else value in row.get(key, []) for key, value in query.items()):
+            if self._matches(row, query):
                 return dict(row)
         return None
 
     async def find(self, query=None):
         query = query or {}
         for row in self.rows.values():
-            if all(row.get(key) == value for key, value in query.items()):
+            if self._matches(row, query):
                 yield dict(row)
 
     async def insert_one(self, row):
         self.rows[row["_id"]] = dict(row)
 
-    async def update_one(self, query, update):
-        self.rows[query["_id"]].update(update["$set"])
+    async def update_one(self, query, update, upsert=False):
+        row = next((row for row in self.rows.values() if self._matches(row, query)), None)
+        if row is None:
+            if not upsert:
+                return SimpleNamespace(matched_count=0)
+            row = {key: value for key, value in query.items() if not isinstance(value, dict)}
+            row.update(update.get("$setOnInsert", {}))
+            self.rows[row["_id"]] = row
+        row.update(update.get("$set", {}))
+        for key, value in update.get("$addToSet", {}).items():
+            row.setdefault(key, [])
+            if value not in row[key]:
+                row[key].append(value)
+        for key, value in update.get("$pull", {}).items():
+            row[key] = [item for item in row.get(key, []) if item != value]
+        return SimpleNamespace(matched_count=1)
+
+    async def delete_one(self, query):
+        key = next((key for key, row in self.rows.items() if self._matches(row, query)), None)
+        if key is None:
+            return SimpleNamespace(deleted_count=0)
+        del self.rows[key]
+        return SimpleNamespace(deleted_count=1)
 
     async def replace_one(self, query, row, upsert=False):
         self.rows[query["_id"]] = dict(row)
 
     async def count_documents(self, query):
-        return sum(
-            row.get("person_id") == query["person_id"]
-            and row.get("analyzed_at") >= query["analyzed_at"]["$gte"]
-            for row in self.rows.values()
-        )
+        return sum(self._matches(row, query) for row in self.rows.values())
 
 
 class Database:
@@ -61,6 +98,14 @@ class Database:
         self.mnp_cv_analyses = Collection()
         self.mnp_questionnaire_analyses = Collection()
         self.mnp_ai_analysis_events = Collection()
+        self.mnp_superadmin_recommendations = Collection()
+        self.mnp_employment_stages = Collection()
+        self.mnp_client_request_types = Collection()
+        self.mnp_person_access = Collection()
+        self.admin_users = Collection([{
+            "_id": 7, "email": "manager@example.com", "full_name": "Менеджер",
+            "role": MANAGER, "is_active": True,
+        }])
         self.mnp_skills = Collection([
             {"_id": "skill-1", "canonical_name_uk": "Excel", "status": "active"},
             {"_id": "skill-2", "canonical_name_uk": "Облік у 1С", "status": "active"},
@@ -537,3 +582,124 @@ async def test_questionnaire_detected_tags_do_not_feed_their_own_analysis(monkey
     assert second["new_tags_count"] == 0
     assert len(calls) == 1
     assert next(iter(db.collections["mnp_person_skills_v1"].rows.values()))["evidence_state"] == "system_detected"
+
+
+@pytest.mark.asyncio
+async def test_ai_recommendations_are_superadmin_only(monkeypatch):
+    monkeypatch.setattr(settings, "cv_analysis_enabled", True)
+    db = Database()
+    for role in (MANAGER, ADMIN):
+        staff = {"_id": 7, "role": role}
+        with pytest.raises(HTTPException) as get_error:
+            await persons.get_ai_recommendations("person-1", db, staff)
+        assert get_error.value.status_code == 403
+        with pytest.raises(HTTPException) as post_error:
+            await persons.generate_ai_recommendations("person-1", db, staff)
+        assert post_error.value.status_code == 403
+    assert not db.mnp_superadmin_recommendations.rows
+    assert not db.mnp_ai_analysis_events.rows
+
+
+@pytest.mark.asyncio
+async def test_superadmin_generates_stores_and_refreshes_private_recommendations(monkeypatch):
+    monkeypatch.setattr(settings, "cv_analysis_enabled", True)
+    db = Database()
+    initial_updated_at = persons.now()
+    db.mnp_persons.rows["person-1"]["updated_at"] = initial_updated_at
+
+    async def generate(profile):
+        assert profile["id"] == "person-1"
+        return persons.ai_recommendations.RecommendationPlan(
+            summary="Спочатку уточнити запит і підготувати клієнта до пошуку.",
+            steps=[{
+                "title": "Уточнити ціль",
+                "action": "Провести коротку консультацію та узгодити бажані ролі.",
+            }],
+            platform_offers=["Індивідуальна кар’єрна консультація"],
+            questions_to_clarify=["Який графік роботи підходить?"],
+            suggested_workflow_stage="consultation_scheduled",
+        ), SimpleNamespace(input_tokens=120, output_tokens=80, trace_id="trace-rec")
+
+    monkeypatch.setattr(persons.ai_recommendations, "generate", generate)
+    superadmin = {"_id": 1, "role": SUPER_ADMIN}
+    assert await persons.get_ai_recommendations("person-1", db, superadmin) == {
+        "recommendation": None,
+    }
+
+    created = await persons.generate_ai_recommendations("person-1", db, superadmin)
+    assert created["recommendation"]["steps"][0]["title"] == "Уточнити ціль"
+    assert created["is_outdated"] is False
+    assert created["input_tokens"] == 120
+    stored = db.mnp_superadmin_recommendations.rows["person-1"]
+    assert stored["generated_by_staff_id"] == 1
+    assert stored["profile_updated_at"] == initial_updated_at
+    event = next(iter(db.mnp_ai_analysis_events.rows.values()))
+    assert event["source"] == "superadmin_recommendations"
+
+    db.mnp_persons.rows["person-1"]["updated_at"] = initial_updated_at + timedelta(seconds=1)
+    loaded = await persons.get_ai_recommendations("person-1", db, superadmin)
+    assert loaded["is_outdated"] is True
+    ordinary_view = await persons.get_person("person-1", db, {"_id": 7, "role": MANAGER})
+    assert "ai_recommendations" not in ordinary_view
+
+
+@pytest.mark.asyncio
+async def test_ai_recommendation_context_excludes_direct_identifiers():
+    db = Database()
+    person = db.mnp_persons.rows["person-1"]
+    person.update({
+        "phone": "+380501112233", "email": "olena@example.com",
+        "telegram_username": "olena_private", "date_of_birth": "1990-01-01",
+        "notes": "Передзвонити +380501112233 або написати olena@example.com",
+    })
+    profile = await persons._person_view(db, person)
+    context = persons.ai_recommendations.profile_context(profile)
+    assert "Олена" not in context
+    assert "+380501112233" not in context
+    assert "olena@example.com" not in context
+    assert "olena_private" not in context
+    assert "1990-01-01" not in context
+    assert "[phone]" in context
+    assert "[email]" in context
+
+
+@pytest.mark.asyncio
+async def test_ai_recommendations_match_person_tags_to_catalog_careers(monkeypatch):
+    monkeypatch.setattr(settings, "cv_analysis_enabled", True)
+    db = Database()
+    db.mnp_persons.rows["person-1"].update({
+        "city": "Харків",
+        "tags": [
+            {"skill_id": "skill-1", "name": "Excel", "skill_type": "tool"},
+            {"skill_id": "skill-2", "name": "Облік у 1С", "skill_type": "tool"},
+        ],
+    })
+    db.mnp_careers.rows["career-accountant"] = {
+        "_id": "career-accountant", "canonical_name_uk": "Бухгалтер", "status": "active",
+    }
+    for number, skill_id in enumerate(("skill-1", "skill-2"), 1):
+        db.mnp_career_skill_requirements.rows[f"match-{number}"] = {
+            "_id": f"match-{number}", "career_id": "career-accountant",
+            "skill_id": skill_id, "importance": "high", "review_status": "approved",
+        }
+
+    async def generate(profile):
+        assert profile["catalog_career_matches"][0]["name"] == "Бухгалтер"
+        return persons.ai_recommendations.RecommendationPlan(
+            summary="Можна розпочати пошук бухгалтерських вакансій у Харкові.",
+            steps=[{"title": "Пошук вакансій", "action": "Шукати вакансії бухгалтера у Харкові."}],
+            platform_offers=["Пошук і підбір вакансій"], questions_to_clarify=[],
+            suggested_workflow_stage="in_progress",
+        ), SimpleNamespace(input_tokens=80, output_tokens=50, trace_id="trace-career")
+
+    monkeypatch.setattr(persons.ai_recommendations, "generate", generate)
+    result = await persons.generate_ai_recommendations(
+        "person-1", db, {"_id": 1, "role": SUPER_ADMIN},
+    )
+    search = result["vacancy_search"]
+    assert search["location"] == "Харків"
+    assert search["professions"][0] == {
+        "career_id": "career-accountant", "name": "Бухгалтер",
+        "matched_tags": ["Excel", "Облік у 1С"], "match_count": 2, "score": 6,
+    }
+    assert search["queries"] == ["Бухгалтер Харків"]

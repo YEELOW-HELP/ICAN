@@ -14,7 +14,8 @@ from app.core.paths import FRONTEND_ROOT
 from app.mongo_runtime.auth import router as auth_router
 from app.mongo_runtime.careers import router as careers_router
 from app.mongo_runtime.market import router as market_router
-from app.mongo_runtime.persons import router as persons_router
+from app.mongo_runtime.core import new_id, now
+from app.mongo_runtime.persons import DEFAULT_CLIENT_REQUEST_TYPES, router as persons_router
 
 
 async def ensure_indexes(db) -> None:
@@ -28,15 +29,37 @@ async def ensure_indexes(db) -> None:
     )
     await db.mnp_persons.create_index("access_admin_ids")
     await db.mnp_person_access.create_index([("person_id", 1), ("admin_id", 1)], unique=True)
+    await db.mnp_employment_stages.create_index("normalized_name", unique=True)
+    await db.mnp_persons.create_index("employment_stage_id")
+    await db.mnp_client_request_types.create_index("normalized_name", unique=True)
+    await db.mnp_persons.create_index("client_request_ids")
+    await db.mnp_persons.create_index("responsible_staff_id")
+    await db.mnp_persons.create_index("phone_normalized")
+    await db.mnp_persons.create_index("email_normalized")
+    await db.mnp_persons.create_index([("needs_contact", 1), ("next_action_at", 1)])
     await db.mnp_cv_analyses.create_index([("person_id", 1), ("analyzed_at", -1)])
     await db.mnp_questionnaire_analyses.create_index([("person_id", 1), ("analyzed_at", -1)])
     await db.mnp_ai_analysis_events.create_index([("person_id", 1), ("analyzed_at", -1)])
+    await db.mnp_superadmin_recommendations.create_index("generated_at")
     await db.mnp_careers.create_index("code", unique=True)
     await db.mnp_market_snapshots.create_index([("snapshot_date", -1), ("region", 1)])
     highest_staff = await db.admin_users.find_one(sort=[("_id", -1)])
     if highest_staff:
         await db.counters.update_one({"_id": "admin_users"},
                                      {"$max": {"value": int(highest_staff["_id"])}}, upsert=True)
+    seed_key = "client_request_types_v1"
+    if not await db.mnp_system_settings.find_one({"_id": seed_key}):
+        for name in DEFAULT_CLIENT_REQUEST_TYPES:
+            await db.mnp_client_request_types.update_one(
+                {"normalized_name": name.casefold()},
+                {"$setOnInsert": {"_id": new_id(), "name": name,
+                                  "normalized_name": name.casefold(), "is_active": True,
+                                  "created_by": "system", "created_at": now(), "updated_at": now()}},
+                upsert=True,
+            )
+        await db.mnp_system_settings.update_one(
+            {"_id": seed_key}, {"$setOnInsert": {"seeded_at": now()}}, upsert=True,
+        )
 
 
 @asynccontextmanager
