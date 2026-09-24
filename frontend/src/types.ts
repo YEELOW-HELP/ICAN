@@ -29,6 +29,8 @@ export type PersonListItem = {
   source?: string;
   created_at?: string | null;
   updated_at?: string | null;
+  work_format?: string | null;
+  employment_type?: string | null;
   responsible?: StaffSummary | null;
   workflow_stage?: string;
   workflow_stage_uk?: string;
