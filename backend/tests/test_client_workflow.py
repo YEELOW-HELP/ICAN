@@ -22,7 +22,6 @@ async def test_request_dictionary_and_structured_workflow_round_trip():
         {
             "client_request_ids": [request_type["id"]],
             "workflow_stage": "consultation_scheduled",
-            "responsible_staff_id": 7,
             "needs_contact": True,
             "next_action_text": "  Передзвонити клієнту  ",
             "next_action_at": "2026-09-23T09:30:00Z",
@@ -35,12 +34,16 @@ async def test_request_dictionary_and_structured_workflow_round_trip():
     assert changed["workflow"]["client_requests"] == [{
         "id": request_type["id"], "name": "Пошук роботи", "is_active": True,
     }]
-    assert changed["workflow"]["responsible"]["id"] == 7
+    assert changed["workflow"]["responsible"] is None
     assert changed["workflow"]["stage"] == "consultation_scheduled"
     assert changed["workflow"]["stage_uk"] == "Консультація запланована"
     assert changed["workflow"]["needs_contact"] is True
     assert changed["workflow"]["next_action_text"] == "Передзвонити клієнту"
     assert changed["core"]["notes"] == "Важливий контекст"
+    interaction = next(iter(db.mnp_client_interactions.rows.values()))
+    assert interaction["person_id"] == "person-1"
+    assert interaction["staff_id"] == 7
+    assert interaction["action"] == "workflow_updated"
 
     removed = await persons.delete_client_request_type(request_type["id"], db, admin)
     assert removed == {"archived": True, "used_by": 1}
@@ -50,7 +53,7 @@ async def test_request_dictionary_and_structured_workflow_round_trip():
 
 
 @pytest.mark.asyncio
-async def test_workflow_requires_complete_next_action_and_manager_assigns_only_self():
+async def test_workflow_requires_complete_next_action_and_manager_cannot_assign_staff():
     db = Database()
     await db.admin_users.insert_one({
         "_id": 1, "email": "admin@example.com", "full_name": "Адміністратор",
@@ -70,6 +73,12 @@ async def test_workflow_requires_complete_next_action_and_manager_assigns_only_s
         )
     assert reassignment.value.status_code == 403
 
+    with pytest.raises(HTTPException) as self_assignment:
+        await persons.update_person_workflow(
+            "person-1", {"responsible_staff_id": 7}, db, manager,
+        )
+    assert self_assignment.value.status_code == 403
+
     with pytest.raises(HTTPException) as invalid_stage:
         await persons.update_person_workflow(
             "person-1", {"workflow_stage": "unknown"}, db, manager,
@@ -87,6 +96,16 @@ async def test_new_client_starts_as_new_request():
     assert created["workflow"]["stage"] == "new_request"
     assert created["workflow"]["stage_uk"] == "Нова заявка"
     assert created["workflow"]["needs_contact"] is True
+    interaction = next(iter(db.mnp_client_interactions.rows.values()))
+    assert interaction["person_id"] == created["id"]
+    assert interaction["staff_id"] == 7
+    assert interaction["action"] == "client_created"
+
+
+def test_manager_uses_the_shared_client_scope():
+    manager = {"_id": 7, "role": MANAGER}
+
+    assert persons._scope(manager) == {}
 
 
 @pytest.mark.asyncio

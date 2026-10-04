@@ -33,8 +33,12 @@ class Collection:
             elif isinstance(expected, dict) and "$ne" in expected:
                 if actual == expected["$ne"]:
                     return False
-            elif isinstance(expected, dict) and "$gte" in expected:
-                if actual is None or actual < expected["$gte"]:
+            elif isinstance(expected, dict) and ("$gte" in expected or "$lt" in expected):
+                if actual is None:
+                    return False
+                if "$gte" in expected and actual < expected["$gte"]:
+                    return False
+                if "$lt" in expected and actual >= expected["$lt"]:
                     return False
             elif actual != expected:
                 return False
@@ -98,6 +102,7 @@ class Database:
         self.mnp_cv_analyses = Collection()
         self.mnp_questionnaire_analyses = Collection()
         self.mnp_ai_analysis_events = Collection()
+        self.mnp_client_interactions = Collection()
         self.mnp_superadmin_recommendations = Collection()
         self.mnp_employment_stages = Collection()
         self.mnp_client_request_types = Collection()
@@ -176,10 +181,35 @@ async def test_status_patch_preserves_scope_and_partial_update():
                 "_id": 7, "role": role,
             })
         assert forbidden.value.status_code == 403
-    with pytest.raises(HTTPException) as denied:
-        await persons.update_person("person-1", {"city": "Харків"}, db, {"_id": 8, "role": MANAGER})
-    assert denied.value.status_code == 404
+    changed = await persons.update_person(
+        "person-1", {"city": "Харків"}, db, {"_id": 8, "role": MANAGER},
+    )
+    assert changed["core"]["city"] == "Харків"
     assert db.mnp_persons.rows["person-1"]["status"] == "case"
+
+
+@pytest.mark.asyncio
+async def test_employment_type_round_trip_validation_and_ai_context():
+    db = Database()
+    manager = {"_id": 7, "role": MANAGER}
+    changed = await persons.update_person(
+        "person-1", {"employment_type": "full_or_part_time"}, db, manager,
+    )
+    assert changed["mobility"]["employment_type"] == "full_or_part_time"
+    assert db.mnp_persons.rows["person-1"]["employment_type"] == "full_or_part_time"
+    excerpt = await cv_analysis.questionnaire_excerpt(db, changed)
+    assert "Тип зайнятості: full_or_part_time" in excerpt
+    assert "full_or_part_time" in persons.ai_recommendations.profile_context(changed)
+
+    created = await persons.create_person(
+        {"first_name": "Марія", "employment_type": "part_time"}, db, manager,
+    )
+    assert created["mobility"]["employment_type"] == "part_time"
+    with pytest.raises(HTTPException) as invalid:
+        await persons.update_person(
+            "person-1", {"employment_type": "weekends_only"}, db, manager,
+        )
+    assert invalid.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -218,7 +248,7 @@ async def test_dropbox_upload_refreshes_token_and_uses_private_file_id(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_manager_may_upload_and_download_only_accessible_person(monkeypatch):
+async def test_managers_share_client_documents_while_storage_stays_private(monkeypatch):
     db = Database()
     calls = []
 
@@ -237,21 +267,13 @@ async def test_manager_may_upload_and_download_only_accessible_person(monkeypatc
     filename = "cv.pdf"
     file = UploadFile(filename=filename, file=BytesIO(b"%PDF-saved"))
 
-    with pytest.raises(HTTPException) as denied:
-        await persons.admin_upload_cv("person-1", file, db, other)
-    assert denied.value.status_code == 404
-    assert calls == []
-
-    view = await persons.admin_upload_cv("person-1", file, db, manager)
+    view = await persons.admin_upload_cv("person-1", file, db, other)
     assert view["documents"][0]["filename"] == filename
     assert "storage_ref" not in view["documents"][0]
     assert "id:private-cv" not in repr(view)
     document_id = view["documents"][0]["id"]
     assert db.mnp_file_blobs.rows == {}
 
-    with pytest.raises(HTTPException) as denied_download:
-        await persons.admin_download_document("person-1", document_id, db, other)
-    assert denied_download.value.status_code == 404
     response = await persons.admin_download_document("person-1", document_id, db, manager)
     assert response.body == b"%PDF-saved"
     assert response.headers["cache-control"] == "private, no-store"
@@ -274,7 +296,7 @@ async def test_invalid_cv_is_rejected_before_dropbox(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_multipart_api_keeps_scope_and_file_private(monkeypatch):
+async def test_multipart_api_shares_clients_and_keeps_file_private(monkeypatch):
     db = Database()
     monkeypatch.setattr(settings, "cv_analysis_enabled", True)
 
@@ -317,15 +339,16 @@ async def test_multipart_api_keeps_scope_and_file_private(monkeypatch):
             assert analysis.status_code == 200, analysis.text
             assert analysis.json()["proposal"]["primary_role"] == "Аналітик"
             app.dependency_overrides[current_staff] = lambda: {"_id": 8, "role": MANAGER}
-            denied = await client.get(
+            shared_download = await client.get(
                 f"/v1/mnp/admin/persons/person-1/documents/{document['id']}/download"
             )
-            assert denied.status_code == 404
-            denied_analysis = await client.post(
+            assert shared_download.status_code == 200
+            shared_analysis = await client.post(
                 f"/v1/mnp/admin/persons/person-1/documents/{document['id']}/analyze",
                 json={"permission_confirmed": True},
             )
-            assert denied_analysis.status_code == 404
+            assert shared_analysis.status_code == 200
+            assert shared_analysis.json()["cached"] is True
     finally:
         app.dependency_overrides.pop(database, None)
         app.dependency_overrides.pop(current_staff, None)
@@ -363,7 +386,7 @@ async def test_ai_extracts_supported_skill_and_matches_taxonomy(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_analysis_is_cached_and_manager_scope_is_checked_first(monkeypatch):
+async def test_analysis_is_cached_across_managers(monkeypatch):
     monkeypatch.setattr(settings, "cv_analysis_enabled", True)
     db = Database()
     db.mnp_person_documents.rows["doc-1"] = {
@@ -386,15 +409,11 @@ async def test_analysis_is_cached_and_manager_scope_is_checked_first(monkeypatch
     monkeypatch.setattr(persons.dropbox_storage, "download_cv", download)
     monkeypatch.setattr(persons.cv_analysis, "analyze_cv", analyze)
     other = {"_id": 8, "role": MANAGER}
-    with pytest.raises(HTTPException) as denied:
-        await persons.admin_analyze_cv("person-1", "doc-1", {"permission_confirmed": True}, db, other)
-    assert denied.value.status_code == 404
-    assert calls == []
     manager = {"_id": 7, "role": MANAGER}
     with pytest.raises(HTTPException) as no_permission:
         await persons.admin_analyze_cv("person-1", "doc-1", {"permission_confirmed": False}, db, manager)
     assert no_permission.value.status_code == 422
-    first = await persons.admin_analyze_cv("person-1", "doc-1", {"permission_confirmed": True}, db, manager)
+    first = await persons.admin_analyze_cv("person-1", "doc-1", {"permission_confirmed": True}, db, other)
     second = await persons.admin_analyze_cv("person-1", "doc-1", {"permission_confirmed": True}, db, manager)
     assert first["cached"] is False and second["cached"] is True
     assert first["proposal"]["primary_role"] == "Аналітик"
@@ -435,12 +454,8 @@ async def test_questionnaire_analysis_excludes_contacts_and_uses_cache(monkeypat
     monkeypatch.setattr(persons.cv_analysis, "analyze_questionnaire", analyze)
     manager = {"_id": 7, "role": MANAGER}
     other = {"_id": 8, "role": MANAGER}
-    with pytest.raises(HTTPException) as denied:
-        await persons.admin_analyze_questionnaire(
-            "person-1", {"permission_confirmed": True}, db, other)
-    assert denied.value.status_code == 404
     first = await persons.admin_analyze_questionnaire(
-        "person-1", {"permission_confirmed": True}, db, manager)
+        "person-1", {"permission_confirmed": True}, db, other)
     second = await persons.admin_analyze_questionnaire(
         "person-1", {"permission_confirmed": True}, db, manager)
     assert first["cached"] is False and second["cached"] is True

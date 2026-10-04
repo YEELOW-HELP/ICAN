@@ -40,6 +40,7 @@ async def ensure_indexes(db) -> None:
     await db.mnp_cv_analyses.create_index([("person_id", 1), ("analyzed_at", -1)])
     await db.mnp_questionnaire_analyses.create_index([("person_id", 1), ("analyzed_at", -1)])
     await db.mnp_ai_analysis_events.create_index([("person_id", 1), ("analyzed_at", -1)])
+    await db.mnp_client_interactions.create_index([("occurred_at", -1), ("person_id", 1), ("staff_id", 1)])
     await db.mnp_superadmin_recommendations.create_index("generated_at")
     await db.mnp_careers.create_index("code", unique=True)
     await db.mnp_market_snapshots.create_index([("snapshot_date", -1), ("region", 1)])

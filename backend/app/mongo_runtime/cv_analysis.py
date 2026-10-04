@@ -183,6 +183,7 @@ async def questionnaire_excerpt(db, profile: dict) -> str:
         parts.append(f"Місто: {core['city']}")
     mobility = profile.get("mobility") or {}
     for key, label in (("work_format", "Формат роботи"),
+                       ("employment_type", "Тип зайнятості"),
                        ("work_geography", "Географія роботи"),
                        ("willing_to_relocate", "Переїзд")):
         value = mobility.get(key)

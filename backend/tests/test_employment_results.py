@@ -79,16 +79,15 @@ async def test_manager_cannot_manage_stage_dictionary_through_api():
 
 
 @pytest.mark.asyncio
-async def test_stage_and_offer_require_person_access():
+async def test_manager_can_update_stage_and_offer_in_shared_workspace():
     db = Database()
     stage = await persons.create_employment_stage({"name": "Запропоновано вакансії"}, db, {"_id": 1, "role": ADMIN})
-    with pytest.raises(HTTPException) as denied:
-        await persons.update_person_employment(
-            "person-1", {"stage_id": stage["id"], "offer_text": "Вакансія"}, db,
-            {"_id": 8, "role": MANAGER},
-        )
-    assert denied.value.status_code == 404
-    assert "employment_stage_id" not in db.mnp_persons.rows["person-1"]
+    changed = await persons.update_person_employment(
+        "person-1", {"stage_id": stage["id"], "offer_text": "Вакансія"}, db,
+        {"_id": 8, "role": MANAGER},
+    )
+    assert changed["employment"]["stage_id"] == stage["id"]
+    assert changed["employment"]["offer_text"] == "Вакансія"
 
 
 @pytest.mark.asyncio

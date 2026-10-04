@@ -211,7 +211,7 @@ def profile_context(profile: dict) -> str:
         },
         "mobility": _selected(mobility, (
             "has_driver_license", "driver_license_categories", "has_car",
-            "willing_to_relocate", "work_geography", "work_format",
+            "willing_to_relocate", "work_geography", "work_format", "employment_type",
         )),
         "search_tags": [
             _selected(item, ("skill_id", "name", "skill_type"))
