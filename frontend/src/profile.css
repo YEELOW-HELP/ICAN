@@ -333,7 +333,9 @@
   .profile-fold-body .page-title { flex-wrap: wrap; gap: 10px; }
 }
 
-.console-shell .console-person-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.console-shell .console-person-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.console-shell .console-person-metrics article:last-child { background: #fff5f2; border-color: #f0d2c9; }
+.console-shell .console-person-metrics article:last-child strong { color: #9d3f2f; }
 .console-shell .status.case { background: #e8edf9; color: #435d95; }
 .console-shell .client-create .create-status-field { max-width: 260px; margin-top: 24px; }
 .console-shell .create-status-field select { width: 100%; font-size: 13px; min-height: 43px; background: #fcfdfb; }

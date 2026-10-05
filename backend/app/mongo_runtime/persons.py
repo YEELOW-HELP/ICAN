@@ -36,6 +36,7 @@ WORKFLOW_STAGE_UK = {
     "consultation_completed": "Консультація проведена",
     "in_progress": "У роботі",
     "employed": "Працевлаштований",
+    "refused": "Відмова",
     "closed": "Закритий",
 }
 CLOSURE_REASON_UK = {
@@ -1520,6 +1521,9 @@ async def update_person_workflow(person_id: str, payload: dict = Body(...), db: 
             changes["needs_contact"] = True
         elif target_stage not in ("new_request",):
             changes["needs_contact"] = False
+        if target_stage == "refused":
+            changes["next_action_text"] = None
+            changes["next_action_at"] = None
 
     if ("workflow_stage" in payload or "closure_reason" in payload
             or "closure_note" in payload):

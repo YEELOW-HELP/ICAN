@@ -141,6 +141,32 @@ async def test_closed_stage_requires_a_reason():
 
 
 @pytest.mark.asyncio
+async def test_refused_stage_is_available_and_clears_follow_up():
+    db = Database()
+    manager = {"_id": 7, "role": MANAGER}
+    await persons.update_person_workflow(
+        "person-1",
+        {
+            "workflow_stage": "in_contact",
+            "next_action_text": "Передзвонити",
+            "next_action_at": "2026-10-07T09:00:00Z",
+        },
+        db,
+        manager,
+    )
+
+    changed = await persons.update_person_workflow(
+        "person-1", {"workflow_stage": "refused"}, db, manager,
+    )
+
+    assert changed["workflow"]["stage"] == "refused"
+    assert changed["workflow"]["stage_uk"] == "Відмова"
+    assert changed["workflow"]["needs_contact"] is False
+    assert changed["workflow"]["next_action_text"] is None
+    assert changed["workflow"]["next_action_at"] is None
+
+
+@pytest.mark.asyncio
 async def test_phone_normalization_and_duplicate_warning_data():
     db = Database()
     manager = {"_id": 7, "role": MANAGER}
