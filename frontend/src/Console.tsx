@@ -41,6 +41,7 @@ function DuplicateWarning({phone,email,excludeId}:{phone?:string|null;email?:str
 
 export function ConsoleGate({children}:{children:ReactNode}) {
   const auth=useAppSelector(s=>s.auth), dispatch=useAppDispatch(), location=useLocation();
+  const isAdminPath=location.pathname.startsWith("/admin");
   const [verified,setVerified]=useState<string|null>(null),[error,setError]=useState("");
   useEffect(()=>{
     let current=true;
@@ -54,14 +55,14 @@ export function ConsoleGate({children}:{children:ReactNode}) {
     window.addEventListener("console-session-expired",expired);
     return ()=>{current=false;window.removeEventListener("focus",verify);window.removeEventListener("console-session-expired",expired)};
   },[auth.adminToken,dispatch,location.pathname]);
+  if(!isAdminPath)return <>{auth.adminToken&&verified===auth.adminToken&&auth.role&&<Link className="console-return" to="/admin/persons">← Консоль</Link>}{children}</>;
   if(!auth.adminToken)return <ConsoleLogin/>;
   if(error)return <div className="console-auth"><div className="console-login"><Notice error={error}/><button className="button" onClick={()=>window.location.reload()}>Спробувати ще раз</button></div></div>;
   if(verified!==auth.adminToken || !auth.role)return <div className="loading">Перевіряємо доступ…</div>;
   if(!roles[auth.role])return <div className="console-auth"><div className="console-login"><Notice error="Цей обліковий запис не має доступу до консолі"/><button className="button" onClick={()=>dispatch(signedOut())}>Вийти</button></div></div>;
-  if(location.pathname==="/admin/login" || location.pathname==="/login")return <Navigate to="/admin/persons" replace/>;
-  if(auth.role!=="super_admin" && !location.pathname.startsWith("/admin"))return <Navigate to="/admin/persons" replace/>;
+  if(location.pathname==="/admin/login")return <Navigate to="/admin/persons" replace/>;
   if(auth.role==="manager" && (location.pathname.startsWith("/admin/team") || location.pathname.startsWith("/admin/catalog")))return <Navigate to="/admin/persons" replace/>;
-  return <>{auth.role==="super_admin"&&!location.pathname.startsWith("/admin")&&<Link className="console-return" to="/admin/persons">← Консоль</Link>}{children}</>;
+  return <>{children}</>;
 }
 
 export function ConsoleLogin(){
@@ -78,7 +79,7 @@ export function ConsoleLogin(){
 
 export function ConsoleLayout(){
   const auth=useAppSelector(s=>s.auth),dispatch=useAppDispatch();
-  return <div className="admin-shell console-shell"><aside><ConsoleBrand/><span className="side-label">КОНСОЛЬ</span><nav><NavLink end to="/admin/persons">Клієнти <span>↗</span></NavLink><NavLink to="/admin/persons/new">Додати клієнта <span>+</span></NavLink>{auth.role!=="manager"&&<><NavLink to="/admin/team">Команда</NavLink><NavLink to="/admin/catalog">База професій</NavLink></>}{auth.role==="super_admin"&&<Link to="/">Переглянути сайт ↗</Link>}</nav><div className="console-account"><span className="console-avatar">{auth.adminEmail?.[0]?.toUpperCase()}</span><div><strong>{roles[auth.role||""]}</strong><small>{auth.adminEmail}</small></div></div><button className="button secondary" onClick={()=>dispatch(signedOut())}>Вийти з облікового запису</button></aside><main><div className="console-topline"><span>Yellow Hub / Консоль</span><span className="status active">{roles[auth.role||""]}</span></div><Outlet/></main></div>
+  return <div className="admin-shell console-shell"><aside><ConsoleBrand/><span className="side-label">КОНСОЛЬ</span><nav><NavLink end to="/admin/persons">Клієнти <span>↗</span></NavLink><NavLink to="/admin/persons/new">Додати клієнта <span>+</span></NavLink>{auth.role!=="manager"&&<><NavLink to="/admin/team">Команда</NavLink><NavLink to="/admin/catalog">База професій</NavLink></>}<Link to="/">Переглянути сайт ↗</Link></nav><div className="console-account"><span className="console-avatar">{auth.adminEmail?.[0]?.toUpperCase()}</span><div><strong>{roles[auth.role||""]}</strong><small>{auth.adminEmail}</small></div></div><button className="button secondary" onClick={()=>dispatch(signedOut())}>Вийти з облікового запису</button></aside><main><div className="console-topline"><span>Yellow Hub / Консоль</span><span className="status active">{roles[auth.role||""]}</span></div><Outlet/></main></div>
 }
 
 export function ConsolePersons(){
