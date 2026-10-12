@@ -2,14 +2,12 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import ukraineMap from "@svg-maps/ukraine";
 import { ConsoleGate, ConsoleLogin, ConsoleLayout, ConsolePersons, ConsoleCreate, ConsolePerson, ConsoleTeam } from "./Console";
-import { adminLogin, adminRequest, personRequest, publicRequest, sessionStorageKeys } from "./api/client";
-import { useAppDispatch, useAppSelector } from "./app/hooks";
-import { signedIn, signedOut } from "./app/store";
+import { adminRequest, personRequest, publicRequest, sessionStorageKeys } from "./api/client";
+import { UserAnalysis, UserDashboard, UserProfileEditor, UserVacancies } from "./UserWorkspace";
 import type { CareerListItem, Person, PersonCore, PersonListItem } from "./types";
 
 const publicNav = [
-  ["/how", "Як це працює"], ["/catalog", "Професії"],
-  ["/region", "Регіон"], ["/about", "Про МОЖУ"],
+  ["/", "Головна"], ["/how", "Як це працює"], ["/about", "Про МОЖУ"],
 ] as const;
 
 const icons: Record<string, ReactNode> = {
@@ -33,26 +31,86 @@ function Brand() {
 }
 
 function PublicLayout() {
+  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
+  const hasStaffSession=Boolean(localStorage.getItem(sessionStorageKeys.admin));
+  const hasUserSession=Boolean(localStorage.getItem(sessionStorageKeys.session)&&localStorage.getItem(sessionStorageKeys.account));
+  const accountTarget=hasStaffSession?"/admin/persons":hasUserSession?"/app":"/login";
   return <div className="site">
-    <header className="topbar"><Brand/><nav>{publicNav.map(([to, label]) => <NavLink key={to} to={to}>{label}</NavLink>)}<NavLink to="/market">Ринок праці</NavLink></nav>
-      <div className="top-actions"><Link className="button ghost" to="/login">Увійти</Link><Link className="button small" to="/profile"><span className="desktop-label">Створити профіль</span><span className="mobile-label">Створити</span></Link></div>
+    <header className="topbar"><Brand/><nav className={mobileMenuOpen?"mobile-open":""}>{publicNav.map(([to, label]) => <NavLink onClick={()=>setMobileMenuOpen(false)} end={to==="/"} key={to} to={to}>{label}</NavLink>)}<NavLink onClick={()=>setMobileMenuOpen(false)} to="/market">Ринок праці</NavLink><Link onClick={()=>setMobileMenuOpen(false)} className="mobile-account-link" to={accountTarget}>{hasStaffSession?"Відкрити консоль":hasUserSession?"Відкрити кабінет":"Увійти в кабінет"}</Link></nav>
+      <div className="top-actions"><Link className="button ghost" to={accountTarget}>{hasStaffSession?"Консоль":hasUserSession?"Мій кабінет":"Увійти"}</Link><Link className="button small" to="/profile"><span className="desktop-label">Створити профіль</span><span className="mobile-label">Створити</span></Link></div>
+      <button type="button" className={`mobile-menu-toggle ${mobileMenuOpen?"open":""}`} aria-label={mobileMenuOpen?"Закрити меню":"Відкрити меню"} aria-expanded={mobileMenuOpen} onClick={()=>setMobileMenuOpen(!mobileMenuOpen)}><span/><span/><span/></button>
     </header>
     <main className="page"><Outlet/></main>
-    <footer><Brand/><nav><Link to="/about">Про МОЖУ</Link><Link to="/catalog">Професії</Link><Link to="/how">Як це працює</Link><Link to="/market">Ринок праці</Link></nav><span>© 2026 Yellow Hub</span></footer>
+    <footer><Brand/><nav><Link to="/about">Про МОЖУ</Link><Link to="/how">Як це працює</Link><Link to="/market">Ринок праці</Link></nav><span>© 2026 Yellow Hub</span></footer>
+  </div>;
+}
+
+function useMobileLanding(){
+  const query="(max-width: 700px)";
+  const [mobile,setMobile]=useState(()=>typeof window!=="undefined"&&"matchMedia" in window?window.matchMedia(query).matches:false);
+  useEffect(()=>{if(typeof window==="undefined"||!("matchMedia" in window))return;const media=window.matchMedia(query);const update=()=>setMobile(media.matches);update();media.addEventListener("change",update);return()=>media.removeEventListener("change",update)},[]);
+  return mobile;
+}
+
+function MobileHome(){
+  const audiences=[["route","Змінюю професію"],["briefcase","Шукаю роботу"],["target","Повертаюсь на ринок"],["compass","Не знаю, куди далі"]];
+  return <div className="mobile-home">
+    <section className="mobile-home-hero">
+      <div className="mobile-home-kicker"><i/><span>Кар'єрний навігатор</span><b>Безкоштовно</b></div>
+      <h1>Знайдіть свій наступний <em>професійний крок</em></h1>
+      <p>Заповніть профіль один раз — отримайте аналіз сильних сторін, реальні напрями та вакансії у вашому регіоні.</p>
+      <div className="mobile-home-actions"><Link className="button" to="/profile">Почати безкоштовно <Icon name="arrow"/></Link><Link to="/how">Подивитись, як це працює</Link></div>
+      <div className="mobile-home-proof"><div><strong>10–15</strong><span>хвилин</span></div><div><strong>3</strong><span>кроки до результату</span></div><div><strong>0 ₴</strong><span>вартість</span></div></div>
+      <div className="mobile-home-preview"><div className="mobile-home-preview-bar"><span><LogoMark/>Мій кар'єрний профіль</span><i>82%</i></div><div className="mobile-home-preview-person"><span>ЛБ</span><div><b>Ваші сильні сторони</b><small>Досвід, навички та цілі — в одному місці</small></div></div><div className="mobile-home-preview-tags"><span>Комунікація</span><span>Аналітика</span><span>Організація</span></div><div className="mobile-home-preview-result"><Icon name="sparkles"/><div><small>Ваш результат</small><b>3 реалістичні напрями</b></div><Icon name="arrow"/></div></div>
+      <div className="mobile-home-trust"><span><Icon name="check"/>Без реєстрації на старті</span><span><Icon name="check"/>Офіційні дані ринку</span></div>
+    </section>
+
+    <Region embedded/>
+
+    <section className="mobile-home-results">
+      <div className="mobile-section-heading"><span>Що ви отримаєте</span><h2>Не просто тест.<br/>Ваш план дій.</h2><p>Від повної картини про себе до конкретного наступного кроку.</p></div>
+      <div className="mobile-result-bento">
+        <article className="mobile-result-main"><span><Icon name="doc"/></span><div><small>Ваш профіль</small><h3>Усе важливе про вас — структуровано</h3><p>Досвід, навички, цілі й умови роботи в одному місці.</p></div><b>01</b></article>
+        <article><span><Icon name="chart"/></span><small>Напрями</small><h3>Професії, які вам підходять</h3><b>02</b></article>
+        <article className="accent"><span><Icon name="lightbulb"/></span><small>Пояснення</small><h3>Чому саме цей вибір</h3><b>03</b></article>
+        <article className="mobile-result-wide"><span><Icon name="target"/></span><div><small>Наступний крок</small><h3>Що робити вже зараз</h3></div><Icon name="arrow"/></article>
+      </div>
+    </section>
+
+    <section className="mobile-home-audience">
+      <div className="mobile-section-heading light"><span>Для кого</span><h2>Коли потрібна ясність</h2><p>Оберіть ситуацію, яка найближча до вашої.</p></div>
+      <div className="mobile-audience-grid">{audiences.map(([icon,title],index)=><Link to="/profile" key={title}><span><Icon name={icon}/></span><b>{title}</b><i>{String(index+1).padStart(2,"0")}</i></Link>)}</div>
+    </section>
+
+    <section className="mobile-home-process">
+      <div className="mobile-section-heading"><span>Як це працює</span><h2>Три кроки — і є з чого почати</h2></div>
+      <div className="mobile-process-track"><article><i>1</i><div><b>Заповніть профіль</b><p>Розкажіть про досвід, навички та цілі.</p></div></article><article><i>2</i><div><b>Отримайте аналіз</b><p>Побачите сильні сторони й реальні напрями.</p></div></article><article><i>3</i><div><b>Перейдіть до дій</b><p>Оберіть фокус і почніть пошук вакансій.</p></div></article></div>
+      <Link className="mobile-process-link" to="/how">Детально про процес <Icon name="arrow"/></Link>
+    </section>
+
+    <section className="mobile-home-faq">
+      <div className="mobile-section-heading"><span>Коротко про важливе</span><h2>Перед початком</h2></div>
+      <div className="mobile-faq-list"><details><summary>Це справді безкоштовно?<i>+</i></summary><p>Так. Створення профілю, базовий аналіз і перегляд напрямів не потребують оплати.</p></details><details><summary>Потрібно вже мати резюме?<i>+</i></summary><p>Ні. Дані можна заповнити поступово, навіть якщо готового резюме ще немає.</p></details><details><summary>Що буде з моїми даними?<i>+</i></summary><p>Профіль зберігається у вашому кабінеті та використовується для персональних рекомендацій.</p></details></div>
+    </section>
+
+    <section className="mobile-home-final"><span><Icon name="sparkles"/></span><small>Ваш наступний крок</small><h2>Почніть із профілю.<br/>Решту підкажемо.</h2><p>Ваші дані зберігаються, і ви зможете повернутися до них у будь-який момент.</p><Link className="button" to="/profile">Почати безкоштовно <Icon name="arrow"/></Link></section>
   </div>;
 }
 
 function Home() {
+  const mobile=useMobileLanding();
+  if(mobile)return <MobileHome/>;
   return <>
-    <section className="hero-split">
+    <section className="hero-split home-hero">
       <div className="hero-copy"><span className="eyebrow">Кар'єрний навігатор</span><h1>Знайдіть напрям, у якому <em>хочеться рухатись</em></h1>
         <p className="lead">Створіть кар'єрний профіль і побачите реалістичні професійні напрями, що вам підходять зараз.</p>
-        <div className="hero-actions"><Link className="button large" to="/profile">Створити кар'єрний профіль →</Link><Link className="button secondary large" to="/catalog">Переглянути професії</Link></div>
-        <div className="check-row">{["Безкоштовно","10–15 хвилин","Без реєстрації"].map(x=><span key={x}><i><Icon name="check"/></i>{x}</span>)}</div>
+        <div className="hero-actions"><Link className="button large" to="/profile">Створити кар'єрний профіль →</Link><Link className="button secondary large" to="/how">Як це працює</Link></div>
+        <div className="check-row">{["Безкоштовно","10–15 хвилин","Профіль зберігається"].map(x=><span key={x}><i><Icon name="check"/></i>{x}</span>)}</div>
       </div>
       <div className="illus-wrap hero-visual"><div className="illus-frame"><PersonIllustration/></div><div className="visual-caption"><span><Icon name="sparkles"/></span><div><small>Ваш результат</small><strong>Зрозумілий кар'єрний план</strong></div></div>
       </div>
     </section>
+    <Region embedded/>
     <section className="home-section audience"><div className="section-intro"><span>Для кого це</span><h2>Коли потрібен зрозумілий наступний крок</h2></div><div className="tile-nav-grid">{[["route","Хочу змінити професію"],["briefcase","Втратив(-ла) роботу"],["target","Повертаюсь на ринок праці"],["compass","Шукаю свій напрям"]].map(([i,t])=><Link className="tile-nav" to="/profile" key={t}><span className="tn-ico"><Icon name={i}/></span><b>{t}</b></Link>)}</div></section>
     <section className="home-section benefits"><div className="section-intro"><span>Результат</span><h2>Усе необхідне для впевненого рішення</h2><p>Не просто список професій, а зрозумілий профіль і послідовний план дій.</p></div><div className="tile-feat-grid">{[["doc","Кар'єрний профіль","Ваші сильні сторони та інтереси"],["chart","Реалістичні напрями","Професії, що вам підходять зараз"],["lightbulb","Зрозумілі пояснення","Чому саме ці професії і що це означає"],["target","Наступні кроки","З чого почати і як розвиватися"]].map(([i,t,d])=><article className="tile-feat" key={t}><span className="tn-ico"><Icon name={i}/></span><div><h3>{t}</h3><p>{d}</p></div></article>)}</div></section>
     <section className="home-section process"><div className="section-intro"><span>Простий процес</span><h2>Від профілю до наступного кроку</h2></div><FlowSteps/></section>
@@ -88,11 +146,29 @@ function Opportunities() { return <StaticPage title="Можливості" intro
 type MarketItem = {career_id:string;career_code:string;name:string;family?:string|null;vacancy_count:number;trend?:"up"|"flat"|"down"|null;salary_median?:number|null;salary_p25?:number|null;salary_p75?:number|null};
 type RegionSummary = {region:string;vacancy_count:number;salary_average?:number|null};
 type MarketOverview = {available:boolean;message?:string;snapshot_date?:string;selected_region?:string|null;total_vacancies?:number;source:string;source_url:string;methodology_note?:string;regions:string[];region_summaries?:RegionSummary[];items:MarketItem[]};
+const MARKET_CACHE_TTL=5*60*1000;
+const marketOverviewCache=new Map<string,{data:MarketOverview;expiresAt:number}>();
+const marketOverviewRequests=new Map<string,Promise<MarketOverview>>();
+const marketCacheKey=(region="")=>region.trim().toLocaleLowerCase("uk-UA");
+function cachedMarketOverview(region=""){
+  const key=marketCacheKey(region),cached=marketOverviewCache.get(key);
+  if(!cached||cached.expiresAt<=Date.now()){marketOverviewCache.delete(key);return null}
+  return cached.data;
+}
+function loadMarketOverview(region="",force=false){
+  const key=marketCacheKey(region);
+  if(force){marketOverviewCache.delete(key);marketOverviewRequests.delete(key)}
+  const cached=cachedMarketOverview(region);if(cached)return Promise.resolve(cached);
+  const pending=marketOverviewRequests.get(key);if(pending)return pending;
+  const request=publicRequest<MarketOverview>(`/market/overview${region?`?region=${encodeURIComponent(region)}`:""}`).then(data=>{marketOverviewCache.set(key,{data,expiresAt:Date.now()+MARKET_CACHE_TTL});return data}).finally(()=>marketOverviewRequests.delete(key));
+  marketOverviewRequests.set(key,request);return request;
+}
+function clearMarketOverviewCache(){marketOverviewCache.clear();marketOverviewRequests.clear()}
 function Market(){
-  const [data,setData]=useState<MarketOverview|null>(null);const [region,setRegion]=useState("");const [sortBy,setSortBy]=useState("vacancies-desc");const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [refreshing,setRefreshing]=useState(false);
-  const load=async(selected=region)=>{setLoading(true);setError("");try{setData(await publicRequest<MarketOverview>(`/market/overview${selected?`?region=${encodeURIComponent(selected)}`:""}`))}catch(e){setError(e instanceof Error?e.message:"Не вдалося завантажити дані")}finally{setLoading(false)}};
+  const [data,setData]=useState<MarketOverview|null>(()=>cachedMarketOverview());const [region,setRegion]=useState("");const [sortBy,setSortBy]=useState("vacancies-desc");const [error,setError]=useState("");const [loading,setLoading]=useState(()=>!cachedMarketOverview());const [refreshing,setRefreshing]=useState(false);
+  const load=async(selected=region,force=false)=>{const cached=!force&&cachedMarketOverview(selected);if(cached){setData(cached);setLoading(false);setError("");return}setLoading(true);setData(null);setError("");try{setData(await loadMarketOverview(selected,force))}catch(e){setError(e instanceof Error?e.message:"Не вдалося завантажити дані")}finally{setLoading(false)}};
   useEffect(()=>{void load(region)},[region]);
-  const refresh=async()=>{setRefreshing(true);setError("");try{await adminRequest("/admin/market/refresh",{method:"POST"});await load(region)}catch(e){setError(e instanceof Error?e.message:"Не вдалося оновити дані")}finally{setRefreshing(false)}};
+  const refresh=async()=>{setRefreshing(true);setError("");try{await adminRequest("/admin/market/refresh",{method:"POST"});clearMarketOverviewCache();await load(region,true)}catch(e){setError(e instanceof Error?e.message:"Не вдалося оновити дані")}finally{setRefreshing(false)}};
   const money=(value?:number|null)=>value?`${new Intl.NumberFormat("uk-UA",{maximumFractionDigits:0}).format(value)} ₴`:"Немає даних";
   const sortedItems=useMemo(()=>[...(data?.items??[])].sort((a,b)=>{
     if(sortBy==="vacancies-asc")return a.vacancy_count-b.vacancy_count;
@@ -107,7 +183,7 @@ function Market(){
     <div className="market-toolbar"><label><span>Регіон</span><select value={region} onChange={e=>setRegion(e.target.value)}><option value="">Уся Україна</option>{data?.regions.map(item=><option key={item} value={item}>{item}</option>)}</select></label><div className="market-source"><span>{data?.snapshot_date?`Оновлено ${new Date(`${data.snapshot_date}T12:00:00`).toLocaleDateString("uk-UA")}`:"Очікуємо перше оновлення"}</span><a href={data?.source_url||"https://data.gov.ua/dataset/a95174b2-ff4b-43f8-bee2-a89d3a258215"} target="_blank" rel="noreferrer">Джерело даних ↗</a><a className="button secondary small market-export" href="/v1/mnp/market/export.xlsx" download><Icon name="doc"/>Завантажити всі дані</a>{canRefresh&&<button className="button secondary small" onClick={()=>void refresh()} disabled={refreshing}>{refreshing?"Оновлюємо…":"Оновити зараз"}</button>}</div></div>
     {error&&<ErrorBox message={error}/>} {loading&&!data?<Loading/>:data?.available?<>
       <div className="market-stats"><article className="primary"><span className="stat-icon"><Icon name="briefcase"/></span><div><span>Вакансій у зрізі</span><strong>{new Intl.NumberFormat("uk-UA").format(data.total_vacancies||0)}</strong><small>{region||"Уся Україна"}</small></div></article><article><span className="stat-icon"><Icon name="chart"/></span><div><span>Професій у рейтингу</span><strong>{data.items.length}</strong><small>Найвищий попит зараз</small></div></article><article><span className="stat-icon"><Icon name="checklist"/></span><div><span>Дата зрізу</span><strong>{data.snapshot_date?new Date(`${data.snapshot_date}T12:00:00`).toLocaleDateString("uk-UA",{day:"2-digit",month:"short"}):"—"}</strong><small>Перевірені відкриті дані</small></div></article></div>
-      <div className="market-results"><div className="market-results-head"><div><span>Огляд попиту</span><h2>Популярні професії</h2></div><div className="market-results-tools"><p>{data.methodology_note}</p><label><span>Сортувати</span><select value={sortBy} onChange={e=>setSortBy(e.target.value)}><option value="vacancies-desc">Вакансії: найбільше</option><option value="vacancies-asc">Вакансії: найменше</option><option value="salary-desc">Зарплата: найвища</option><option value="salary-asc">Зарплата: найнижча</option></select></label></div></div><div className="demand-columns"><span>№</span><span>Професія</span><span>Вакансії</span><span>Медіана зарплати</span><span>Тренд</span></div><div className="demand-list">{sortedItems.map((item,index)=><Link className="demand-row" to={`/catalog/${item.career_id}`} key={item.career_id}><span className="demand-rank">{index+1}</span><div className="demand-main"><div><strong>{item.name}</strong>{item.family&&<small>{item.family}</small>}</div><div className="demand-bar"><i style={{width:`${Math.max(6,item.vacancy_count/maxCount*100)}%`}}/></div></div><div className="demand-count"><strong>{new Intl.NumberFormat("uk-UA").format(item.vacancy_count)}</strong><small>позицій</small></div><div className="demand-salary"><strong>{money(item.salary_median)}</strong><small>на місяць</small></div><span className={`trend ${item.trend||"new"}`}><b>{item.trend==="up"?"↑":item.trend==="down"?"↓":item.trend==="flat"?"→":"•"}</b><small>{item.trend==="up"?"Зростає":item.trend==="down"?"Спадає":item.trend==="flat"?"Стабільно":"Новий"}</small></span></Link>)}</div></div>
+      <div className="market-results"><div className="market-results-head"><div><span>Огляд попиту</span><h2>Популярні професії</h2></div><div className="market-results-tools"><p>{data.methodology_note}</p><label><span>Сортувати</span><select value={sortBy} onChange={e=>setSortBy(e.target.value)}><option value="vacancies-desc">Вакансії: найбільше</option><option value="vacancies-asc">Вакансії: найменше</option><option value="salary-desc">Зарплата: найвища</option><option value="salary-asc">Зарплата: найнижча</option></select></label></div></div><div className="demand-columns"><span>№</span><span>Професія</span><span>Вакансії</span><span>Медіана зарплати</span><span>Дія</span></div><div className="demand-list">{sortedItems.map((item,index)=><Link className="demand-row" to={`/profile?career=${encodeURIComponent(item.career_id)}`} key={item.career_id}><span className="demand-rank">{index+1}</span><div className="demand-main"><div><strong>{item.name}</strong>{item.family&&<small>{item.family}</small>}</div><div className="demand-bar"><i style={{width:`${Math.max(6,item.vacancy_count/maxCount*100)}%`}}/></div></div><div className="demand-count"><strong>{new Intl.NumberFormat("uk-UA").format(item.vacancy_count)}</strong><small>позицій</small></div><div className="demand-salary"><strong>{money(item.salary_median)}</strong><small>на місяць</small></div><span className="demand-register">Обрати <b>→</b></span></Link>)}</div></div>
     </>:<div className="market-empty"><span className="tn-ico"><Icon name="chart"/></span><h2>Завантажуємо перший зріз ринку</h2><p>{data?.message||"Дані ще не синхронізовано."} Після першого імпорту тут з’являться професії, зарплати та регіональна статистика.</p><button className="button secondary" onClick={()=>void load(region)}>Перевірити ще раз</button></div>}
     <p className="market-attribution">Джерело: <a href={data?.source_url||"https://data.gov.ua/dataset/a95174b2-ff4b-43f8-bee2-a89d3a258215"} target="_blank" rel="noreferrer">Державна служба зайнятості України / Data.gov.ua</a>. Дані використовуються за ліцензією CC BY 4.0.</p>
   </section>
@@ -115,32 +191,47 @@ function Market(){
 const REGION_BY_MAP_ID:Record<string,string>={
   "cherkasy":"Черкаська область","chernihiv":"Чернігівська область","chernivtsi":"Чернівецька область","crimea":"Автономна Республіка Крим","dnipropetrovsk":"Дніпропетровська область","donetsk":"Донецька область","ivano-frankivsk":"Івано-Франківська область","kharkiv":"Харківська область","kherson":"Херсонська область","khmelnytskyi":"Хмельницька область","kirovohrad":"Кіровоградська область","kyiv":"Київська область","kyiv-city":"м. Київ","luhansk":"Луганська область","lviv":"Львівська область","mykolaiv":"Миколаївська область","odessa":"Одеська область","poltava":"Полтавська область","rivne":"Рівненська область","sumy":"Сумська область","ternopil":"Тернопільська область","vinnytsia":"Вінницька область","volyn":"Волинська область","zakarpattia":"Закарпатська область","zaporizhia":"Запорізька область","zhytomyr":"Житомирська область"
 };
-function Region(){
-  const [overview,setOverview]=useState<MarketOverview|null>(null);const [details,setDetails]=useState<MarketOverview|null>(null);const [selected,setSelected]=useState("");const [hovered,setHovered]=useState<{region:string;summary?:RegionSummary;x:number;y:number}|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState("");
-  useEffect(()=>{publicRequest<MarketOverview>("/market/overview").then(setOverview).catch(e=>setError(e instanceof Error?e.message:"Не вдалося завантажити дані")).finally(()=>setLoading(false))},[]);
+function Region({embedded=false}:{embedded?:boolean}){
+  const [overview,setOverview]=useState<MarketOverview|null>(()=>cachedMarketOverview());const [details,setDetails]=useState<MarketOverview|null>(null);const [selected,setSelected]=useState("");const [hovered,setHovered]=useState<{region:string;summary?:RegionSummary;x:number;y:number}|null>(null);const [loading,setLoading]=useState(()=>!cachedMarketOverview());const [error,setError]=useState("");
+  useEffect(()=>{loadMarketOverview().then(setOverview).catch(e=>setError(e instanceof Error?e.message:"Не вдалося завантажити дані")).finally(()=>setLoading(false))},[]);
   const summaries=useMemo(()=>new Map((overview?.region_summaries??[]).map(item=>[item.region,item])),[overview?.region_summaries]);
   const rankedRegions=useMemo(()=>[...(overview?.region_summaries??[])].sort((a,b)=>b.vacancy_count-a.vacancy_count),[overview?.region_summaries]);
   const maxVacancies=Math.max(1,...rankedRegions.map(item=>item.vacancy_count));
-  const selectRegion=async(region:string)=>{setSelected(region);setDetails(null);setError("");if(!region)return;if(!overview?.regions.includes(region)){setDetails({available:false,message:"Для цього регіону у поточному зрізі немає зіставлених вакансій.",source:overview?.source??"",source_url:overview?.source_url??"",regions:overview?.regions??[],items:[]});return}try{setDetails(await publicRequest<MarketOverview>(`/market/overview?region=${encodeURIComponent(region)}`))}catch(e){setError(e instanceof Error?e.message:"Не вдалося завантажити регіон")}};
+  const selectRegion=async(region:string)=>{setSelected(region);setDetails(cachedMarketOverview(region));setError("");if(!region)return;if(!overview?.regions.includes(region)){setDetails({available:false,message:"Для цього регіону у поточному зрізі немає зіставлених вакансій.",source:overview?.source??"",source_url:overview?.source_url??"",regions:overview?.regions??[],items:[]});return}if(cachedMarketOverview(region))return;try{setDetails(await loadMarketOverview(region))}catch(e){setError(e instanceof Error?e.message:"Не вдалося завантажити регіон")}};
   const money=(value?:number|null)=>value?`${new Intl.NumberFormat("uk-UA",{maximumFractionDigits:0}).format(value)} ₴`:"—";
   if(loading)return <Loading/>;
   if(error&&!overview)return <ErrorBox message={error}/>;
-  return <section className="region-page">
-    <div className="region-heading"><div><span className="eyebrow">Регіональна аналітика</span><h1>Професії у вашому регіоні</h1><p className="lead">Оберіть область на карті та перегляньте актуальний попит, зарплати й професії з найбільшою кількістю вакансій.</p></div><label><span>Швидкий вибір</span><select value={selected} onChange={e=>void selectRegion(e.target.value)}><option value="">Оберіть область</option>{overview?.regions.map(region=><option value={region} key={region}>{region}</option>)}</select></label></div>
+  return <section className={embedded?"region-page home-region-section":"region-page"}>
+    <div className="region-heading"><div><span className="eyebrow">Регіональна аналітика</span>{embedded?<h2>Подивіться, де зараз шукають фахівців</h2>:<h1>Професії у вашому регіоні</h1>}<p className="lead">Оберіть область на карті та перегляньте актуальний попит, зарплати й професії з найбільшою кількістю вакансій.</p></div><label><span>Швидкий вибір</span><select value={selected} onChange={e=>void selectRegion(e.target.value)}><option value="">Оберіть область</option>{overview?.regions.map(region=><option value={region} key={region}>{region}</option>)}</select></label></div>
     {error&&<ErrorBox message={error}/>}<div className="region-dashboard">
       <article className="ukraine-map-card"><div className="map-card-head"><div><span>Карта попиту</span><h2>Україна</h2></div><p>Чим насиченіший колір, тим більше відкритих позицій</p></div>
         <svg className="ukraine-map" viewBox={ukraineMap.viewBox} role="img" aria-label="Інтерактивна карта областей України">{ukraineMap.locations.map((location:{id:string;name:string;path:string})=>{const region=REGION_BY_MAP_ID[location.id]||location.name;const summary=summaries.get(region);const level=summary?Math.max(1,Math.ceil(summary.vacancy_count/maxVacancies*5)):0;return <path key={location.id} d={location.path} className={`${summary?`heat-${level}`:"no-data"} ${selected===region?"selected":""}`} onMouseMove={event=>{const card=event.currentTarget.closest(".ukraine-map-card")?.getBoundingClientRect();if(card)setHovered({region,summary,x:event.clientX-card.left,y:event.clientY-card.top})}} onMouseLeave={()=>setHovered(null)} onClick={()=>void selectRegion(region)} onKeyDown={event=>{if(event.key==="Enter"||event.key===" ")void selectRegion(region)}} role="button" tabIndex={0} aria-label={`${region}${summary?`: ${summary.vacancy_count} вакансій`:": даних немає"}`}/>})}</svg>
         {hovered&&<div className="map-tooltip" style={{left:hovered.x,top:hovered.y}}><strong>{hovered.region}</strong>{hovered.summary?<><span>{new Intl.NumberFormat("uk-UA").format(hovered.summary.vacancy_count)} вакансій</span><small>Середня зарплата: {money(hovered.summary.salary_average)}</small></>:<span>У поточному зрізі даних немає</span>}</div>}
         <div className="map-legend"><span>Менше</span>{[1,2,3,4,5].map(level=><i className={`heat-${level}`} key={level}/>)}<span>Більше вакансій</span></div><small className="map-hint">Натисніть на область, щоб побачити деталі</small>
       </article>
-      <aside className="region-panel">{selected?<><div className="region-panel-title"><span>Обраний регіон</span><h2>{selected}</h2></div>{details?details.available?<><div className="region-kpis"><div><strong>{new Intl.NumberFormat("uk-UA").format(details.total_vacancies??0)}</strong><span>вакансій</span></div><div><strong>{details.items.length}</strong><span>професій у рейтингу</span></div></div><h3>Найбільший попит</h3><div className="region-jobs">{details.items.slice(0,6).map((item,index)=><Link to={`/catalog/${item.career_id}`} key={item.career_id}><i>{index+1}</i><span><b>{item.name}</b><small>{item.vacancy_count} вакансій · {money(item.salary_median)}</small></span><Icon name="arrow"/></Link>)}</div></>:<div className="region-no-data"><span className="tn-ico"><Icon name="chart"/></span><h3>Даних поки немає</h3><p>{details.message}</p><button className="button secondary" onClick={()=>setSelected("")}>Повернутися до огляду</button></div>:<Loading/>}</>:<><div className="region-panel-title"><span>Огляд областей</span><h2>Оберіть регіон</h2><p>Наведіть для швидкої інформації або клікніть для детальної статистики.</p></div><h3>Найбільше вакансій</h3><div className="region-leaders">{rankedRegions.slice(0,5).map((item,index)=><button onClick={()=>void selectRegion(item.region)} key={item.region}><i>{index+1}</i><span><b>{item.region.replace(" область","")}</b><small>{new Intl.NumberFormat("uk-UA").format(item.vacancy_count)} вакансій</small></span></button>)}</div></>}</aside>
-    </div><p className="market-attribution">Дані вакансій: <a href={overview?.source_url} target="_blank" rel="noreferrer">Державна служба зайнятості України</a>. SVG-карта: <a href="https://github.com/VictorCazanave/svg-maps/tree/master/packages/ukraine" target="_blank" rel="noreferrer">@svg-maps/ukraine, CC BY 4.0</a>.</p>
+      <aside className="region-panel">{selected?<><div className="region-panel-title"><span>Обраний регіон</span><h2>{selected}</h2></div>{details?details.available?<><div className="region-kpis"><div><strong>{new Intl.NumberFormat("uk-UA").format(details.total_vacancies??0)}</strong><span>вакансій</span></div><div><strong>{details.items.length}</strong><span>професій у рейтингу</span></div></div><h3>Найбільший попит</h3><div className="region-jobs">{details.items.slice(0,6).map((item,index)=><Link to={`/profile?career=${encodeURIComponent(item.career_id)}`} key={item.career_id}><i>{index+1}</i><span><b>{item.name}</b><small>{item.vacancy_count} вакансій · {money(item.salary_median)}</small></span><Icon name="arrow"/></Link>)}</div></>:<div className="region-no-data"><span className="tn-ico"><Icon name="chart"/></span><h3>Даних поки немає</h3><p>{details.message}</p><button className="button secondary" onClick={()=>setSelected("")}>Повернутися до огляду</button></div>:<Loading/>}</>:<><div className="region-panel-title"><span>Огляд областей</span><h2>Оберіть регіон</h2><p>Наведіть для швидкої інформації або клікніть для детальної статистики.</p></div><h3>Найбільше вакансій</h3><div className="region-leaders">{rankedRegions.slice(0,5).map((item,index)=><button onClick={()=>void selectRegion(item.region)} key={item.region}><i>{index+1}</i><span><b>{item.region.replace(" область","")}</b><small>{new Intl.NumberFormat("uk-UA").format(item.vacancy_count)} вакансій</small></span></button>)}</div></>}</aside>
+    </div>
+    <div className="region-mobile-explorer">
+      <section className="region-mobile-map-shell">
+        <div className="region-mobile-intro"><span>Регіональна аналітика</span><h2>Де зараз є робота</h2><p>Торкніться області на карті — покажемо попит і зарплати.</p></div>
+        <label className="region-mobile-select"><span>Швидкий вибір</span><select value={selected} onChange={e=>void selectRegion(e.target.value)}><option value="">Уся Україна</option>{overview?.regions.map(region=><option value={region} key={region}>{region}</option>)}</select></label>
+        <div className="region-mobile-map-title"><strong>Україна</strong><small>Натисніть на область</small></div>
+        <svg className="ukraine-map region-mobile-map" viewBox={ukraineMap.viewBox} role="img" aria-label="Інтерактивна карта областей України">{ukraineMap.locations.map((location:{id:string;name:string;path:string})=>{const region=REGION_BY_MAP_ID[location.id]||location.name;const summary=summaries.get(region);const level=summary?Math.max(1,Math.ceil(summary.vacancy_count/maxVacancies*5)):0;return <path key={location.id} d={location.path} className={`${summary?`heat-${level}`:"no-data"} ${selected===region?"selected":""}`} onClick={()=>void selectRegion(region)} onKeyDown={event=>{if(event.key==="Enter"||event.key===" ")void selectRegion(region)}} role="button" tabIndex={0} aria-label={`${region}${summary?`: ${summary.vacancy_count} вакансій`:": даних немає"}`}/>})}</svg>
+        <div className="region-mobile-legend"><span>Менше</span>{[1,2,3,4,5].map(level=><i className={`heat-${level}`} key={level}/>)}<span>Більше</span></div>
+      </section>
+      {selected?<section className="region-mobile-detail">
+        <div className="region-mobile-detail-head"><div><span>Обраний регіон</span><h3>{selected}</h3></div><button type="button" onClick={()=>void selectRegion("")} aria-label="Скинути вибір">×</button></div>
+        {details?details.available?<><div className="region-mobile-kpis"><div><strong>{new Intl.NumberFormat("uk-UA").format(details.total_vacancies??0)}</strong><span>вакансій</span></div><div><strong>{details.items.length}</strong><span>професій</span></div></div><div className="region-mobile-jobs-head"><span>Найбільший попит</span><small>Обрати напрям →</small></div><div className="region-mobile-jobs">{details.items.slice(0,4).map((item,index)=><Link to={`/profile?career=${encodeURIComponent(item.career_id)}`} key={item.career_id}><i>{index+1}</i><span><b>{item.name}</b><small>{item.vacancy_count} вакансій · {money(item.salary_median)}</small></span><Icon name="arrow"/></Link>)}</div></>:<div className="region-mobile-empty"><h3>Даних поки немає</h3><p>{details.message}</p></div>:<Loading/>}
+      </section>:<section className="region-mobile-popular">
+        <div className="region-mobile-popular-head"><div><span>Топ регіонів</span><h3>Найбільше вакансій</h3></div><small>Гортайте →</small></div>
+        <div className="region-mobile-region-rail">{rankedRegions.slice(0,5).map((item,index)=><button type="button" onClick={()=>void selectRegion(item.region)} key={item.region}><i>{String(index+1).padStart(2,"0")}</i><span><b>{item.region.replace(" область","")}</b><small>{new Intl.NumberFormat("uk-UA").format(item.vacancy_count)} вакансій</small></span><Icon name="arrow"/></button>)}</div>
+      </section>}
+    </div>
+    <p className="market-attribution">Дані вакансій: <a href={overview?.source_url} target="_blank" rel="noreferrer">Державна служба зайнятості України</a>. SVG-карта: <a href="https://github.com/VictorCazanave/svg-maps/tree/master/packages/ukraine" target="_blank" rel="noreferrer">@svg-maps/ukraine, CC BY 4.0</a>.</p>
   </section>
 }
-function LoginInfo() { return <StaticPage title="Увійти" intro="Клієнти не потребують акаунта — кар'єрний профіль створюється без реєстрації. Цей вхід — для консультантів та адміністраторів Yellow Hub."><div className="login-split"><article className="login-role-card disabled"><span className="tn-ico"><Icon name="briefcase"/></span><h3>Я консультант</h3><p>Перегляд клієнтів, рекомендацій і статусів консультацій.</p><span className="button secondary">Увійти <small className="soon-tag">Незабаром</small></span></article><article className="login-role-card"><span className="tn-ico"><Icon name="checklist"/></span><h3>Я адміністратор</h3><p>Каталог професій, людей та повний доступ до налаштувань.</p><Link className="button" to="/admin/login">Увійти</Link></article></div></StaticPage>; }
-
 function EmptyState({ title, text }: { title: string; text: string }) { return <div className="empty"><span>✦</span><h3>{title}</h3><p>{text}</p></div>; }
-function Loading() { return <div className="loading">Завантаження…</div>; }
+function Loading() { return <div className="loading loading-indicator" role="status" aria-live="polite"><span className="loading-spinner" aria-hidden="true"/><strong>Завантажуємо дані</strong><small>Будь ласка, зачекайте кілька секунд</small></div>; }
 function ErrorBox({ message }: { message: string }) { return <div className="error">{message}</div>; }
 
 function CareerCatalog() {
@@ -177,11 +268,10 @@ function FactCard({title,rows}:{title:string;rows:(unknown|null|undefined)[]}){c
 
 function CvUpload(){const [state,setState]=useState("");const upload=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const input=e.currentTarget.elements.namedItem("cv") as HTMLInputElement;if(!input.files?.[0])return;const body=new FormData();body.append("file",input.files[0]);setState("Обробляємо файл…");try{await personRequest("/me/person/cv",{method:"POST",body});setState("Файл завантажено. Наступним кроком буде перевірка знайдених даних.")}catch(err){setState((err as Error).message)}};return <StaticPage title="Завантажте ваше резюме" intro="Підтримуються PDF, DOC і DOCX до 10 МБ."><form className="upload" onSubmit={upload}><input name="cv" type="file" accept=".pdf,.doc,.docx" required/><button className="button">Обробити резюме</button>{state&&<p>{state}</p>}</form></StaticPage>}
 
-const workspaceItems=[["/app","Огляд"],["/app/profile","Кар'єрний профіль"],["/app/scenarios","Сценарії"],["/app/route","Маршрут"],["/app/vacancies","Вакансії"],["/app/progress","Прогрес"]] as const;
-function WorkspaceLayout(){return <div className="workspace"><aside><Brand/><nav>{workspaceItems.map(([to,l])=><NavLink end={to==="/app"} key={to} to={to}>{l}{!["/app","/app/profile"].includes(to)&&<small>Незабаром</small>}</NavLink>)}</nav><Link to="/">← На головну</Link></aside><main><Outlet/></main></div>}
-function WorkspaceHome(){return <section><span className="eyebrow">МІЙ ПРОСТІР</span><h1>Ваш наступний крок</h1><div className="panel"><h2>Завершіть кар'єрний профіль</h2><p>Додайте факти про досвід, освіту та навички — вони стануть основою майбутніх рекомендацій.</p><Link className="button" to="/profile/edit">Доповнити профіль</Link></div></section>}
+const workspaceItems=[["/app","Огляд"],["/app/profile","Мій профіль"],["/app/analysis","Мій аналіз"],["/app/vacancies","Пошук вакансій"]] as const;
+function WorkspaceLayout(){const nav=useNavigate(),[expired,setExpired]=useState(false);useEffect(()=>{const onExpired=()=>setExpired(true);window.addEventListener("user-session-expired",onExpired);return()=>window.removeEventListener("user-session-expired",onExpired)},[]);const authenticated=Boolean(localStorage.getItem(sessionStorageKeys.session)&&localStorage.getItem(sessionStorageKeys.account));const logout=()=>{localStorage.removeItem(sessionStorageKeys.session);localStorage.removeItem(sessionStorageKeys.user);localStorage.removeItem(sessionStorageKeys.account);nav("/")};if(!authenticated||expired)return <Navigate to="/login" replace/>;return <div className="workspace"><aside><Brand/><nav>{workspaceItems.map(([to,l])=><NavLink end={to==="/app"} key={to} to={to}>{l}</NavLink>)}</nav><Link to="/">← На головну</Link><button className="link-button" onClick={logout}>Вийти з облікового запису</button></aside><main><Outlet/></main></div>}
 function Future({name}:{name:string}){return <section><h1>{name}</h1><EmptyState title="Незабаром" text="Функціональність ще не підключена до реальних даних."/></section>}
 
 function AdminCatalog(){const [items,setItems]=useState<CareerListItem[]>([]);const [error,setError]=useState("");useEffect(()=>{adminRequest<CareerListItem[]>("/admin/careers").then(setItems).catch(e=>setError(e.message));},[]);return <section><div className="page-title"><div><span className="eyebrow">CAREER KB</span><h1>База професій</h1><p>Канонічні професії ICAN. Дані не дублюються.</p></div></div>{error&&<ErrorBox message={error}/>}<div className="cards careers">{items.slice(0,150).map(x=><article className="card" key={x.id}><span className={`status ${x.status}`}>{x.status||"draft"}</span><h3>{x.name_uk}</h3><p>{x.category_uk||x.code}</p></article>)}</div></section>}
 
-export function App(){return <ConsoleGate><Routes><Route element={<PublicLayout/>}><Route index element={<Home/>}/><Route path="how" element={<How/>}/><Route path="about" element={<About/>}/><Route path="opportunities" element={<Opportunities/>}/><Route path="market" element={<Market/>}/><Route path="region" element={<Region/>}/><Route path="login" element={<LoginInfo/>}/><Route path="catalog" element={<CareerCatalog/>}/><Route path="catalog/:id" element={<CareerCatalog/>}/><Route path="profile" element={<ProfileStart/>}/><Route path="profile/build" element={<ProfileWizard/>}/><Route path="profile/edit" element={<ProfileEdit/>}/><Route path="profile/me" element={<MyProfile/>}/><Route path="profile/cv" element={<CvUpload/>}/><Route path="profile/confirmed" element={<MyProfile/>}/></Route><Route path="app" element={<WorkspaceLayout/>}><Route index element={<WorkspaceHome/>}/><Route path="profile" element={<MyProfile/>}/><Route path=":module" element={<Future name="Розділ у розробці"/>}/></Route><Route path="admin/login" element={<ConsoleLogin/>}/><Route element={<Outlet/>}><Route path="admin" element={<ConsoleLayout/>}><Route index element={<Navigate to="persons" replace/>}/><Route path="persons" element={<ConsolePersons/>}/><Route path="persons/new" element={<ConsoleCreate/>}/><Route path="persons/:id" element={<ConsolePerson/>}/><Route path="team" element={<ConsoleTeam/>}/><Route path="catalog" element={<AdminCatalog/>}/></Route></Route><Route path="*" element={<Navigate to="/" replace/>}/></Routes></ConsoleGate>}
+export function App(){return <ConsoleGate><Routes><Route element={<PublicLayout/>}><Route index element={<Home/>}/><Route path="how" element={<How/>}/><Route path="about" element={<About/>}/><Route path="opportunities" element={<Opportunities/>}/><Route path="market" element={<Market/>}/><Route path="region" element={<Region/>}/><Route path="catalog" element={<CareerCatalog/>}/><Route path="catalog/:id" element={<CareerCatalog/>}/><Route path="profile" element={<ProfileStart/>}/><Route path="profile/build" element={<ProfileWizard/>}/><Route path="profile/edit" element={<UserProfileEditor/>}/><Route path="profile/me" element={<MyProfile/>}/><Route path="profile/cv" element={<CvUpload/>}/><Route path="profile/confirmed" element={<MyProfile/>}/></Route><Route path="login" element={<ConsoleLogin/>}/><Route path="app" element={<WorkspaceLayout/>}><Route index element={<UserDashboard/>}/><Route path="profile" element={<UserProfileEditor/>}/><Route path="profile/edit" element={<UserProfileEditor/>}/><Route path="analysis" element={<UserAnalysis/>}/><Route path="vacancies" element={<UserVacancies/>}/><Route path=":module" element={<Future name="Розділ у розробці"/>}/></Route><Route path="admin/login" element={<ConsoleLogin/>}/><Route element={<Outlet/>}><Route path="admin" element={<ConsoleLayout/>}><Route index element={<Navigate to="persons" replace/>}/><Route path="persons" element={<ConsolePersons/>}/><Route path="persons/new" element={<ConsoleCreate/>}/><Route path="persons/:id" element={<ConsolePerson/>}/><Route path="team" element={<ConsoleTeam/>}/><Route path="catalog" element={<AdminCatalog/>}/></Route></Route><Route path="*" element={<Navigate to="/" replace/>}/></Routes></ConsoleGate>}

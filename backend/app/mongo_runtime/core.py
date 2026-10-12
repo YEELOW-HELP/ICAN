@@ -100,9 +100,9 @@ async def current_person_session(
     return row
 
 
-def new_web_session() -> tuple[str, dict]:
+def new_web_session(user_id: str | None = None) -> tuple[str, dict]:
     token = secrets.token_urlsafe(32)
-    user_id = new_id()
+    user_id = user_id or new_id()
     return token, {
         "_id": token_digest(token), "token_hash": token_digest(token), "user_id": user_id,
         "created_at": now(), "last_seen_at": now(), "revoked_at": None,

@@ -111,9 +111,27 @@ FACTS = {
     "skills": "mnp_person_skills_v1",
     "languages": "mnp_person_languages_v1",
 }
+SELF_FACT_FIELDS = {
+    "educations": {
+        "institution_name", "education_level", "specialty_or_qualification",
+        "start_year", "end_year", "description",
+    },
+    "credentials": {
+        "title", "provider", "issue_date", "expiry_date", "description",
+    },
+    "experiences": {
+        "raw_job_title", "company_name", "start_date", "end_date",
+        "responsibilities_description", "achievements", "tools_used",
+    },
+    "activities": {"title", "organization", "role", "description"},
+    "skills": {"raw_input", "years_used", "notes"},
+    "languages": {"language", "level", "certificate"},
+}
 CORE_FIELDS = {
     "first_name", "last_name", "phone", "email", "telegram_username", "city", "region",
     "country", "date_of_birth", "notes", "referral_source", "referral_details",
+    "career_goal", "desired_roles", "job_preferences", "job_constraints",
+    "learning_readiness", "availability",
 }
 MOBILITY_FIELDS = {
     "has_driver_license", "driver_license_categories", "has_car", "willing_to_relocate",
@@ -444,6 +462,72 @@ async def upload_cv(file: UploadFile = File(...), db: Database = None,
     })
     await db.mnp_file_blobs.insert_one({"_id": document_id, "content": content})
     return {"id": document_id, "filename": file.filename}
+
+
+def _self_fact_payload(fact_type: str, payload: dict) -> dict:
+    cleaned = {key: value for key, value in payload.items()
+               if key in SELF_FACT_FIELDS[fact_type]}
+    if not cleaned:
+        raise HTTPException(422, "Заповніть хоча б одне поле")
+    return cleaned
+
+
+@router.post("/me/person/{fact_type}")
+async def self_add_fact(fact_type: str, payload: dict = Body(...), db: Database = None,
+                        session=Depends(current_person_session)):
+    if fact_type not in FACTS:
+        raise HTTPException(404, "Невідомий розділ")
+    person = await _self_person(db, session)
+    row = {
+        "_id": new_id(), "person_id": str(person["_id"]),
+        **_self_fact_payload(fact_type, payload), "created_at": now(), "updated_at": now(),
+    }
+    await db[FACTS[fact_type]].insert_one(row)
+    if fact_type == "skills":
+        await _sync_person_tags(db, str(person["_id"]))
+    await db.mnp_persons.update_one(
+        {"_id": person["_id"]}, {"$set": {"updated_at": now()}},
+    )
+    return await _person_view(db, await db.mnp_persons.find_one({"_id": person["_id"]}))
+
+
+@router.patch("/me/person/{fact_type}/{fact_id}")
+async def self_edit_fact(fact_type: str, fact_id: str, payload: dict = Body(...),
+                         db: Database = None, session=Depends(current_person_session)):
+    if fact_type not in FACTS:
+        raise HTTPException(404, "Невідомий розділ")
+    person = await _self_person(db, session)
+    result = await db[FACTS[fact_type]].update_one(
+        {"_id": fact_id, "person_id": str(person["_id"])},
+        {"$set": {**_self_fact_payload(fact_type, payload), "updated_at": now()}},
+    )
+    if not result.matched_count:
+        raise HTTPException(404, "Запис не знайдено")
+    if fact_type == "skills":
+        await _sync_person_tags(db, str(person["_id"]))
+    await db.mnp_persons.update_one(
+        {"_id": person["_id"]}, {"$set": {"updated_at": now()}},
+    )
+    return await _person_view(db, await db.mnp_persons.find_one({"_id": person["_id"]}))
+
+
+@router.delete("/me/person/{fact_type}/{fact_id}")
+async def self_delete_fact(fact_type: str, fact_id: str, db: Database,
+                           session=Depends(current_person_session)):
+    if fact_type not in FACTS:
+        raise HTTPException(404, "Невідомий розділ")
+    person = await _self_person(db, session)
+    result = await db[FACTS[fact_type]].delete_one(
+        {"_id": fact_id, "person_id": str(person["_id"])},
+    )
+    if not result.deleted_count:
+        raise HTTPException(404, "Запис не знайдено")
+    if fact_type == "skills":
+        await _sync_person_tags(db, str(person["_id"]))
+    await db.mnp_persons.update_one(
+        {"_id": person["_id"]}, {"$set": {"updated_at": now()}},
+    )
+    return await _person_view(db, await db.mnp_persons.find_one({"_id": person["_id"]}))
 
 
 def _validated_cv(file: UploadFile, content: bytes) -> tuple[str, str]:
@@ -855,6 +939,75 @@ async def admin_analyze_questionnaire(person_id: str, payload: dict = Body(...),
     )
     return {"cached": False, **tags, **{key: record[key] for key in (
         "proposal", "model", "prompt_version", "input_tokens", "output_tokens")}}
+
+
+async def _self_analysis_view(db, person: dict, record: dict, *, cached: bool) -> dict:
+    person_id = str(person["_id"])
+    tags = await _assign_analysis_tags(
+        db, person_id=person_id, proposal=record["proposal"],
+        source="questionnaire", source_id=person_id,
+    )
+    refreshed = await db.mnp_persons.find_one({"_id": person_id}) or person
+    profile = await _person_view(db, refreshed)
+    career_matches = await ai_recommendations.catalog_career_matches(db, profile)
+    return {
+        "cached": cached, **tags,
+        "vacancy_search": ai_recommendations.vacancy_search(profile, career_matches),
+        **{key: record.get(key) for key in (
+            "proposal", "model", "prompt_version", "input_tokens", "output_tokens",
+        )},
+    }
+
+
+@router.get("/me/analysis")
+async def get_self_analysis(db: Database, session=Depends(current_person_session)):
+    person = await _self_person(db, session)
+    record = await db.mnp_questionnaire_analyses.find_one({"_id": str(person["_id"])})
+    if not record:
+        return {"analysis": None}
+    return {"analysis": await _self_analysis_view(db, person, record, cached=True)}
+
+
+@router.post("/me/analysis")
+async def analyze_self(payload: dict = Body(...), db: Database = None,
+                       session=Depends(current_person_session)):
+    person = await _self_person(db, session)
+    _require_ai_permission(payload)
+    profile = await _person_view(db, person)
+    try:
+        excerpt = await cv_analysis.questionnaire_excerpt(db, profile)
+    except cv_analysis.CvAnalysisError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    person_id = str(person["_id"])
+    profile_hash = hashlib.sha256(excerpt.encode("utf-8")).hexdigest()
+    cached = await db.mnp_questionnaire_analyses.find_one({"_id": person_id})
+    if (cached and cached.get("profile_hash") == profile_hash
+            and cached.get("prompt_version") == cv_analysis.QUESTIONNAIRE_PROMPT_VERSION
+            and cached.get("model") == settings.openai_model):
+        return await _self_analysis_view(db, person, cached, cached=True)
+    await _check_analysis_quota(db, person_id)
+    try:
+        proposal, trace = await cv_analysis.analyze_questionnaire(db, excerpt=excerpt)
+    except cv_analysis.CvAnalysisError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    record = {
+        "_id": person_id, "person_id": person_id, "profile_hash": profile_hash,
+        "proposal": proposal.model_dump(), "model": settings.openai_model,
+        "prompt_version": cv_analysis.QUESTIONNAIRE_PROMPT_VERSION,
+        "input_tokens": trace.input_tokens, "output_tokens": trace.output_tokens,
+        "trace_id": trace.trace_id, "analyzed_at": now(),
+        "permission_confirmed_by_user_id": str(session["user_id"]),
+    }
+    await db.mnp_ai_analysis_events.insert_one({
+        "_id": new_id(), "person_id": person_id, "source": "self_questionnaire",
+        "source_id": person_id, "analyzed_at": record["analyzed_at"],
+        "user_id": str(session["user_id"]), "input_tokens": trace.input_tokens,
+        "output_tokens": trace.output_tokens,
+    })
+    await db.mnp_questionnaire_analyses.replace_one(
+        {"_id": person_id}, record, upsert=True,
+    )
+    return await _self_analysis_view(db, person, record, cached=False)
 
 
 def _ai_recommendation_view(record: dict, person: dict) -> dict:

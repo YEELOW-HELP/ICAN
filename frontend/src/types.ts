@@ -14,6 +14,12 @@ export type PersonCore = {
   source_uk?: string;
   referral_source?: string | null;
   referral_details?: string | null;
+  career_goal?: string | null;
+  desired_roles?: string | null;
+  job_preferences?: string | null;
+  job_constraints?: string | null;
+  learning_readiness?: string | null;
+  availability?: string | null;
   notes?: string | null;
 };
 

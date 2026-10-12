@@ -60,6 +60,48 @@ async def overview(db: Database, region: str | None = Query(default=None, max_le
             "regions": regions, "region_summaries": summaries, "items": items}
 
 
+@router.get("/market/matches")
+async def matched_vacancies(
+    db: Database,
+    career_ids: str = Query(min_length=1, max_length=800),
+    region: str | None = Query(default=None, max_length=128),
+):
+    """Return official market totals for the careers selected by a user's analysis."""
+    ids = list(dict.fromkeys(value.strip() for value in career_ids.split(",") if value.strip()))[:10]
+    latest = await latest_date(db)
+    if latest is None:
+        return {"available": False, "snapshot_date": None, "source": SOURCE_NAME,
+                "source_url": SOURCE_URL, "items": []}
+    items = []
+    for career_id in ids:
+        career = await db.mnp_careers.find_one({"_id": career_id})
+        if not career:
+            continue
+        selected_region = region.strip() if region else None
+        snapshot = await db.mnp_market_snapshots.find_one({
+            "snapshot_date": latest, "career_id": career_id, "region": selected_region,
+        })
+        scope = selected_region
+        if not snapshot and selected_region:
+            snapshot = await db.mnp_market_snapshots.find_one({
+                "snapshot_date": latest, "career_id": career_id, "region": None,
+            })
+            scope = None
+        salary = (await db.mnp_salary_snapshots.find_one(
+            {"market_snapshot_id": snapshot["_id"]},
+        ) if snapshot else {}) or {}
+        items.append({
+            "career_id": career_id,
+            "name": career.get("canonical_name_uk") or career.get("canonical_name_en") or career_id,
+            "region": scope,
+            "vacancy_count": int(snapshot.get("vacancy_count") or 0) if snapshot else 0,
+            "salary_median": salary.get("median"),
+            "available": snapshot is not None,
+        })
+    return {"available": True, "snapshot_date": str(latest), "source": SOURCE_NAME,
+            "source_url": SOURCE_URL, "items": items}
+
+
 @router.get("/market/export.xlsx")
 async def export_market(db: Database):
     latest = await latest_date(db)

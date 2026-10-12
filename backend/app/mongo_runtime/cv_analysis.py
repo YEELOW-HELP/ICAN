@@ -181,6 +181,17 @@ async def questionnaire_excerpt(db, profile: dict) -> str:
     core = profile.get("core") or {}
     if core.get("city"):
         parts.append(f"Місто: {core['city']}")
+    for key, label in (
+        ("career_goal", "Кар’єрна мета"),
+        ("desired_roles", "Бажані професії"),
+        ("job_preferences", "Побажання до роботи"),
+        ("job_constraints", "Обмеження"),
+        ("learning_readiness", "Готовність навчатися"),
+        ("availability", "Готовність почати роботу"),
+    ):
+        value = core.get(key)
+        if value:
+            parts.append(f"{label}: {value}")
     mobility = profile.get("mobility") or {}
     for key, label in (("work_format", "Формат роботи"),
                        ("employment_type", "Тип зайнятості"),

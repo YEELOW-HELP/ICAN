@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from pymongo.errors import DuplicateKeyError
 
 from app.core.security import create_access_token, hash_password, verify_password
 from app.mongo_runtime.core import (
     ADMIN, MANAGER, PRIVILEGED_ROLES, STAFF_ROLES, SUPER_ADMIN, Database,
-    current_staff, next_integer_id, now, privileged_staff, public_document,
+    current_staff, new_id, new_web_session, next_integer_id, now,
+    privileged_staff, public_document, token_digest,
 )
 
 router = APIRouter()
@@ -16,6 +17,11 @@ router = APIRouter()
 class Login(BaseModel):
     email: str
     password: str
+
+
+class UserRegister(BaseModel):
+    email: str = Field(max_length=255)
+    password: str = Field(min_length=8, max_length=72)
 
 
 class StaffCreate(BaseModel):
@@ -88,6 +94,72 @@ async def login(payload: Login, db: Database):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     return {"access_token": create_access_token(staff["_id"], staff["role"], int(staff.get("token_version", 0))),
             "token_type": "bearer", "email": staff["email"], "role": staff["role"]}
+
+
+@router.post("/v1/mnp/auth/login")
+async def unified_login(payload: Login, db: Database):
+    """One login point for clients and staff; the server determines the destination role."""
+    email = valid_email(payload.email)
+    staff = await db.admin_users.find_one({"email": email, "is_active": {"$ne": False}})
+    if staff and verify_password(payload.password, staff["password_hash"]):
+        return {
+            "account_type": "staff",
+            "access_token": create_access_token(
+                staff["_id"], staff["role"], int(staff.get("token_version", 0)),
+            ),
+            "token_type": "bearer",
+            "email": staff["email"],
+            "role": staff["role"],
+        }
+
+    user = await db.mnp_user_accounts.find_one({"email": email, "is_active": {"$ne": False}})
+    if not user or not verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+    token, session = new_web_session(str(user["_id"]))
+    await db.mnp_web_sessions.insert_one(session)
+    await db.mnp_user_accounts.update_one(
+        {"_id": user["_id"]}, {"$set": {"last_login_at": now()}},
+    )
+    return {
+        "account_type": "user", "session_token": token,
+        "user_id": str(user["_id"]), "email": user["email"], "role": "user",
+    }
+
+
+@router.post("/v1/mnp/auth/register", status_code=201)
+async def register_user(
+    payload: UserRegister, db: Database,
+    authorization: str | None = Header(default=None),
+):
+    """Create a persistent client account and its first authenticated session."""
+    email = valid_email(payload.email)
+    if await db.admin_users.find_one({"email": email}) or await db.mnp_user_accounts.find_one({"email": email}):
+        raise HTTPException(409, "Обліковий запис із таким email уже існує")
+    user_id = new_id()
+    if authorization:
+        scheme, _, raw_token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and raw_token.strip():
+            current_session = await db.mnp_web_sessions.find_one({
+                "token_hash": token_digest(raw_token.strip()),
+                "revoked_at": None,
+                "expires_at": {"$gt": now()},
+            })
+            if current_session:
+                user_id = str(current_session["user_id"])
+    account = {
+        "_id": user_id, "email": email, "password_hash": hash_password(payload.password),
+        "is_active": True, "created_at": now(), "last_login_at": now(),
+    }
+    try:
+        await db.mnp_user_accounts.insert_one(account)
+    except DuplicateKeyError:
+        raise HTTPException(409, "Обліковий запис із таким email уже існує")
+    token, session = new_web_session(user_id)
+    await db.mnp_web_sessions.insert_one(session)
+    return {
+        "account_type": "user", "session_token": token,
+        "user_id": user_id, "email": email, "role": "user",
+    }
 
 
 @router.get("/v1/mnp/admin/me")

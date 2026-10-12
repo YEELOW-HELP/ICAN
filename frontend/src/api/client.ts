@@ -1,4 +1,7 @@
-const API_ROOT = "/v1/mnp";
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const API_ROOT = `${API_ORIGIN}/v1/mnp`;
+
+export const apiUrl = (path: string) => `${API_ORIGIN}${path}`;
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -28,6 +31,7 @@ const jsonHeaders = { "Content-Type": "application/json" };
 export const sessionStorageKeys = {
   user: "mnp_user_id",
   session: "mnp_session_token",
+  account: "mnp_user_account",
   admin: "mnp_admin_token",
 };
 
@@ -48,6 +52,13 @@ export async function personRequest<T>(path: string, init: RequestInit = {}): Pr
   });
   let response = await execute();
   if (response.status === 401) {
+    if (localStorage.getItem(sessionStorageKeys.account)) {
+      localStorage.removeItem(sessionStorageKeys.session);
+      localStorage.removeItem(sessionStorageKeys.user);
+      localStorage.removeItem(sessionStorageKeys.account);
+      window.dispatchEvent(new Event("user-session-expired"));
+      return decode<T>(response);
+    }
     localStorage.removeItem(sessionStorageKeys.session);
     token = await ensurePersonSession();
     response = await execute();
@@ -56,19 +67,43 @@ export async function personRequest<T>(path: string, init: RequestInit = {}): Pr
 }
 
 export async function adminLogin(email: string, password: string) {
-  const data = await fetchJson<{ access_token: string; email: string; role: string }>("/admin/auth/login", {
+  const data = await fetchJson<{ access_token: string; email: string; role: string }>(apiUrl("/admin/auth/login"), {
     method: "POST", headers: jsonHeaders, body: JSON.stringify({ email, password }),
   });
   localStorage.setItem(sessionStorageKeys.admin, data.access_token);
   return data;
 }
 
+export type UnifiedAuthResponse = {
+  account_type: "user" | "staff";
+  email: string;
+  role: string;
+  access_token?: string;
+  session_token?: string;
+  user_id?: string;
+};
+
+export async function unifiedLogin(email: string, password: string) {
+  return fetchJson<UnifiedAuthResponse>(`${API_ROOT}/auth/login`, {
+    method: "POST", headers: jsonHeaders, body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function registerUser(email: string, password: string) {
+  const existingSession = localStorage.getItem(sessionStorageKeys.session);
+  return fetchJson<UnifiedAuthResponse>(`${API_ROOT}/auth/register`, {
+    method: "POST",
+    headers: { ...jsonHeaders, ...(existingSession ? { Authorization: `Bearer ${existingSession}` } : {}) },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
 export async function adminBootstrapStatus() {
-  return fetchJson<{ registration_open: boolean }>("/admin/auth/bootstrap/status");
+  return fetchJson<{ registration_open: boolean }>(apiUrl("/admin/auth/bootstrap/status"));
 }
 
 export async function bootstrapSuperAdmin(full_name: string, email: string, password: string) {
-  return fetchJson<{ id: number; email: string }>("/admin/auth/bootstrap", {
+  return fetchJson<{ id: number; email: string }>(apiUrl("/admin/auth/bootstrap"), {
     method: "POST", headers: jsonHeaders,
     body: JSON.stringify({ full_name, email, password, role: "super_admin" }),
   });

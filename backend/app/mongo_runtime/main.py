@@ -23,6 +23,7 @@ async def ensure_indexes(db) -> None:
     await db.admin_users.create_index("bootstrap_owner", unique=True, sparse=True)
     await db.mnp_web_sessions.create_index("expires_at", expireAfterSeconds=0)
     await db.mnp_web_sessions.create_index("token_hash", unique=True, sparse=True)
+    await db.mnp_user_accounts.create_index("email", unique=True)
     await db.mnp_persons.create_index(
         "identity_user_id", unique=True,
         partialFilterExpression={"identity_user_id": {"$type": "string"}},
